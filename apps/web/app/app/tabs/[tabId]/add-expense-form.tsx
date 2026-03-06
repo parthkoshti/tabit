@@ -96,7 +96,10 @@ export function AddExpenseForm({
           type="number"
           min="0.01"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.valueAsNumber;
+            setAmount(!isNaN(value) ? value.toFixed(2) : "");
+          }}
           required
           disabled={loading}
           className="input-no-spinner"
