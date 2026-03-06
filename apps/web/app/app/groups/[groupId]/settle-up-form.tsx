@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { recordSettlement } from "@/app/actions/settlements";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,11 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { getDisplayName } from "@/lib/display-name";
 
 type Balance = {
   userId: string;
   amount: number;
-  user: { id: string; email: string; name: string | null };
+  user: { id: string; email: string; name: string | null; username?: string | null };
 };
 
 export function SettleUpForm({
@@ -33,6 +35,7 @@ export function SettleUpForm({
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const myBalance = balances.find((b) => b.userId === currentUserId);
   const iOwe = myBalance && myBalance.amount < 0;
@@ -69,7 +72,9 @@ export function SettleUpForm({
     if (result.success) {
       setToUserId("");
       setAmount("");
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["activity"] });
     } else {
       setError(result.error ?? "Failed to record settlement");
     }
@@ -101,7 +106,7 @@ export function SettleUpForm({
           <SelectContent>
             {payees.map((b) => (
               <SelectItem key={b.userId} value={b.userId}>
-                {b.user.name ?? b.user.email} (owed ${b.amount.toFixed(2)})
+                {getDisplayName(b.user)} (owed ${b.amount.toFixed(2)})
               </SelectItem>
             ))}
           </SelectContent>

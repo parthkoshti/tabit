@@ -1,12 +1,15 @@
-import { redirect, notFound } from "next/navigation";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
+"use client";
+
+import { useQuery } from "@tanstack/react-query";
 import {
-  getGroupWithMembers,
-  getExpensesForGroup,
-  getBalancesForGroup,
-} from "@/lib/data";
-import Link from "next/link";
+  fetchGroup,
+  fetchExpenses,
+  fetchBalances,
+} from "@/app/actions/queries";
+import { authClient } from "@/lib/auth-client";
+import { useParams } from "next/navigation";
+import { Link as TransitionLink } from "next-view-transitions";
+import { Button } from "@/components/ui/button";
 import { AddExpenseForm } from "./add-expense-form";
 import { SettleUpForm } from "./settle-up-form";
 import {
@@ -16,51 +19,68 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { getDisplayName } from "@/lib/display-name";
 
-export default async function GroupPage({
-  params,
-}: {
-  params: Promise<{ groupId: string }>;
-}) {
-  const { groupId } = await params;
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) {
-    redirect("/login");
+export default function GroupPage() {
+  const params = useParams<{ groupId: string }>();
+  const groupId = params.groupId;
+  const { data: session } = authClient.useSession();
+
+  const { data: group, isLoading: groupLoading } = useQuery({
+    queryKey: ["group", groupId],
+    queryFn: () => fetchGroup(groupId),
+    enabled: !!groupId,
+  });
+
+  const { data: expenses, isLoading: expensesLoading } = useQuery({
+    queryKey: ["expenses", groupId],
+    queryFn: () => fetchExpenses(groupId),
+    enabled: !!groupId,
+  });
+
+  const { data: balances } = useQuery({
+    queryKey: ["balances", groupId],
+    queryFn: () => fetchBalances(groupId),
+    enabled: !!groupId,
+  });
+
+  if (!groupId) return null;
+
+  if (groupLoading || !group) {
+    return (
+      <div className="flex min-h-[200px] items-center justify-center p-4">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
   }
 
-  const group = await getGroupWithMembers(groupId);
-  if (!group) {
-    notFound();
-  }
-
-  const isMember = group.members.some((m) => m.userId === session.user.id);
-  if (!isMember) {
-    redirect("/groups");
-  }
-
-  const [expenses, balances] = await Promise.all([
-    getExpensesForGroup(groupId),
-    getBalancesForGroup(groupId),
-  ]);
-
-  const youOwe = balances.filter((b) => b.userId === session.user.id && b.amount < 0);
-  const owedToYou = balances.filter((b) => b.userId === session.user.id && b.amount > 0);
-  const others = balances.filter((b) => b.userId !== session.user.id);
+  const currentUserId = session?.user?.id ?? "";
+  const youOwe =
+    balances?.filter((b) => b.userId === currentUserId && b.amount < 0) ?? [];
+  const owedToYou =
+    balances?.filter((b) => b.userId === currentUserId && b.amount > 0) ?? [];
+  const others =
+    balances?.filter((b) => b.userId !== currentUserId) ?? [];
 
   return (
-    <main className="min-h-screen p-8">
-      <div className="mx-auto max-w-3xl space-y-8">
+    <div className="p-4">
+      <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" asChild>
-            <Link href="/groups">Back to groups</Link>
+          <Button variant="ghost" size="sm" asChild>
+            <TransitionLink href={group.isDirect ? "/app/friends" : "/app/groups"}>
+              Back to {group.isDirect ? "friends" : "groups"}
+            </TransitionLink>
           </Button>
-          <span className="text-sm text-muted-foreground">
-            {session.user.email}
-          </span>
         </div>
 
-        <h1 className="text-2xl font-bold">{group.name}</h1>
+        <h1 className="text-2xl font-bold">
+          {group.isDirect
+            ? `Split with ${(() => {
+                const other = group.members.find((m) => m.userId !== currentUserId)?.user;
+                return other ? getDisplayName(other) : "Friend";
+              })()}`
+            : group.name}
+        </h1>
 
         <Card>
           <CardHeader>
@@ -68,27 +88,27 @@ export default async function GroupPage({
             <CardDescription>Who owes whom in this group</CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {balances.length === 0 ? (
+            {!balances || balances.length === 0 ? (
               <p className="text-muted-foreground">No balances yet</p>
             ) : (
               <>
                 {youOwe.map((b) => (
                   <p key={b.userId} className="text-destructive">
-                    You owe {b.user.name ?? b.user.email} $
+                    You owe {getDisplayName(b.user)} $
                     {Math.abs(b.amount).toFixed(2)}
                   </p>
                 ))}
                 {owedToYou.map((b) => (
                   <p key={b.userId} className="text-green-600 dark:text-green-400">
-                    {b.user.name ?? b.user.email} owes you $
+                    {getDisplayName(b.user)} owes you $
                     {b.amount.toFixed(2)}
                   </p>
                 ))}
                 {others.map((b) => (
                   <p key={b.userId} className="text-muted-foreground">
                     {b.amount > 0
-                      ? `${b.user.name ?? b.user.email} is owed $${b.amount.toFixed(2)}`
-                      : `${b.user.name ?? b.user.email} owes $${Math.abs(b.amount).toFixed(2)}`}
+                      ? `${getDisplayName(b.user)} is owed $${b.amount.toFixed(2)}`
+                      : `${getDisplayName(b.user)} owes $${Math.abs(b.amount).toFixed(2)}`}
                   </p>
                 ))}
               </>
@@ -104,8 +124,8 @@ export default async function GroupPage({
           <CardContent>
             <SettleUpForm
               groupId={groupId}
-              currentUserId={session.user.id}
-              balances={balances}
+              currentUserId={currentUserId}
+              balances={balances ?? []}
             />
           </CardContent>
         </Card>
@@ -119,7 +139,7 @@ export default async function GroupPage({
             <AddExpenseForm
               groupId={groupId}
               members={group.members}
-              currentUserId={session.user.id}
+              currentUserId={currentUserId}
             />
           </CardContent>
         </Card>
@@ -130,7 +150,9 @@ export default async function GroupPage({
             <CardDescription>All expenses in this group</CardDescription>
           </CardHeader>
           <CardContent>
-            {expenses.length === 0 ? (
+            {expensesLoading ? (
+              <p className="text-muted-foreground">Loading...</p>
+            ) : !expenses || expenses.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
                 No expenses yet
               </p>
@@ -146,14 +168,14 @@ export default async function GroupPage({
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
-                        Paid by {exp.paidBy.name ?? exp.paidBy.email}
+                        Paid by {getDisplayName(exp.paidBy)}
                       </p>
                       <p className="text-sm text-muted-foreground">
                         Split:{" "}
                         {exp.splits
                           .map(
                             (s) =>
-                              `${s.user.name ?? s.user.email}: $${s.amount.toFixed(2)}`
+                              `${getDisplayName(s.user)}: $${s.amount.toFixed(2)}`
                           )
                           .join(", ")}
                       </p>
@@ -165,6 +187,6 @@ export default async function GroupPage({
           </CardContent>
         </Card>
       </div>
-    </main>
+    </div>
   );
 }

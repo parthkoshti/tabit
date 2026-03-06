@@ -1,25 +1,19 @@
 import type { MetadataRoute } from "next";
+import { appConfig } from "./config";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Tabit - Split expenses with friends",
-    short_name: "Tabit",
-    description: "A simple way to split expenses with friends and groups",
-    start_url: "/",
-    display: "standalone",
-    background_color: "#ffffff",
-    theme_color: "#2563eb",
+    name: appConfig.fullName,
+    short_name: appConfig.name,
+    description: appConfig.description,
+    start_url: appConfig.pwa.startUrl,
+    display: appConfig.pwa.display,
+    background_color: appConfig.pwa.backgroundColor,
+    theme_color: appConfig.pwa.themeColor,
     icons: [
-      {
-        src: "/icon-192x192.png",
-        sizes: "192x192",
-        type: "image/png",
-      },
-      {
-        src: "/icon-512x512.png",
-        sizes: "512x512",
-        type: "image/png",
-      },
+      { src: appConfig.icons.sm.src, sizes: appConfig.icons.sm.sizes, type: "image/png" },
+      { src: appConfig.icons.md.src, sizes: appConfig.icons.md.sizes, type: "image/png" },
+      { src: appConfig.icons.lg.src, sizes: appConfig.icons.lg.sizes, type: "image/png" },
     ],
   };
 }

@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { appConfig } from "@/app/config";
 import { authClient } from "@/lib/auth-client";
-import Link from "next/link";
+import { Link as TransitionLink } from "next-view-transitions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +17,9 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams();
+  const callbackURL = searchParams.get("callbackURL") ?? "/app/groups";
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
     "idle"
@@ -29,7 +33,7 @@ export default function LoginPage() {
 
     const { error: err } = await authClient.signIn.magicLink({
       email,
-      callbackURL: "/groups",
+      callbackURL,
     });
 
     if (err) {
@@ -45,7 +49,7 @@ export default function LoginPage() {
     <main className="flex min-h-screen flex-col items-center justify-center p-8">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>Sign in to Tabit</CardTitle>
+          <CardTitle>Sign in to {appConfig.name}</CardTitle>
           <CardDescription>
             Enter your email and we&apos;ll send you a magic link to sign in.
           </CardDescription>
@@ -87,10 +91,22 @@ export default function LoginPage() {
           )}
 
           <Button variant="link" asChild className="w-full">
-            <Link href="/">Back to home</Link>
+            <TransitionLink href="/">Back to home</TransitionLink>
           </Button>
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <main className="flex min-h-screen flex-col items-center justify-center p-8">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </main>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }

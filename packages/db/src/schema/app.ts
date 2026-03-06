@@ -3,13 +3,37 @@ import {
   text,
   timestamp,
   decimal,
+  boolean,
   primaryKey,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
+export const friendRequest = pgTable("friend_request", {
+  id: text("id").primaryKey(),
+  fromUserId: text("fromUserId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  toUserId: text("toUserId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"), // pending | accepted | rejected
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export const pendingFriend = pgTable("pending_friend", {
+  id: text("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
 export const group = pgTable("group", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  isDirect: boolean("isDirect").notNull().default(false),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 

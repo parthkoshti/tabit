@@ -7,6 +7,8 @@ import {
   getGroupWithMembers,
   getExpensesForGroup,
   getBalancesForGroup,
+  getActivityForUser,
+  getDirectGroupsForUser,
 } from "@/lib/data";
 
 export async function fetchGroups() {
@@ -35,4 +37,16 @@ export async function fetchBalances(groupId: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
   return getBalancesForGroup(groupId);
+}
+
+export async function fetchActivity() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return null;
+  return getActivityForUser(session.user.id);
+}
+
+export async function fetchFriends() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return null;
+  return getDirectGroupsForUser(session.user.id);
 }

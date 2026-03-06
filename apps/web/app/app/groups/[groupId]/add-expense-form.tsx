@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createExpense } from "@/app/actions/expenses";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +27,7 @@ export function AddExpenseForm({
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,7 +46,9 @@ export function AddExpenseForm({
     if (result.success) {
       setAmount("");
       setDescription("");
-      window.location.reload();
+      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["activity"] });
     } else {
       setError(result.error ?? "Failed to add expense");
     }

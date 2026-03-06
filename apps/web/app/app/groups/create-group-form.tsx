@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { createGroup } from "@/app/actions/groups";
-import { useRouter } from "next/navigation";
+import { useTransitionRouter } from "next-view-transitions";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -11,7 +12,8 @@ export function CreateGroupForm() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const router = useTransitionRouter();
+  const queryClient = useQueryClient();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -24,8 +26,8 @@ export function CreateGroupForm() {
     const result = await createGroup(formData);
 
     if (result.success && result.groupId) {
-      router.push(`/groups/${result.groupId}`);
-      router.refresh();
+      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      router.push(`/app/groups/${result.groupId}`);
     } else {
       setError(result.error ?? "Failed to create group");
     }
