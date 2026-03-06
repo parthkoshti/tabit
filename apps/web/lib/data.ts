@@ -1,8 +1,8 @@
 import "server-only";
 import {
   db,
-  group,
-  groupMember,
+  tab,
+  tabMember,
   expense,
   expenseSplit,
   settlement,
@@ -10,7 +10,7 @@ import {
 } from "db";
 import { eq, desc, inArray, and, sql } from "drizzle-orm";
 
-export async function getGroupsForUser(
+export async function getTabsForUser(
   userId: string,
   options?: { includeDirect?: boolean }
 ) {
@@ -19,33 +19,33 @@ export async function getGroupsForUser(
   if (includeDirect) {
     const rows = await db
       .select({
-        id: group.id,
-        name: group.name,
-        createdAt: group.createdAt,
+        id: tab.id,
+        name: tab.name,
+        createdAt: tab.createdAt,
       })
-      .from(group)
-      .innerJoin(groupMember, eq(group.id, groupMember.groupId))
-      .where(eq(groupMember.userId, userId))
-      .orderBy(desc(group.createdAt));
+      .from(tab)
+      .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
+      .where(eq(tabMember.userId, userId))
+      .orderBy(desc(tab.createdAt));
     return rows;
   }
 
-  const isDirectFalse = sql`${group.isDirect} = false`;
+  const isDirectFalse = sql`${tab.isDirect} = false`;
   const rows = await db
     .select({
-      id: group.id,
-      name: group.name,
-      createdAt: group.createdAt,
+      id: tab.id,
+      name: tab.name,
+      createdAt: tab.createdAt,
     })
-    .from(group)
-    .innerJoin(groupMember, eq(group.id, groupMember.groupId))
-    .where(and(eq(groupMember.userId, userId), isDirectFalse))
-    .orderBy(desc(group.createdAt));
+    .from(tab)
+    .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
+    .where(and(eq(tabMember.userId, userId), isDirectFalse))
+    .orderBy(desc(tab.createdAt));
 
   return rows;
 }
 
-export type FriendGroup = {
+export type FriendTab = {
   id: string;
   createdAt: Date;
   balance: number;
@@ -59,38 +59,38 @@ export type FriendGroup = {
 
 export { getDisplayName } from "./display-name";
 
-export async function getDirectGroupsForUser(userId: string): Promise<FriendGroup[]> {
-  const isDirectTrue = sql`${group.isDirect} = true`;
-  const directGroups = await db
+export async function getDirectTabsForUser(userId: string): Promise<FriendTab[]> {
+  const isDirectTrue = sql`${tab.isDirect} = true`;
+  const directTabs = await db
     .select({
-      id: group.id,
-      createdAt: group.createdAt,
+      id: tab.id,
+      createdAt: tab.createdAt,
     })
-    .from(group)
-    .innerJoin(groupMember, eq(group.id, groupMember.groupId))
-    .where(and(isDirectTrue, eq(groupMember.userId, userId)))
-    .orderBy(desc(group.createdAt));
+    .from(tab)
+    .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
+    .where(and(isDirectTrue, eq(tabMember.userId, userId)))
+    .orderBy(desc(tab.createdAt));
 
-  const result: FriendGroup[] = [];
-  for (const g of directGroups) {
+  const result: FriendTab[] = [];
+  for (const t of directTabs) {
     const members = await db
       .select({
-        userId: groupMember.userId,
+        userId: tabMember.userId,
         email: user.email,
         name: user.name,
         username: user.username,
       })
-      .from(groupMember)
-      .innerJoin(user, eq(groupMember.userId, user.id))
-      .where(eq(groupMember.groupId, g.id));
+      .from(tabMember)
+      .innerJoin(user, eq(tabMember.userId, user.id))
+      .where(eq(tabMember.tabId, t.id));
 
     const other = members.find((m) => m.userId !== userId);
     if (other) {
-      const balances = await getBalancesForGroup(g.id);
+      const balances = await getBalancesForTab(t.id);
       const myBalance = balances.find((b) => b.userId === userId);
       result.push({
-        id: g.id,
-        createdAt: g.createdAt,
+        id: t.id,
+        createdAt: t.createdAt,
         balance: myBalance ? myBalance.amount : 0,
         friend: {
           id: other.userId,
@@ -105,29 +105,29 @@ export async function getDirectGroupsForUser(userId: string): Promise<FriendGrou
   return result;
 }
 
-export async function getGroupWithMembers(groupId: string) {
-  const [g] = await db
+export async function getTabWithMembers(tabId: string) {
+  const [t] = await db
     .select()
-    .from(group)
-    .where(eq(group.id, groupId))
+    .from(tab)
+    .where(eq(tab.id, tabId))
     .limit(1);
 
-  if (!g) return null;
+  if (!t) return null;
 
   const members = await db
     .select({
-      userId: groupMember.userId,
-      role: groupMember.role,
+      userId: tabMember.userId,
+      role: tabMember.role,
       email: user.email,
       name: user.name,
       username: user.username,
     })
-    .from(groupMember)
-    .innerJoin(user, eq(groupMember.userId, user.id))
-    .where(eq(groupMember.groupId, groupId));
+    .from(tabMember)
+    .innerJoin(user, eq(tabMember.userId, user.id))
+    .where(eq(tabMember.tabId, tabId));
 
   return {
-    ...g,
+    ...t,
     members: members.map((m) => ({
       userId: m.userId,
       role: m.role,
@@ -136,11 +136,11 @@ export async function getGroupWithMembers(groupId: string) {
   };
 }
 
-export async function getExpensesForGroup(groupId: string) {
+export async function getExpensesForTab(tabId: string) {
   const rows = await db
     .select({
       id: expense.id,
-      groupId: expense.groupId,
+      tabId: expense.tabId,
       paidById: expense.paidById,
       amount: expense.amount,
       description: expense.description,
@@ -152,7 +152,7 @@ export async function getExpensesForGroup(groupId: string) {
     })
     .from(expense)
     .innerJoin(user, eq(expense.paidById, user.id))
-    .where(eq(expense.groupId, groupId))
+    .where(eq(expense.tabId, tabId))
     .orderBy(desc(expense.createdAt));
 
   const result = [];
@@ -198,11 +198,73 @@ export async function getExpensesForGroup(groupId: string) {
   return result;
 }
 
-export async function getBalancesForGroup(groupId: string) {
+export async function getSettlementsForTab(tabId: string) {
+  const rows = await db
+    .select({
+      id: settlement.id,
+      tabId: settlement.tabId,
+      fromUserId: settlement.fromUserId,
+      toUserId: settlement.toUserId,
+      amount: settlement.amount,
+      createdAt: settlement.createdAt,
+      fromUserEmail: user.email,
+      fromUserName: user.name,
+      fromUserUsername: user.username,
+    })
+    .from(settlement)
+    .innerJoin(user, eq(settlement.fromUserId, user.id))
+    .where(eq(settlement.tabId, tabId))
+    .orderBy(desc(settlement.createdAt));
+
+  const toUserIds = [...new Set(rows.map((r) => r.toUserId))];
+  const toUsers =
+    toUserIds.length > 0
+      ? await db
+          .select({
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            username: user.username,
+          })
+          .from(user)
+          .where(inArray(user.id, toUserIds))
+      : [];
+  const toUserMap = Object.fromEntries(toUsers.map((u) => [u.id, u]));
+
+  return rows.map((r) => ({
+    id: r.id,
+    tabId: r.tabId,
+    fromUserId: r.fromUserId,
+    toUserId: r.toUserId,
+    amount: Number(r.amount),
+    createdAt: r.createdAt,
+    fromUser: {
+      id: r.fromUserId,
+      email: r.fromUserEmail,
+      name: r.fromUserName,
+      username: r.fromUserUsername,
+    },
+    toUser: toUserMap[r.toUserId]
+      ? {
+          id: toUserMap[r.toUserId].id,
+          email: toUserMap[r.toUserId].email,
+          name: toUserMap[r.toUserId].name,
+          username: toUserMap[r.toUserId].username,
+        }
+      : {
+          id: r.toUserId,
+          email: "",
+          name: null,
+          username: null,
+        },
+  }));
+}
+
+export async function getBalancesForTab(tabId: string) {
   const members = await db
-    .select({ userId: groupMember.userId })
-    .from(groupMember)
-    .where(eq(groupMember.groupId, groupId));
+    .select({ userId: tabMember.userId })
+    .from(tabMember)
+    .where(eq(tabMember.tabId, tabId));
 
   const balances: Record<string, number> = {};
   for (const m of members) {
@@ -215,7 +277,7 @@ export async function getBalancesForGroup(groupId: string) {
       amount: expense.amount,
     })
     .from(expense)
-    .where(eq(expense.groupId, groupId));
+    .where(eq(expense.tabId, tabId));
 
   for (const exp of expenses) {
     balances[exp.paidById] = (balances[exp.paidById] ?? 0) + Number(exp.amount);
@@ -228,7 +290,7 @@ export async function getBalancesForGroup(groupId: string) {
     })
     .from(expenseSplit)
     .innerJoin(expense, eq(expenseSplit.expenseId, expense.id))
-    .where(eq(expense.groupId, groupId));
+    .where(eq(expense.tabId, tabId));
 
   for (const s of splits) {
     balances[s.userId] = (balances[s.userId] ?? 0) - Number(s.amount);
@@ -237,12 +299,12 @@ export async function getBalancesForGroup(groupId: string) {
   const settlements = await db
     .select()
     .from(settlement)
-    .where(eq(settlement.groupId, groupId));
+    .where(eq(settlement.tabId, tabId));
 
   for (const set of settlements) {
-    balances[set.fromUserId] =
-      (balances[set.fromUserId] ?? 0) - Number(set.amount);
-    balances[set.toUserId] = (balances[set.toUserId] ?? 0) + Number(set.amount);
+    const amount = Number(set.amount);
+    balances[set.fromUserId] = (balances[set.fromUserId] ?? 0) + amount;
+    balances[set.toUserId] = (balances[set.toUserId] ?? 0) - amount;
   }
 
   const userIds = members.map((m) => m.userId);
@@ -271,8 +333,8 @@ export type ActivityItem =
   | {
       type: "expense";
       id: string;
-      groupId: string;
-      groupName: string;
+      tabId: string;
+      tabName: string;
       paidById: string;
       paidByEmail: string;
       paidByName: string | null;
@@ -284,8 +346,8 @@ export type ActivityItem =
   | {
       type: "settlement";
       id: string;
-      groupId: string;
-      groupName: string;
+      tabId: string;
+      tabName: string;
       fromUserId: string;
       fromUserEmail: string;
       fromUserName: string | null;
@@ -299,16 +361,16 @@ export type ActivityItem =
     };
 
 export async function getActivityForUser(userId: string, limit = 50) {
-  const groups = await getGroupsForUser(userId, { includeDirect: true });
-  const groupIds = groups.map((g) => g.id);
-  const groupMap = Object.fromEntries(groups.map((g) => [g.id, g.name]));
+  const tabs = await getTabsForUser(userId, { includeDirect: true });
+  const tabIds = tabs.map((t) => t.id);
+  const tabMap = Object.fromEntries(tabs.map((t) => [t.id, t.name]));
 
-  if (groupIds.length === 0) return [];
+  if (tabIds.length === 0) return [];
 
   const expenses = await db
     .select({
       id: expense.id,
-      groupId: expense.groupId,
+      tabId: expense.tabId,
       paidById: expense.paidById,
       amount: expense.amount,
       description: expense.description,
@@ -319,14 +381,14 @@ export async function getActivityForUser(userId: string, limit = 50) {
     })
     .from(expense)
     .innerJoin(user, eq(expense.paidById, user.id))
-    .where(inArray(expense.groupId, groupIds))
+    .where(inArray(expense.tabId, tabIds))
     .orderBy(desc(expense.createdAt))
     .limit(limit);
 
   const settlementRows = await db
     .select()
     .from(settlement)
-    .where(inArray(settlement.groupId, groupIds))
+    .where(inArray(settlement.tabId, tabIds))
     .orderBy(desc(settlement.createdAt))
     .limit(limit);
 
@@ -353,8 +415,8 @@ export async function getActivityForUser(userId: string, limit = 50) {
     ...expenses.map((e) => ({
       type: "expense" as const,
       id: e.id,
-      groupId: e.groupId,
-      groupName: groupMap[e.groupId] ?? "",
+      tabId: e.tabId,
+      tabName: tabMap[e.tabId] ?? "",
       paidById: e.paidById,
       paidByEmail: e.paidByEmail,
       paidByName: e.paidByName,
@@ -366,8 +428,8 @@ export async function getActivityForUser(userId: string, limit = 50) {
     ...settlementRows.map((s) => ({
       type: "settlement" as const,
       id: s.id,
-      groupId: s.groupId,
-      groupName: groupMap[s.groupId] ?? "",
+      tabId: s.tabId,
+      tabName: tabMap[s.tabId] ?? "",
       fromUserId: s.fromUserId,
       fromUserEmail: userMap[s.fromUserId]?.email ?? "",
       fromUserName: userMap[s.fromUserId]?.name ?? null,

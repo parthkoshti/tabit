@@ -14,7 +14,10 @@ export function TopNavbar() {
     pathname === "/app/friends" || pathname === "/app/friends/";
 
   return (
-    <header className="top-nav-safe sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]">
+    <header
+      className="top-nav-safe fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]"
+      style={{ viewTransitionName: "top-navbar" }}
+    >
       {navPage ? (
         <>
           <TransitionLink
@@ -30,7 +33,7 @@ export function TopNavbar() {
           <div className="w-9 shrink-0" aria-hidden />
         </>
       ) : (
-        <TransitionLink href="/app/groups" className="flex items-center gap-2">
+        <TransitionLink href="/app/tabs" className="flex items-center gap-2">
           <Image
             src={appConfig.icons.sm.src}
             alt="Tab It Logo"

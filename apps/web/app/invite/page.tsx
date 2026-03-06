@@ -30,11 +30,11 @@ function InviteContent() {
       return;
     }
     addFriendByToken(qrParam).then((result) => {
-      if (result.success && result.friendGroupId) {
+      if (result.success && result.friendTabId) {
         queryClient.invalidateQueries({ queryKey: ["friends"] });
-        queryClient.invalidateQueries({ queryKey: ["groups"] });
+        queryClient.invalidateQueries({ queryKey: ["tabs"] });
         queryClient.invalidateQueries({ queryKey: ["activity"] });
-        router.replace(`/app/groups/${result.friendGroupId}`);
+        router.replace(`/app/tabs/${result.friendTabId}`);
       } else {
         setStatus("error");
         setError(result.error ?? "Failed to add friend");

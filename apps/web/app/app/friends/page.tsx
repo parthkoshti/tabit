@@ -39,11 +39,11 @@ export default function FriendsPage() {
     const formData = new FormData();
     formData.set("requestId", requestId);
     const result = await acceptFriendRequest(formData);
-    if (result.success && result.friendGroupId) {
+    if (result.success && result.friendTabId) {
       queryClient.invalidateQueries({ queryKey: ["friends"] });
-      queryClient.invalidateQueries({ queryKey: ["groups"] });
+      queryClient.invalidateQueries({ queryKey: ["tabs"] });
       queryClient.invalidateQueries({ queryKey: ["pendingFriendRequests"] });
-      router.push(`/app/groups/${result.friendGroupId}`);
+      router.push(`/app/tabs/${result.friendTabId}`);
     }
   }
 
@@ -118,7 +118,7 @@ export default function FriendsPage() {
             ) : (
               <div className="space-y-2">
                 {friends.map((f) => (
-                  <TransitionLink key={f.id} href={`/app/groups/${f.id}`}>
+                  <TransitionLink key={f.id} href={`/app/tabs/${f.id}`}>
                     <Card className="transition-colors hover:bg-accent">
                       <CardContent className="flex items-center justify-between p-4">
                         <span className="font-medium">
@@ -127,9 +127,9 @@ export default function FriendsPage() {
                         <span
                           className={
                             f.balance > 0
-                              ? "text-green-600 dark:text-green-400"
+                              ? "text-positive"
                               : f.balance < 0
-                                ? "text-destructive"
+                                ? "text-negative"
                                 : "text-muted-foreground"
                           }
                         >

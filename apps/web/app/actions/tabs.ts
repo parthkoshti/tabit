@@ -1,19 +1,19 @@
 "use server";
 
-import { db, group, groupMember, user } from "db";
-import { createGroupSchema, addMemberSchema } from "models";
+import { db, tab, tabMember, user } from "db";
+import { createTabSchema, addMemberSchema } from "models";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
-export async function createGroup(formData: FormData) {
+export async function createTab(formData: FormData) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) {
     return { success: false, error: "Unauthorized" };
   }
 
-  const parsed = createGroupSchema.safeParse({
+  const parsed = createTabSchema.safeParse({
     name: formData.get("name"),
   });
 
@@ -22,17 +22,17 @@ export async function createGroup(formData: FormData) {
   }
 
   const id = nanoid();
-  await db.insert(group).values({
+  await db.insert(tab).values({
     id,
     name: parsed.data.name,
   });
-  await db.insert(groupMember).values({
-    groupId: id,
+  await db.insert(tabMember).values({
+    tabId: id,
     userId: session.user.id,
     role: "owner",
   });
 
-  return { success: true, groupId: id };
+  return { success: true, tabId: id };
 }
 
 export async function addMember(formData: FormData) {
@@ -42,7 +42,7 @@ export async function addMember(formData: FormData) {
   }
 
   const parsed = addMemberSchema.safeParse({
-    groupId: formData.get("groupId"),
+    tabId: formData.get("tabId"),
     email: formData.get("email"),
     role: formData.get("role") ?? "member",
   });
@@ -63,11 +63,11 @@ export async function addMember(formData: FormData) {
 
   const [existing] = await db
     .select()
-    .from(groupMember)
+    .from(tabMember)
     .where(
       and(
-        eq(groupMember.groupId, parsed.data.groupId),
-        eq(groupMember.userId, targetUser.id)
+        eq(tabMember.tabId, parsed.data.tabId),
+        eq(tabMember.userId, targetUser.id)
       )
     )
     .limit(1);
@@ -76,8 +76,8 @@ export async function addMember(formData: FormData) {
     return { success: false, error: "User is already a member" };
   }
 
-  await db.insert(groupMember).values({
-    groupId: parsed.data.groupId,
+  await db.insert(tabMember).values({
+    tabId: parsed.data.tabId,
     userId: targetUser.id,
     role: parsed.data.role,
   });
@@ -85,18 +85,18 @@ export async function addMember(formData: FormData) {
   return { success: true };
 }
 
-export async function leaveGroup(groupId: string) {
+export async function leaveTab(tabId: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) {
     return { success: false, error: "Unauthorized" };
   }
 
   await db
-    .delete(groupMember)
+    .delete(tabMember)
     .where(
       and(
-        eq(groupMember.groupId, groupId),
-        eq(groupMember.userId, session.user.id)
+        eq(tabMember.tabId, tabId),
+        eq(tabMember.userId, session.user.id)
       )
     );
 

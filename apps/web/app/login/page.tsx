@@ -19,7 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 
 function LoginForm() {
   const searchParams = useSearchParams();
-  const callbackURL = searchParams.get("callbackURL") ?? "/app/groups";
+  const callbackURL = searchParams.get("callbackURL") ?? "/app/tabs";
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");

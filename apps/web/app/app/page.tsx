@@ -7,7 +7,7 @@ export default function AppPage() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/app/groups");
+    router.replace("/app/tabs");
   }, [router]);
 
   return null;

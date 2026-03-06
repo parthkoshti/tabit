@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { fetchActivity } from "@/app/actions/queries";
+import { authClient } from "@/lib/auth-client";
 import { Link as TransitionLink } from "next-view-transitions";
 import {
   Card,
@@ -23,6 +24,8 @@ function formatDate(d: Date) {
 }
 
 export default function ActivityPage() {
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id ?? "";
   const { data: items, isLoading } = useQuery({
     queryKey: ["activity"],
     queryFn: fetchActivity,
@@ -33,7 +36,7 @@ export default function ActivityPage() {
       <Card>
         <CardHeader>
           <CardTitle>Activity</CardTitle>
-          <CardDescription>Recent expenses and settlements across your groups</CardDescription>
+          <CardDescription>Recent expenses and settlements across your tabs</CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -50,7 +53,7 @@ export default function ActivityPage() {
                 item.type === "expense" ? (
                   <TransitionLink
                     key={`exp-${item.id}`}
-                    href={`/app/groups/${item.groupId}`}
+                    href={`/app/tabs/${item.tabId}`}
                   >
                     <Card className="transition-colors hover:bg-accent">
                       <CardContent className="flex flex-col gap-1 p-4">
@@ -62,11 +65,12 @@ export default function ActivityPage() {
                         </div>
                         <p className="text-sm text-muted-foreground">
                           {getDisplayName({
+                          id: item.paidById,
                           username: item.paidByUsername,
                           name: item.paidByName,
                           email: item.paidByEmail,
-                        })} paid in{" "}
-                          {item.groupName}
+                        }, currentUserId)} paid in{" "}
+                          {item.tabName}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatDate(item.createdAt)}
@@ -77,27 +81,29 @@ export default function ActivityPage() {
                 ) : (
                   <TransitionLink
                     key={`set-${item.id}`}
-                    href={`/app/groups/${item.groupId}`}
+                    href={`/app/tabs/${item.tabId}`}
                   >
                     <Card className="transition-colors hover:bg-accent">
                       <CardContent className="flex flex-col gap-1 p-4">
                         <div className="flex justify-between">
                           <span className="font-medium">
                             {getDisplayName({
+                              id: item.fromUserId,
                               username: item.fromUserUsername,
                               name: item.fromUserName,
                               email: item.fromUserEmail,
-                            })} paid{" "}
+                            }, currentUserId)} paid{" "}
                             {getDisplayName({
+                              id: item.toUserId,
                               username: item.toUserUsername,
                               name: item.toUserName,
                               email: item.toUserEmail,
-                            })} $
+                            }, currentUserId)} $
                             {item.amount.toFixed(2)}
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground">
-                          Settlement in {item.groupName}
+                          Settlement in {item.tabName}
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {formatDate(item.createdAt)}

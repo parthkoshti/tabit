@@ -30,32 +30,32 @@ export const pendingFriend = pgTable("pending_friend", {
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
-export const group = pgTable("group", {
+export const tab = pgTable("tab", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   isDirect: boolean("isDirect").notNull().default(false),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
-export const groupMember = pgTable(
-  "group_member",
+export const tabMember = pgTable(
+  "tab_member",
   {
-    groupId: text("groupId")
+    tabId: text("tabId")
       .notNull()
-      .references(() => group.id, { onDelete: "cascade" }),
+      .references(() => tab.id, { onDelete: "cascade" }),
     userId: text("userId")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").notNull().default("member"),
   },
-  (t) => [primaryKey({ columns: [t.groupId, t.userId] })]
+  (t) => [primaryKey({ columns: [t.tabId, t.userId] })]
 );
 
 export const expense = pgTable("expense", {
   id: text("id").primaryKey(),
-  groupId: text("groupId")
+  tabId: text("tabId")
     .notNull()
-    .references(() => group.id, { onDelete: "cascade" }),
+    .references(() => tab.id, { onDelete: "cascade" }),
   paidById: text("paidById")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
@@ -78,9 +78,9 @@ export const expenseSplit = pgTable("expense_split", {
 
 export const settlement = pgTable("settlement", {
   id: text("id").primaryKey(),
-  groupId: text("groupId")
+  tabId: text("tabId")
     .notNull()
-    .references(() => group.id, { onDelete: "cascade" }),
+    .references(() => tab.id, { onDelete: "cascade" }),
   fromUserId: text("fromUserId")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),

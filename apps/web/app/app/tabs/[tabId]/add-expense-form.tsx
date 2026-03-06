@@ -7,24 +7,33 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { getDisplayName } from "@/lib/display-name";
 
 type Member = {
   userId: string;
   role: string;
-  user: { id: string; email: string; name: string | null };
+  user: { id: string; email: string; name: string | null; username?: string | null };
 };
 
 export function AddExpenseForm({
-  groupId,
+  tabId,
   members,
   currentUserId,
 }: {
-  groupId: string;
+  tabId: string;
   members: Member[];
   currentUserId: string;
 }) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [paidById, setPaidById] = useState(currentUserId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -35,10 +44,10 @@ export function AddExpenseForm({
     setError(null);
 
     const formData = new FormData();
-    formData.set("groupId", groupId);
+    formData.set("tabId", tabId);
     formData.set("amount", amount);
     formData.set("description", description);
-    formData.set("paidById", currentUserId);
+    formData.set("paidById", paidById);
     formData.set("splitType", "equal");
 
     const result = await createExpense(formData);
@@ -46,8 +55,8 @@ export function AddExpenseForm({
     if (result.success) {
       setAmount("");
       setDescription("");
-      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
     } else {
       setError(result.error ?? "Failed to add expense");
@@ -81,6 +90,25 @@ export function AddExpenseForm({
           required
           disabled={loading}
         />
+      </div>
+      <div className="space-y-2">
+        <Label>Paid by</Label>
+        <Select
+          value={paidById}
+          onValueChange={setPaidById}
+          disabled={loading}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select who paid" />
+          </SelectTrigger>
+          <SelectContent>
+            {members.map((m) => (
+              <SelectItem key={m.userId} value={m.userId}>
+                {getDisplayName(m.user, currentUserId)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       <p className="text-sm text-muted-foreground">
         Split equally among {members.length} member

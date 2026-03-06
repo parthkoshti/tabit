@@ -1,6 +1,6 @@
 "use server";
 
-import { db, expense, expenseSplit, groupMember } from "db";
+import { db, expense, expenseSplit, tabMember } from "db";
 import { createExpenseSchema } from "models";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -14,7 +14,7 @@ export async function createExpense(formData: FormData) {
   }
 
   const parsed = createExpenseSchema.safeParse({
-    groupId: formData.get("groupId"),
+    tabId: formData.get("tabId"),
     amount: Number(formData.get("amount")),
     description: formData.get("description"),
     paidById: formData.get("paidById") ?? session.user.id,
@@ -30,23 +30,38 @@ export async function createExpense(formData: FormData) {
 
   const [member] = await db
     .select()
-    .from(groupMember)
+    .from(tabMember)
     .where(
       and(
-        eq(groupMember.groupId, parsed.data.groupId),
-        eq(groupMember.userId, session.user.id)
+        eq(tabMember.tabId, parsed.data.tabId),
+        eq(tabMember.userId, session.user.id)
       )
     )
     .limit(1);
 
   if (!member) {
-    return { success: false, error: "You are not a member of this group" };
+    return { success: false, error: "You are not a member of this tab" };
+  }
+
+  const [payerIsMember] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, parsed.data.tabId),
+        eq(tabMember.userId, parsed.data.paidById)
+      )
+    )
+    .limit(1);
+
+  if (!payerIsMember) {
+    return { success: false, error: "Payer must be a member of this tab" };
   }
 
   const members = await db
     .select()
-    .from(groupMember)
-    .where(eq(groupMember.groupId, parsed.data.groupId));
+    .from(tabMember)
+    .where(eq(tabMember.tabId, parsed.data.tabId));
 
   const expenseId = nanoid();
   const amount = parsed.data.amount;
@@ -64,7 +79,7 @@ export async function createExpense(formData: FormData) {
 
   await db.insert(expense).values({
     id: expenseId,
-    groupId: parsed.data.groupId,
+    tabId: parsed.data.tabId,
     paidById: parsed.data.paidById,
     amount: parsed.data.amount.toString(),
     description: parsed.data.description,
@@ -101,17 +116,17 @@ export async function deleteExpense(expenseId: string) {
 
   const [member] = await db
     .select()
-    .from(groupMember)
+    .from(tabMember)
     .where(
       and(
-        eq(groupMember.groupId, exp.groupId),
-        eq(groupMember.userId, session.user.id)
+        eq(tabMember.tabId, exp.tabId),
+        eq(tabMember.userId, session.user.id)
       )
     )
     .limit(1);
 
   if (!member) {
-    return { success: false, error: "You are not a member of this group" };
+    return { success: false, error: "You are not a member of this tab" };
   }
 
   await db.delete(expenseSplit).where(eq(expenseSplit.expenseId, expenseId));

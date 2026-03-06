@@ -5,88 +5,111 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-    --font-sans: var(--font-inter, ui-sans-serif), system-ui, sans-serif;
-    --radius-sm: calc(var(--radius) - 4px);
-    --radius-md: calc(var(--radius) - 2px);
-    --radius-lg: var(--radius);
-    --radius-xl: calc(var(--radius) + 4px);
-    --radius-2xl: calc(var(--radius) + 8px);
-    --radius-3xl: calc(var(--radius) + 12px);
-    --radius-4xl: calc(var(--radius) + 16px);
-    --color-background: var(--background);
-    --color-foreground: var(--foreground);
-    --color-card: var(--card);
-    --color-card-foreground: var(--card-foreground);
-    --color-popover: var(--popover);
-    --color-popover-foreground: var(--popover-foreground);
-    --color-primary: var(--primary);
-    --color-primary-foreground: var(--primary-foreground);
-    --color-secondary: var(--secondary);
-    --color-secondary-foreground: var(--secondary-foreground);
-    --color-muted: var(--muted);
-    --color-muted-foreground: var(--muted-foreground);
-    --color-accent: var(--accent);
-    --color-accent-foreground: var(--accent-foreground);
-    --color-destructive: var(--destructive);
-    --color-border: var(--border);
-    --color-border-subtle: var(--border-subtle);
-    --color-input: var(--input);
-    --color-input-bg: var(--input-bg);
-    --color-ring-offset: var(--ring-offset);
-    --color-ring: var(--ring);
-    --color-chart-1: var(--chart-1);
-    --color-chart-2: var(--chart-2);
-    --color-chart-3: var(--chart-3);
-    --color-chart-4: var(--chart-4);
-    --color-chart-5: var(--chart-5);
-    --color-sidebar: var(--sidebar);
-    --color-sidebar-foreground: var(--sidebar-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-ring: var(--sidebar-ring);
+  --font-sans: var(--font-inter, ui-sans-serif), system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-input: var(--input);
+  --color-input-bg: var(--input-bg);
+  --color-ring-offset: var(--ring-offset);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* Hide scrollbars in app layout - scroll still works */
+.app-scroll-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.app-scroll-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* iOS Safari viewport fix - prevents gap at bottom (100dvh bug) */
+html {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+body {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
 }
 
 :root {
-    --radius: 0.5rem;
-    /* Linear light mode - Mercury White, Nordic Gray */
-    --background: #f4f5f8;
-    --foreground: #222326;
-    --card: #ffffff;
-    --card-foreground: #222326;
-    --popover: #ffffff;
-    --popover-foreground: #222326;
-    --primary: #5e6ad2;
-    --primary-foreground: #ffffff;
-    --secondary: #e8e9ec;
-    --secondary-foreground: #222326;
-    --muted: #e8e9ec;
-    --muted-foreground: #8a8f98;
-    --accent: #e8e9ec;
-    --accent-foreground: #222326;
-    --destructive: #eb5757;
-    --border: #d1d3d8;
-    --border-subtle: rgba(34, 35, 38, 0.12);
-    --input: #d1d3d8;
-    --input-bg: transparent;
-    --ring: #5e6ad2;
-    --chart-1: #5e6ad2;
-    --chart-2: #4ea7fc;
-    --chart-3: #4cb782;
-    --chart-4: #eb5757;
-    --chart-5: #f2c94c;
-    --sidebar: #ffffff;
-    --sidebar-foreground: #222326;
-    --sidebar-primary: #5e6ad2;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #e8e9ec;
-    --sidebar-accent-foreground: #222326;
-    --sidebar-border: #d1d3d8;
-    --ring-offset: #f4f5f8;
-    --sidebar-ring: #5e6ad2;
-    view-transition-name: none;
+  --radius: 0.5rem;
+  /* Linear light mode - Mercury White, Nordic Gray */
+  --background: #f4f5f8;
+  --foreground: #222326;
+  --card: #ffffff;
+  --card-foreground: #222326;
+  --popover: #ffffff;
+  --popover-foreground: #222326;
+  --primary: #5e6ad2;
+  --primary-foreground: #ffffff;
+  --secondary: #e8e9ec;
+  --secondary-foreground: #222326;
+  --muted: #e8e9ec;
+  --muted-foreground: #8a8f98;
+  --accent: #e8e9ec;
+  --accent-foreground: #222326;
+  --destructive: #eb5757;
+  --positive: #4cb782;
+  --negative: #e67e22;
+  --border: #d1d3d8;
+  --border-subtle: rgba(34, 35, 38, 0.12);
+  --input: #d1d3d8;
+  --input-bg: transparent;
+  --ring: #5e6ad2;
+  --chart-1: #5e6ad2;
+  --chart-2: #4ea7fc;
+  --chart-3: #4cb782;
+  --chart-4: #eb5757;
+  --chart-5: #f2c94c;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #222326;
+  --sidebar-primary: #5e6ad2;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8e9ec;
+  --sidebar-accent-foreground: #222326;
+  --sidebar-border: #d1d3d8;
+  --ring-offset: #f4f5f8;
+  --sidebar-ring: #5e6ad2;
+  view-transition-name: none;
 }
 
 /* View transition - main content only (navbars stay static) */
@@ -99,6 +122,16 @@
 }
 ::view-transition-new(main-content) {
   animation: fade-in 150ms ease-out both;
+}
+
+/* Navbars: exclude from transition to prevent flash - keep them static */
+::view-transition-group(top-navbar),
+::view-transition-old(top-navbar),
+::view-transition-new(top-navbar),
+::view-transition-group(bottom-navbar),
+::view-transition-old(bottom-navbar),
+::view-transition-new(bottom-navbar) {
+  animation: none !important;
 }
 @keyframes fade-in {
   from {
@@ -117,14 +150,19 @@
   }
 }
 
-/* Safe area insets for PWA - env() is unreliable on iOS, use fallback in standalone */
-@media (display-mode: standalone) {
+/* Safe area insets - env() returns 0 on iOS Safari/PWA, use fallback on mobile */
+@media (display-mode: standalone), (max-width: 768px) {
   .bottom-nav-safe {
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 34px) !important;
+    padding-bottom: max(
+      env(safe-area-inset-bottom, 0px),
+      constant(safe-area-inset-bottom, 0px),
+      34px
+    ) !important;
   }
   .app-layout-safe-bottom {
     padding-bottom: max(
       calc(4rem + env(safe-area-inset-bottom, 0px)),
+      calc(4rem + constant(safe-area-inset-bottom, 0px)),
       calc(4rem + 34px)
     ) !important;
   }
@@ -133,44 +171,50 @@
 /* Top nav safe area - apply on mobile viewports and standalone (env() often returns 0) */
 @media (display-mode: standalone), (max-width: 768px) {
   .top-nav-safe {
-    padding-top: max(env(safe-area-inset-top, 0px), constant(safe-area-inset-top, 0px), 44px) !important;
+    padding-top: max(
+      env(safe-area-inset-top, 0px),
+      constant(safe-area-inset-top, 0px),
+      44px
+    ) !important;
   }
 }
 
 .dark {
-    /* Linear dark mode palette */
-    --background: #08090a;
-    --foreground: #ffffff;
-    --card: #1a1c1f;
-    --card-foreground: #ffffff;
-    --popover: #1a1c1f;
-    --popover-foreground: #ffffff;
-    --primary: #5e6ad2;
-    --primary-foreground: #ffffff;
-    --secondary: #1a1c1f;
-    --secondary-foreground: #b4bcd0;
-    --muted: #1a1c1f;
-    --muted-foreground: #8a8f98;
-    --accent: #1a1c1f;
-    --accent-foreground: #b4bcd0;
-    --destructive: #eb5757;
-    --border: #282a2f;
-    --border-subtle: rgba(255, 255, 255, 0.08);
-    --input: #282a2f;
-    --input-bg: rgba(255, 255, 255, 0.05);
-    --ring: #5e6ad2;
-    --chart-1: #5e6ad2;
-    --chart-2: #4ea7fc;
-    --chart-3: #4cb782;
-    --chart-4: #eb5757;
-    --chart-5: #f2c94c;
-    --sidebar: #1a1c1f;
-    --sidebar-foreground: #ffffff;
-    --sidebar-primary: #5e6ad2;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #1a1c1f;
-    --sidebar-accent-foreground: #b4bcd0;
-    --sidebar-border: #282a2f;
-    --sidebar-ring: #5e6ad2;
-    --ring-offset: #08090a;
+  /* Linear dark mode palette */
+  --background: #08090a;
+  --foreground: #ffffff;
+  --card: #1a1c1f;
+  --card-foreground: #ffffff;
+  --popover: #1a1c1f;
+  --popover-foreground: #ffffff;
+  --primary: #5e6ad2;
+  --primary-foreground: #ffffff;
+  --secondary: #1a1c1f;
+  --secondary-foreground: #b4bcd0;
+  --muted: #1a1c1f;
+  --muted-foreground: #8a8f98;
+  --accent: #1a1c1f;
+  --accent-foreground: #b4bcd0;
+  --destructive: #eb5757;
+  --positive: #4cb782;
+  --negative: #e67e22;
+  --border: #282a2f;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --input: #282a2f;
+  --input-bg: rgba(255, 255, 255, 0.05);
+  --ring: #5e6ad2;
+  --chart-1: #5e6ad2;
+  --chart-2: #4ea7fc;
+  --chart-3: #4cb782;
+  --chart-4: #eb5757;
+  --chart-5: #f2c94c;
+  --sidebar: #1a1c1f;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #5e6ad2;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #1a1c1f;
+  --sidebar-accent-foreground: #b4bcd0;
+  --sidebar-border: #282a2f;
+  --sidebar-ring: #5e6ad2;
+  --ring-offset: #08090a;
 }

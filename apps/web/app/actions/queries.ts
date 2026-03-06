@@ -3,40 +3,47 @@
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import {
-  getGroupsForUser,
-  getGroupWithMembers,
-  getExpensesForGroup,
-  getBalancesForGroup,
+  getTabsForUser,
+  getTabWithMembers,
+  getExpensesForTab,
+  getSettlementsForTab,
+  getBalancesForTab,
   getActivityForUser,
-  getDirectGroupsForUser,
+  getDirectTabsForUser,
 } from "@/lib/data";
 
-export async function fetchGroups() {
+export async function fetchTabs() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
-  return getGroupsForUser(session.user.id);
+  return getTabsForUser(session.user.id);
 }
 
-export async function fetchGroup(groupId: string) {
+export async function fetchTab(tabId: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
-  const group = await getGroupWithMembers(groupId);
-  if (!group) return null;
-  const isMember = group.members.some((m) => m.userId === session.user.id);
+  const tab = await getTabWithMembers(tabId);
+  if (!tab) return null;
+  const isMember = tab.members.some((m) => m.userId === session.user.id);
   if (!isMember) return null;
-  return group;
+  return tab;
 }
 
-export async function fetchExpenses(groupId: string) {
+export async function fetchExpenses(tabId: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
-  return getExpensesForGroup(groupId);
+  return getExpensesForTab(tabId);
 }
 
-export async function fetchBalances(groupId: string) {
+export async function fetchSettlements(tabId: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
-  return getBalancesForGroup(groupId);
+  return getSettlementsForTab(tabId);
+}
+
+export async function fetchBalances(tabId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return null;
+  return getBalancesForTab(tabId);
 }
 
 export async function fetchActivity() {
@@ -48,5 +55,5 @@ export async function fetchActivity() {
 export async function fetchFriends() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
-  return getDirectGroupsForUser(session.user.id);
+  return getDirectTabsForUser(session.user.id);
 }

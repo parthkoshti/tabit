@@ -16,8 +16,14 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isPending && !session?.user) {
-      const returnTo = pathname + (searchParams.toString() ? `?${searchParams.toString()}` : "");
-      router.replace(returnTo ? `/login?callbackURL=${encodeURIComponent(returnTo)}` : "/login");
+      const returnTo =
+        pathname +
+        (searchParams.toString() ? `?${searchParams.toString()}` : "");
+      router.replace(
+        returnTo
+          ? `/login?callbackURL=${encodeURIComponent(returnTo)}`
+          : "/login",
+      );
     }
   }, [session, isPending, router, pathname, searchParams]);
 
@@ -31,10 +37,10 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <NavTitleProvider>
-      <div className="app-layout-safe-bottom flex min-h-screen flex-col pb-[calc(4rem+env(safe-area-inset-bottom,0px))]">
+      <div className="fixed inset-0 flex flex-col overflow-hidden">
         <TopNavbar />
         <main
-          className="min-h-0 flex-1 overflow-auto"
+          className="app-layout-safe-bottom app-scroll-hide min-h-0 flex-1 overflow-auto overscroll-none pb-[calc(4rem+env(safe-area-inset-bottom,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))]"
           style={{ viewTransitionName: "main-content" }}
         >
           {children}
@@ -45,11 +51,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={<LoadingScreen />}>
       <AppLayoutContent>{children}</AppLayoutContent>

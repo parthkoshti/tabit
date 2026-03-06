@@ -2,8 +2,8 @@
 
 import {
   db,
-  group,
-  groupMember,
+  tab,
+  tabMember,
   user,
   friendRequest,
   pendingFriend,
@@ -17,16 +17,16 @@ function secureToken(): string {
   return nanoid(5);
 }
 
-async function createDirectGroup(userId1: string, userId2: string) {
+async function createDirectTab(userId1: string, userId2: string) {
   const id = nanoid();
-  await db.insert(group).values({
+  await db.insert(tab).values({
     id,
     name: "Direct",
     isDirect: true,
   });
-  await db.insert(groupMember).values([
-    { groupId: id, userId: userId1, role: "member" },
-    { groupId: id, userId: userId2, role: "member" },
+  await db.insert(tabMember).values([
+    { tabId: id, userId: userId1, role: "member" },
+    { tabId: id, userId: userId2, role: "member" },
   ]);
   return id;
 }
@@ -83,20 +83,20 @@ export async function sendFriendRequest(formData: FormData) {
     return { success: false, error: "You cannot add yourself" };
   }
 
-  const directGroups = await db
-    .select({ id: group.id })
-    .from(group)
-    .innerJoin(groupMember, eq(group.id, groupMember.groupId))
-    .where(and(eq(group.isDirect, true), eq(groupMember.userId, session.user.id)));
+  const directTabs = await db
+    .select({ id: tab.id })
+    .from(tab)
+    .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
+    .where(and(eq(tab.isDirect, true), eq(tabMember.userId, session.user.id)));
 
-  for (const g of directGroups) {
+  for (const t of directTabs) {
     const [otherMember] = await db
       .select()
-      .from(groupMember)
+      .from(tabMember)
       .where(
         and(
-          eq(groupMember.groupId, g.id),
-          eq(groupMember.userId, targetUser.id)
+          eq(tabMember.tabId, t.id),
+          eq(tabMember.userId, targetUser.id)
         )
       )
       .limit(1);
@@ -201,9 +201,9 @@ export async function acceptFriendRequest(formData: FormData) {
     .set({ status: "accepted" })
     .where(eq(friendRequest.id, requestId));
 
-  const friendGroupId = await createDirectGroup(session.user.id, req.fromUserId);
+  const friendTabId = await createDirectTab(session.user.id, req.fromUserId);
 
-  return { success: true, friendGroupId };
+  return { success: true, friendTabId };
 }
 
 export async function rejectFriendRequest(formData: FormData) {
@@ -314,31 +314,31 @@ export async function addFriendByToken(token: string) {
     return { success: false, error: "You cannot add yourself" };
   }
 
-  const directGroups = await db
-    .select({ id: group.id })
-    .from(group)
-    .innerJoin(groupMember, eq(group.id, groupMember.groupId))
-    .where(and(eq(group.isDirect, true), eq(groupMember.userId, session.user.id)));
+  const directTabs = await db
+    .select({ id: tab.id })
+    .from(tab)
+    .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
+    .where(and(eq(tab.isDirect, true), eq(tabMember.userId, session.user.id)));
 
-  for (const g of directGroups) {
+  for (const t of directTabs) {
     const [otherMember] = await db
       .select()
-      .from(groupMember)
+      .from(tabMember)
       .where(
         and(
-          eq(groupMember.groupId, g.id),
-          eq(groupMember.userId, pending.userId)
+          eq(tabMember.tabId, t.id),
+          eq(tabMember.userId, pending.userId)
         )
       )
       .limit(1);
     if (otherMember) {
       await db.delete(pendingFriend).where(eq(pendingFriend.id, pending.id));
-      return { success: true, friendGroupId: g.id, alreadyFriends: true };
+      return { success: true, friendTabId: t.id, alreadyFriends: true };
     }
   }
 
-  const friendGroupId = await createDirectGroup(session.user.id, pending.userId);
+  const friendTabId = await createDirectTab(session.user.id, pending.userId);
   await db.delete(pendingFriend).where(eq(pendingFriend.id, pending.id));
 
-  return { success: true, friendGroupId };
+  return { success: true, friendTabId };
 }

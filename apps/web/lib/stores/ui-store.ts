@@ -1,8 +1,8 @@
 import { create } from "zustand";
 
 interface UIState {
-  selectedGroupId: string | null;
-  setSelectedGroupId: (id: string | null) => void;
+  selectedTabId: string | null;
+  setSelectedTabId: (id: string | null) => void;
   isAddExpenseOpen: boolean;
   setIsAddExpenseOpen: (open: boolean) => void;
   isSettleUpOpen: boolean;
@@ -10,8 +10,8 @@ interface UIState {
 }
 
 export const useUIStore = create<UIState>((set) => ({
-  selectedGroupId: null,
-  setSelectedGroupId: (id) => set({ selectedGroupId: id }),
+  selectedTabId: null,
+  setSelectedTabId: (id) => set({ selectedTabId: id }),
   isAddExpenseOpen: false,
   setIsAddExpenseOpen: (open) => set({ isAddExpenseOpen: open }),
   isSettleUpOpen: false,

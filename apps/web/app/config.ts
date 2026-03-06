@@ -1,7 +1,7 @@
 export const appConfig = {
   name: "Tab It",
   fullName: "Tab It - Split expenses with friends",
-  description: "A simple way to split expenses with friends and groups",
+  description: "A simple way to split expenses with friends and tabs",
   icons: {
     sm: { src: "/icon-192x192.png", sizes: "192x192" },
     md: { src: "/icon-512x512.png", sizes: "512x512" },

@@ -29,6 +29,13 @@
       "when": 1741539600000,
       "tag": "0003_friend_requests_and_pending",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1741626000000,
+      "tag": "0004_rename_group_to_tab",
+      "breakpoints": true
     }
   ]
 }

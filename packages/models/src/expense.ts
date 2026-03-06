@@ -4,7 +4,7 @@ export const splitTypeSchema = z.enum(["equal", "custom"]);
 export type SplitType = z.infer<typeof splitTypeSchema>;
 
 export const createExpenseSchema = z.object({
-  groupId: z.string(),
+  tabId: z.string(),
   amount: z.number().positive(),
   description: z.string().min(1).max(500),
   paidById: z.string(),
@@ -23,7 +23,7 @@ export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 
 export const expenseSchema = z.object({
   id: z.string(),
-  groupId: z.string(),
+  tabId: z.string(),
   paidById: z.string(),
   amount: z.number(),
   description: z.string(),

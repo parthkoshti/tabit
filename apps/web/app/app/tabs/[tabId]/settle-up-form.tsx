@@ -16,6 +16,12 @@ import {
 } from "@/components/ui/select";
 import { getDisplayName } from "@/lib/display-name";
 
+type Member = {
+  userId: string;
+  role: string;
+  user: { id: string; email: string; name: string | null; username?: string | null };
+};
+
 type Balance = {
   userId: string;
   amount: number;
@@ -23,57 +29,51 @@ type Balance = {
 };
 
 export function SettleUpForm({
-  groupId,
+  tabId,
   currentUserId,
+  members,
   balances,
 }: {
-  groupId: string;
+  tabId: string;
   currentUserId: string;
+  members: Member[];
   balances: Balance[];
 }) {
+  const [fromUserId, setFromUserId] = useState("");
   const [toUserId, setToUserId] = useState("");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  const myBalance = balances.find((b) => b.userId === currentUserId);
-  const iOwe = myBalance && myBalance.amount < 0;
-  const payees = balances.filter(
-    (b) => b.userId !== currentUserId && b.amount > 0
+  const balanceMap = Object.fromEntries(
+    balances.map((b) => [b.userId, b.amount])
   );
-  const canSettle = iOwe && payees.length > 0;
-
-  if (!canSettle) {
-    return (
-      <p className="rounded-lg border border-border p-4 text-muted-foreground">
-        You have no debts to settle in this group.
-      </p>
-    );
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!toUserId) {
-      setError("Please select a person to pay back");
+    if (!fromUserId || !toUserId) {
+      setError("Please select both payer and payee");
       return;
     }
     setLoading(true);
     setError(null);
 
     const formData = new FormData();
-    formData.set("groupId", groupId);
-    formData.set("fromUserId", currentUserId);
+    formData.set("tabId", tabId);
+    formData.set("fromUserId", fromUserId);
     formData.set("toUserId", toUserId);
     formData.set("amount", amount);
 
     const result = await recordSettlement(formData);
 
     if (result.success) {
+      setFromUserId("");
       setToUserId("");
       setAmount("");
-      queryClient.invalidateQueries({ queryKey: ["balances", groupId] });
-      queryClient.invalidateQueries({ queryKey: ["expenses", groupId] });
+      queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["settlements", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
     } else {
       setError(result.error ?? "Failed to record settlement");
@@ -84,31 +84,53 @@ export function SettleUpForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label>Pay back</Label>
+        <Label>Paid by</Label>
         <Select
-          value={toUserId || undefined}
+          value={fromUserId || undefined}
           onValueChange={(value) => {
-            setToUserId(value);
-            const b = payees.find((x) => x.userId === value);
-            if (b)
-              setAmount(
-                Math.min(
-                  b.amount,
-                  myBalance ? Math.abs(myBalance.amount) : b.amount
-                ).toFixed(2)
-              );
+            setFromUserId(value);
+            setToUserId("");
+            setAmount("");
           }}
           disabled={loading}
         >
           <SelectTrigger>
-            <SelectValue placeholder="Select person" />
+            <SelectValue placeholder="Select who paid" />
           </SelectTrigger>
           <SelectContent>
-            {payees.map((b) => (
-              <SelectItem key={b.userId} value={b.userId}>
-                {getDisplayName(b.user)} (owed ${b.amount.toFixed(2)})
+            {members.map((m) => (
+              <SelectItem key={m.userId} value={m.userId}>
+                {getDisplayName(m.user, currentUserId)}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <Label>Paid to</Label>
+        <Select
+          value={toUserId || undefined}
+          onValueChange={(value) => {
+            setToUserId(value);
+            const owed = balanceMap[value] ?? 0;
+            if (owed > 0) setAmount(owed.toFixed(2));
+          }}
+          disabled={loading || !fromUserId}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select who received" />
+          </SelectTrigger>
+          <SelectContent>
+            {members
+              .filter((m) => m.userId !== fromUserId)
+              .map((m) => (
+                <SelectItem key={m.userId} value={m.userId}>
+                  {getDisplayName(m.user, currentUserId)}
+                  {(balanceMap[m.userId] ?? 0) > 0 && (
+                    <> (owed ${(balanceMap[m.userId] ?? 0).toFixed(2)})</>
+                  )}
+                </SelectItem>
+              ))}
           </SelectContent>
         </Select>
       </div>
