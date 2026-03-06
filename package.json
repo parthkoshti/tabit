@@ -1,0 +1,23 @@
+{
+  "name": "tabit-turbo",
+  "private": true,
+  "scripts": {
+    "build": "turbo build",
+    "generate-icons": "node scripts/generate-icons.js",
+    "dev": "turbo dev",
+    "dev:web": "turbo dev --filter=web",
+    "check": "turbo check",
+    "lint": "turbo lint",
+    "db:generate": "turbo db:generate",
+    "db:migrate": "turbo db:migrate",
+    "db:push": "turbo db:push"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5",
+    "turbo": "^2.3.0"
+  },
+  "packageManager": "pnpm@9.14.2",
+  "engines": {
+    "node": ">=20"
+  }
+}
