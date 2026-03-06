@@ -94,6 +94,7 @@ export function AddExpenseForm({
         <Input
           id="amount"
           type="number"
+          step="0.01"
           min="0.01"
           value={amount}
           onChange={(e) => {
