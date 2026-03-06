@@ -14,7 +14,7 @@ export function TopNavbar() {
     pathname === "/app/friends" || pathname === "/app/friends/";
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top)]">
+    <header className="top-nav-safe sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]">
       {navPage ? (
         <>
           <TransitionLink

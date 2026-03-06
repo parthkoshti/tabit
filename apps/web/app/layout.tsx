@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ViewTransitions } from "next-view-transitions";
 import "./globals.css";
@@ -14,6 +14,12 @@ export const metadata: Metadata = {
   description: appConfig.description,
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -23,8 +29,18 @@ export default function RootLayout({
     <ViewTransitions>
       <html lang="en" className={`dark ${inter.variable}`}>
         <head>
-          <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="192x192" />
-          <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-precomposed.png" sizes="192x192" />
+          <meta name="apple-mobile-web-app-capable" content="yes" />
+          <meta name="apple-mobile-web-app-status-bar-style" />
+          <link
+            rel="apple-touch-icon"
+            href="/apple-touch-icon.png"
+            sizes="192x192"
+          />
+          <link
+            rel="apple-touch-icon-precomposed"
+            href="/apple-touch-icon-precomposed.png"
+            sizes="192x192"
+          />
           <SplashScreenLinks />
         </head>
         <body className="min-h-screen bg-background font-sans text-foreground">

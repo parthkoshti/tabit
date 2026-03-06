@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { appConfig } from "@/app/config";
 import { authClient } from "@/lib/auth-client";
 import { Link as TransitionLink } from "next-view-transitions";
@@ -20,29 +20,63 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 function LoginForm() {
   const searchParams = useSearchParams();
   const callbackURL = searchParams.get("callbackURL") ?? "/app/groups";
+  const router = useRouter();
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">(
-    "idle"
-  );
+  const [otp, setOtp] = useState("");
+  const [step, setStep] = useState<"email" | "otp">("email");
+  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSendOtp(e: React.FormEvent) {
     e.preventDefault();
     setStatus("loading");
     setError(null);
 
-    const { error: err } = await authClient.signIn.magicLink({
+    const { error: err } = await authClient.emailOtp.sendVerificationOtp({
       email,
+      type: "sign-in",
+    });
+
+    if (err) {
+      setStatus("error");
+      setError(err.message ?? "Failed to send OTP");
+      return;
+    }
+
+    setStep("otp");
+    setStatus("idle");
+    setError(null);
+  }
+
+  async function handleVerifyOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus("loading");
+    setError(null);
+
+    const { data, error: err } = await authClient.signIn.emailOtp({
+      email,
+      otp,
       callbackURL,
     });
 
     if (err) {
       setStatus("error");
-      setError(err.message ?? "Failed to send magic link");
+      setError(err.message ?? "Invalid or expired code");
       return;
     }
 
-    setStatus("success");
+    if (data?.url) {
+      router.push(data.url);
+    } else {
+      router.push(callbackURL);
+    }
+  }
+
+  function handleBackToEmail() {
+    setStep("email");
+    setOtp("");
+    setError(null);
+    setStatus("idle");
   }
 
   return (
@@ -51,18 +85,14 @@ function LoginForm() {
         <CardHeader>
           <CardTitle>Sign in to {appConfig.name}</CardTitle>
           <CardDescription>
-            Enter your email and we&apos;ll send you a magic link to sign in.
+            {step === "email"
+              ? "Enter your email and we'll send you a one-time code to sign in."
+              : "Enter the 6-digit code we sent to your email."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {status === "success" ? (
-            <Alert>
-              <AlertDescription>
-                Check your email for the magic link. It expires in 5 minutes.
-              </AlertDescription>
-            </Alert>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+          {step === "email" ? (
+            <form onSubmit={handleSendOtp} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -85,7 +115,49 @@ function LoginForm() {
                 disabled={status === "loading"}
                 className="w-full"
               >
-                {status === "loading" ? "Sending..." : "Send magic link"}
+                {status === "loading" ? "Sending..." : "Send code"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="otp">Verification code</Label>
+                <Input
+                  id="otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  value={otp}
+                  onChange={(e) =>
+                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  required
+                  disabled={status === "loading"}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="text-center text-lg tracking-[0.5em]"
+                />
+              </div>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              <Button
+                type="submit"
+                disabled={status === "loading" || otp.length !== 6}
+                className="w-full"
+              >
+                {status === "loading" ? "Verifying..." : "Sign in"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleBackToEmail}
+                disabled={status === "loading"}
+                className="w-full"
+              >
+                Use a different email
               </Button>
             </form>
           )}
@@ -101,11 +173,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <main className="flex min-h-screen flex-col items-center justify-center p-8">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </main>
-    }>
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen flex-col items-center justify-center p-8">
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        </main>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

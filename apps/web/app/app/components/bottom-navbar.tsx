@@ -15,7 +15,7 @@ export function BottomNavbar() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-2 left-0 right-0 z-40 flex items-center justify-around border-t border-border bg-background pb-[env(safe-area-inset-bottom)] pt-2">
+    <nav className="bottom-nav-safe fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around border-t border-border bg-background pt-2 pb-[env(safe-area-inset-bottom,0px)]">
       {tabs.map(({ href, label, icon: Icon }) => {
         const isActive =
           pathname === href ||

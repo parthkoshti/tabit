@@ -117,6 +117,26 @@
   }
 }
 
+/* Safe area insets for PWA - env() is unreliable on iOS, use fallback in standalone */
+@media (display-mode: standalone) {
+  .bottom-nav-safe {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 34px) !important;
+  }
+  .app-layout-safe-bottom {
+    padding-bottom: max(
+      calc(4rem + env(safe-area-inset-bottom, 0px)),
+      calc(4rem + 34px)
+    ) !important;
+  }
+}
+
+/* Top nav safe area - apply on mobile viewports and standalone (env() often returns 0) */
+@media (display-mode: standalone), (max-width: 768px) {
+  .top-nav-safe {
+    padding-top: max(env(safe-area-inset-top, 0px), constant(safe-area-inset-top, 0px), 44px) !important;
+  }
+}
+
 .dark {
     /* Linear dark mode palette */
     --background: #08090a;

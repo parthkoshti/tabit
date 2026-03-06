@@ -1,7 +1,7 @@
 import { betterAuth } from "better-auth";
 import { appConfig } from "@/app/config";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { magicLink } from "better-auth/plugins";
+import { emailOTP } from "better-auth/plugins";
 import Plunk from "@plunk/node";
 import { db, user, session, account, verification } from "db";
 
@@ -33,16 +33,38 @@ export const auth = betterAuth({
     enabled: false,
   },
   plugins: [
-    magicLink({
-      sendMagicLink: async ({ email, url }) => {
-        if (plunk) {
-          await plunk.emails.send({
-            to: email,
-            subject: `Sign in to ${appConfig.name}`,
-            body: `Click the link below to sign in to ${appConfig.name}:\n\n${url}\n\nThis link expires in 5 minutes.`,
-          });
+    emailOTP({
+      sendVerificationOTP: async ({ email, otp, type }) => {
+        if (type === "sign-in") {
+          if (plunk) {
+            await plunk.emails.send({
+              to: email,
+              subject: `Sign in to ${appConfig.name}`,
+              body: `Your sign-in code for ${appConfig.name} is: ${otp}\n\nThis code expires in 5 minutes.`,
+            });
+          } else {
+            console.log("OTP (no Plunk configured):", otp);
+          }
+        } else if (type === "email-verification") {
+          if (plunk) {
+            await plunk.emails.send({
+              to: email,
+              subject: `Verify your email for ${appConfig.name}`,
+              body: `Your verification code for ${appConfig.name} is: ${otp}\n\nThis code expires in 5 minutes.`,
+            });
+          } else {
+            console.log("Verification OTP (no Plunk configured):", otp);
+          }
         } else {
-          console.log("Magic link (no Plunk configured):", url);
+          if (plunk) {
+            await plunk.emails.send({
+              to: email,
+              subject: `Reset your password for ${appConfig.name}`,
+              body: `Your password reset code for ${appConfig.name} is: ${otp}\n\nThis code expires in 5 minutes.`,
+            });
+          } else {
+            console.log("Password reset OTP (no Plunk configured):", otp);
+          }
         }
       },
       expiresIn: 60 * 5,

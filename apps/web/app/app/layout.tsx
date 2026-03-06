@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import { NavTitleProvider } from "./context/nav-title-context";
 import { TopNavbar } from "./components/top-navbar";
 import { BottomNavbar } from "./components/bottom-navbar";
+import { LoadingScreen } from "./components/loading-screen";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -21,11 +22,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   }, [session, isPending, router, pathname, searchParams]);
 
   if (isPending) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!session?.user) {
@@ -34,7 +31,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
   return (
     <NavTitleProvider>
-      <div className="flex min-h-screen flex-col pb-16">
+      <div className="app-layout-safe-bottom flex min-h-screen flex-col pb-[calc(4rem+env(safe-area-inset-bottom,0px))]">
         <TopNavbar />
         <main
           className="min-h-0 flex-1 overflow-auto"
@@ -54,13 +51,7 @@ export default function AppLayout({
   children: React.ReactNode;
 }) {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-screen items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingScreen />}>
       <AppLayoutContent>{children}</AppLayoutContent>
     </Suspense>
   );
