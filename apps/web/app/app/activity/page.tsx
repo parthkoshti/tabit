@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { getDisplayName } from "@/lib/display-name";
+import { UserAvatar } from "@/components/user-avatar";
 
 function formatDate(d: Date) {
   const date = new Date(d);
@@ -57,9 +58,12 @@ export default function ActivityPage() {
                   >
                     <Card className="transition-colors hover:bg-accent">
                       <CardContent className="flex flex-col gap-1 p-4">
-                        <div className="flex justify-between">
-                          <span className="font-medium">{item.description}</span>
-                          <span className="text-muted-foreground">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <UserAvatar userId={item.paidById} size="sm" />
+                            <span className="font-medium">{item.description}</span>
+                          </div>
+                          <span className="text-muted-foreground shrink-0">
                             ${item.amount.toFixed(2)}
                           </span>
                         </div>
@@ -85,7 +89,8 @@ export default function ActivityPage() {
                   >
                     <Card className="transition-colors hover:bg-accent">
                       <CardContent className="flex flex-col gap-1 p-4">
-                        <div className="flex justify-between">
+                        <div className="flex items-center gap-2">
+                          <UserAvatar userId={item.fromUserId} size="sm" />
                           <span className="font-medium">
                             {getDisplayName({
                               id: item.fromUserId,

@@ -15,7 +15,10 @@ import {
 export async function fetchTabs() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
-  return getTabsForUser(session.user.id);
+  return getTabsForUser(session.user.id, {
+    includeBalance: true,
+    includeMemberIds: true,
+  });
 }
 
 export async function fetchTab(tabId: string) {

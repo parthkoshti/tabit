@@ -10,11 +10,25 @@ import {
 } from "db";
 import { eq, desc, inArray, and, sql } from "drizzle-orm";
 
+export type TabWithBalance = {
+  id: string;
+  name: string;
+  createdAt: Date;
+  balance?: number;
+  memberUserIds?: string[];
+};
+
 export async function getTabsForUser(
   userId: string,
-  options?: { includeDirect?: boolean }
-) {
+  options?: {
+    includeDirect?: boolean;
+    includeBalance?: boolean;
+    includeMemberIds?: boolean;
+  }
+): Promise<TabWithBalance[]> {
   const includeDirect = options?.includeDirect ?? false;
+  const includeBalance = options?.includeBalance ?? false;
+  const includeMemberIds = options?.includeMemberIds ?? false;
 
   if (includeDirect) {
     const rows = await db
@@ -27,7 +41,24 @@ export async function getTabsForUser(
       .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
       .where(eq(tabMember.userId, userId))
       .orderBy(desc(tab.createdAt));
-    return rows;
+    return Promise.all(
+      rows.map(async (r) => {
+        const result: TabWithBalance = { ...r };
+        if (includeBalance) {
+          const balances = await getBalancesForTab(r.id);
+          const myBalance = balances.find((b) => b.userId === userId);
+          result.balance = myBalance ? myBalance.amount : 0;
+        }
+        if (includeMemberIds) {
+          const members = await db
+            .select({ userId: tabMember.userId })
+            .from(tabMember)
+            .where(eq(tabMember.tabId, r.id));
+          result.memberUserIds = members.map((m) => m.userId);
+        }
+        return result;
+      })
+    );
   }
 
   const isDirectFalse = sql`${tab.isDirect} = false`;
@@ -42,7 +73,24 @@ export async function getTabsForUser(
     .where(and(eq(tabMember.userId, userId), isDirectFalse))
     .orderBy(desc(tab.createdAt));
 
-  return rows;
+  return Promise.all(
+    rows.map(async (r) => {
+      const result: TabWithBalance = { ...r };
+      if (includeBalance) {
+        const balances = await getBalancesForTab(r.id);
+        const myBalance = balances.find((b) => b.userId === userId);
+        result.balance = myBalance ? myBalance.amount : 0;
+      }
+      if (includeMemberIds) {
+        const members = await db
+          .select({ userId: tabMember.userId })
+          .from(tabMember)
+          .where(eq(tabMember.tabId, r.id));
+        result.memberUserIds = members.map((m) => m.userId);
+      }
+      return result;
+    })
+  );
 }
 
 export type FriendTab = {

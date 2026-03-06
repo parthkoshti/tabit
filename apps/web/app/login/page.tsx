@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Spinner } from "@/components/ui/spinner";
 
 function LoginForm() {
   const searchParams = useSearchParams();
@@ -53,7 +54,7 @@ function LoginForm() {
     setStatus("loading");
     setError(null);
 
-    const { data, error: err } = await authClient.signIn.emailOtp({
+    const { error: err } = await authClient.signIn.emailOtp({
       email,
       otp,
       callbackURL,
@@ -65,11 +66,7 @@ function LoginForm() {
       return;
     }
 
-    if (data?.url) {
-      router.push(data.url);
-    } else {
-      router.push(callbackURL);
-    }
+    router.push(callbackURL);
   }
 
   function handleBackToEmail() {
@@ -176,7 +173,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <main className="flex min-h-screen flex-col items-center justify-center p-8">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <Spinner />
         </main>
       }
     >

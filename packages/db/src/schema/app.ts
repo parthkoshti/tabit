@@ -76,6 +76,34 @@ export const expenseSplit = pgTable("expense_split", {
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
 });
 
+export const pendingTabInvite = pgTable("pending_tab_invite", {
+  id: text("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  tabId: text("tabId")
+    .notNull()
+    .references(() => tab.id, { onDelete: "cascade" }),
+  createdByUserId: text("createdByUserId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  expiresAt: timestamp("expiresAt").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export const tabInviteRequest = pgTable("tab_invite_request", {
+  id: text("id").primaryKey(),
+  tabId: text("tabId")
+    .notNull()
+    .references(() => tab.id, { onDelete: "cascade" }),
+  fromUserId: text("fromUserId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  toUserId: text("toUserId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  status: text("status").notNull().default("pending"), // pending | accepted | rejected
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
 export const settlement = pgTable("settlement", {
   id: text("id").primaryKey(),
   tabId: text("tabId")

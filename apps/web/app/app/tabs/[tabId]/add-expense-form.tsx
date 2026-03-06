@@ -15,21 +15,30 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getDisplayName } from "@/lib/display-name";
+import { UserAvatar } from "@/components/user-avatar";
+import { toast } from "sonner";
 
 type Member = {
   userId: string;
   role: string;
-  user: { id: string; email: string; name: string | null; username?: string | null };
+  user: {
+    id: string;
+    email: string;
+    name: string | null;
+    username?: string | null;
+  };
 };
 
 export function AddExpenseForm({
   tabId,
   members,
   currentUserId,
+  onSuccess,
 }: {
   tabId: string;
   members: Member[];
   currentUserId: string;
+  onSuccess?: () => void;
 }) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -58,6 +67,8 @@ export function AddExpenseForm({
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast.success("Expense added");
+      onSuccess?.();
     } else {
       setError(result.error ?? "Failed to add expense");
     }
@@ -73,7 +84,7 @@ export function AddExpenseForm({
           type="text"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="e.g. Dinner"
+          placeholder="eg. Dinner"
           required
           disabled={loading}
         />
@@ -83,28 +94,27 @@ export function AddExpenseForm({
         <Input
           id="amount"
           type="number"
-          step="0.01"
-          min="0"
+          min="0.01"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
           required
           disabled={loading}
+          className="input-no-spinner"
         />
       </div>
       <div className="space-y-2">
         <Label>Paid by</Label>
-        <Select
-          value={paidById}
-          onValueChange={setPaidById}
-          disabled={loading}
-        >
+        <Select value={paidById} onValueChange={setPaidById} disabled={loading}>
           <SelectTrigger>
             <SelectValue placeholder="Select who paid" />
           </SelectTrigger>
           <SelectContent>
             {members.map((m) => (
               <SelectItem key={m.userId} value={m.userId}>
-                {getDisplayName(m.user, currentUserId)}
+                <span className="flex items-center gap-2">
+                  <UserAvatar userId={m.userId} size="xs" />
+                  {getDisplayName(m.user, currentUserId)}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>

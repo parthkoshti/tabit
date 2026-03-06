@@ -10,7 +10,7 @@ import {
 } from "db";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
-import { eq, and, sql, desc, ilike } from "drizzle-orm";
+import { eq, and, ne, desc, ilike, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 
 function secureToken(): string {
@@ -31,7 +31,10 @@ async function createDirectTab(userId1: string, userId2: string) {
   return id;
 }
 
-export async function searchUsersByUsername(query: string) {
+export async function searchUsersByUsername(
+  query: string,
+  options?: { includeFriends?: boolean }
+) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) {
     return { success: false, error: "Unauthorized", users: [] };
@@ -40,6 +43,31 @@ export async function searchUsersByUsername(query: string) {
   const trimmed = query.trim().toLowerCase();
   if (trimmed.length < 3) {
     return { success: true, users: [] };
+  }
+
+  const friendIdSet = new Set<string>();
+  if (!options?.includeFriends) {
+    const directTabIds = await db
+      .select({ tabId: tabMember.tabId })
+      .from(tab)
+      .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
+      .where(
+        and(eq(tab.isDirect, true), eq(tabMember.userId, session.user.id))
+      );
+
+    if (directTabIds.length > 0) {
+      const tabIds = directTabIds.map((d) => d.tabId);
+      const otherMembers = await db
+        .select({ userId: tabMember.userId })
+        .from(tabMember)
+        .where(
+          and(
+            inArray(tabMember.tabId, tabIds),
+            ne(tabMember.userId, session.user.id)
+          )
+        );
+      otherMembers.forEach((m) => friendIdSet.add(m.userId));
+    }
   }
 
   const users = await db
@@ -54,7 +82,9 @@ export async function searchUsersByUsername(query: string) {
 
   return {
     success: true,
-    users: users.filter((u) => u.id !== session.user.id),
+    users: users.filter(
+      (u) => u.id !== session.user.id && !friendIdSet.has(u.id)
+    ),
   };
 }
 

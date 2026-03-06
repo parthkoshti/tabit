@@ -8,5 +8,5 @@ export function getDisplayName(
   currentUserId?: string,
 ): string {
   if (currentUserId && user.id === currentUserId) return "You";
-  return user.username ? `@${user.username}` : (user.name ?? user.email);
+  return user.name ?? (user.username ? `@${user.username}` : user.email);
 }

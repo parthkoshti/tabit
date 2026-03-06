@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { addFriendByToken } from "@/app/actions/friends";
 import { useNavTitle } from "@/app/app/context/nav-title-context";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 
 function AddByQRContent() {
   const router = useRouter();
@@ -51,7 +53,7 @@ function AddByQRContent() {
   if (status === "loading") {
     return (
       <div className="flex min-h-[200px] items-center justify-center p-4">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <Spinner />
       </div>
     );
   }
@@ -62,13 +64,9 @@ function AddByQRContent() {
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
           {error}
         </div>
-        <button
-          type="button"
-          onClick={() => router.push("/app/friends")}
-          className="mt-4 text-primary underline"
-        >
+        <Button variant="link" onClick={() => router.push("/app/friends")} className="mt-4">
           Back to friends
-        </button>
+        </Button>
       </div>
     );
   }
@@ -81,7 +79,7 @@ export default function AddByQRPage() {
     <Suspense
       fallback={
         <div className="flex min-h-[200px] items-center justify-center p-4">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <Spinner />
         </div>
       }
     >

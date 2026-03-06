@@ -4,6 +4,7 @@ import { ViewTransitions } from "next-view-transitions";
 import "./globals.css";
 import { Providers } from "./providers";
 import { RegisterSW } from "./register-sw";
+import { Toaster } from "@/components/ui/sonner";
 import { SplashScreenLinks } from "./splash-screen-links";
 import { appConfig } from "./config";
 
@@ -47,6 +48,7 @@ export default function RootLayout({
           <Providers>
             <RegisterSW />
             {children}
+            <Toaster />
           </Providers>
         </body>
       </html>

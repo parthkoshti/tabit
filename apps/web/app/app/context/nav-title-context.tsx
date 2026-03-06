@@ -10,6 +10,9 @@ import {
 export type NavTitleConfig = {
   title: string;
   backHref: string;
+  avatarUserIds?: string[];
+  /** When set (direct tab), renders "Tab with <avatar> <name>" */
+  avatarDisplayName?: string;
 };
 
 const NavTitleContext = createContext<NavTitleConfig | null>(null);

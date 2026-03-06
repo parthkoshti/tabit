@@ -19,6 +19,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Copy, Share2 } from "lucide-react";
+import { UserAvatar } from "@/components/user-avatar";
+import { Spinner } from "@/components/ui/spinner";
 import { appConfig } from "@/app/config";
 import Image from "next/image";
 import QRCode from "qrcode";
@@ -96,7 +98,7 @@ function MyQRCode() {
   if (isLoading || !url) {
     return (
       <div className="flex aspect-square w-48 items-center justify-center rounded-lg border bg-muted">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+        <Spinner size="sm" />
       </div>
     );
   }
@@ -110,7 +112,7 @@ function MyQRCode() {
               className="flex items-center justify-center"
               style={{ width: 180, height: 180 }}
             >
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              <Spinner size="sm" />
             </div>
           }
         >
@@ -247,17 +249,20 @@ export default function AddFriendPage() {
                 {searchResults.map((u) => (
                   <div
                     key={u.id}
-                    className="flex items-center justify-between rounded-lg border border-border p-3"
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
                   >
-                    <div className="flex flex-col">
-                      <span className="font-medium">
-                        {u.name ?? u.username ?? "Unknown"}
-                      </span>
-                      {u.username && (
-                        <span className="text-sm text-muted-foreground">
-                          @{u.username}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <UserAvatar userId={u.id} size="sm" />
+                      <div className="flex flex-col">
+                        <span className="font-medium">
+                          {u.name ?? u.username ?? "Unknown"}
                         </span>
-                      )}
+                        {u.username && (
+                          <span className="text-sm text-muted-foreground">
+                            @{u.username}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <Button
                       size="sm"

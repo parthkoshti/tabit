@@ -2,7 +2,11 @@
 
 import { Link as TransitionLink } from "next-view-transitions";
 import { usePathname } from "next/navigation";
-import { Users, LayoutGrid, Activity, User, ReceiptText } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Users, Activity, User, ReceiptText } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { getPendingFriendRequests } from "@/app/actions/friends";
+import { getPendingTabInviteRequests } from "@/app/actions/tab-invites";
 
 const tabs = [
   { href: "/app/friends", label: "Friends", icon: Users },
@@ -13,6 +17,26 @@ const tabs = [
 
 export function BottomNavbar() {
   const pathname = usePathname();
+  const { data: friendRequestsData } = useQuery({
+    queryKey: ["pendingFriendRequests"],
+    queryFn: async () => {
+      const r = await getPendingFriendRequests();
+      return r.success ? r.requests : [];
+    },
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const { data: tabInvitesData } = useQuery({
+    queryKey: ["pendingTabInviteRequests"],
+    queryFn: async () => {
+      const r = await getPendingTabInviteRequests();
+      return r.success ? r.requests : [];
+    },
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const friendInviteCount = friendRequestsData?.length ?? 0;
+  const tabInviteCount = tabInvitesData?.length ?? 0;
 
   return (
     <nav
@@ -23,18 +47,34 @@ export function BottomNavbar() {
         const isActive =
           pathname === href ||
           (href === "/app/tabs" && pathname.startsWith("/app/tabs/"));
+        const showBadge =
+          (href === "/app/friends" && friendInviteCount > 0) ||
+          (href === "/app/tabs" && tabInviteCount > 0);
+        const badgeCount =
+          href === "/app/friends" ? friendInviteCount : tabInviteCount;
 
         return (
-          <TransitionLink
+          <Button
             key={href}
-            href={href}
-            className={`flex flex-col items-center gap-1 px-4 py-1 text-xs transition-colors ${
+            variant="ghost"
+            size="sm"
+            className={`flex flex-col gap-1 px-4 py-1 h-auto text-xs font-normal ${
               isActive ? "text-foreground font-medium" : "text-muted-foreground"
             }`}
+            asChild
           >
-            <Icon className="h-5 w-5" />
-            {label}
-          </TransitionLink>
+            <TransitionLink href={href}>
+              <span className="relative inline-block">
+                <Icon className="h-5 w-5" />
+                {showBadge && (
+                  <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-foreground">
+                    {badgeCount > 9 ? "9+" : badgeCount}
+                  </span>
+                )}
+              </span>
+              {label}
+            </TransitionLink>
+          </Button>
         );
       })}
     </nav>

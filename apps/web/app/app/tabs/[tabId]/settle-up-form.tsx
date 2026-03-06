@@ -15,6 +15,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { getDisplayName } from "@/lib/display-name";
+import { UserAvatar } from "@/components/user-avatar";
+import { toast } from "sonner";
 
 type Member = {
   userId: string;
@@ -33,11 +35,13 @@ export function SettleUpForm({
   currentUserId,
   members,
   balances,
+  onSuccess,
 }: {
   tabId: string;
   currentUserId: string;
   members: Member[];
   balances: Balance[];
+  onSuccess?: () => void;
 }) {
   const [fromUserId, setFromUserId] = useState("");
   const [toUserId, setToUserId] = useState("");
@@ -75,6 +79,8 @@ export function SettleUpForm({
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["settlements", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast.success("Settlement recorded");
+      onSuccess?.();
     } else {
       setError(result.error ?? "Failed to record settlement");
     }
@@ -100,7 +106,10 @@ export function SettleUpForm({
           <SelectContent>
             {members.map((m) => (
               <SelectItem key={m.userId} value={m.userId}>
-                {getDisplayName(m.user, currentUserId)}
+                <span className="flex items-center gap-2">
+                  <UserAvatar userId={m.userId} size="sm" />
+                  {getDisplayName(m.user, currentUserId)}
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -125,10 +134,13 @@ export function SettleUpForm({
               .filter((m) => m.userId !== fromUserId)
               .map((m) => (
                 <SelectItem key={m.userId} value={m.userId}>
-                  {getDisplayName(m.user, currentUserId)}
-                  {(balanceMap[m.userId] ?? 0) > 0 && (
-                    <> (owed ${(balanceMap[m.userId] ?? 0).toFixed(2)})</>
-                  )}
+                  <span className="flex items-center gap-2">
+                    <UserAvatar userId={m.userId} size="sm" />
+                    {getDisplayName(m.user, currentUserId)}
+                    {(balanceMap[m.userId] ?? 0) > 0 && (
+                      <> (owed ${(balanceMap[m.userId] ?? 0).toFixed(2)})</>
+                    )}
+                  </span>
                 </SelectItem>
               ))}
           </SelectContent>
@@ -145,6 +157,7 @@ export function SettleUpForm({
           onChange={(e) => setAmount(e.target.value)}
           required
           disabled={loading}
+          className="input-no-spinner"
         />
       </div>
       {error && (

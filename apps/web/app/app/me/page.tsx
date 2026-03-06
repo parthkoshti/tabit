@@ -20,6 +20,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Loader2, CircleCheck, CircleX } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { UserAvatar } from "@/components/user-avatar";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{5,12}$/;
 
@@ -111,11 +113,19 @@ export default function MePage() {
             <CardDescription>Your account details</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {session?.user?.email && (
-              <p className="text-sm text-muted-foreground">
-                {session.user.email}
-              </p>
-            )}
+            <div className="flex items-center gap-4">
+              <UserAvatar userId={session?.user?.id ?? ""} size="lg" />
+              <div className="flex flex-col gap-1">
+                {session?.user?.name && (
+                  <span className="font-medium">{session.user.name}</span>
+                )}
+                {session?.user?.email && (
+                  <p className="text-sm text-muted-foreground">
+                    {session.user.email}
+                  </p>
+                )}
+              </div>
+            </div>
             <form onSubmit={handleNameSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
@@ -158,29 +168,37 @@ export default function MePage() {
             <form onSubmit={handleUsernameSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="username">Username</Label>
-                <div className="relative">
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="johndoe"
-                    minLength={5}
-                    maxLength={12}
-                    pattern="[a-zA-Z0-9_]+"
-                    disabled={usernameLoading}
-                    className="pr-10"
-                  />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                    {availability === "loading" && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    )}
-                    {availability === "available" && (
-                      <CircleCheck className="h-4 w-4 text-green-600" />
-                    )}
-                    {availability === "taken" && (
-                      <CircleX className="h-4 w-4 text-destructive" />
-                    )}
-                  </span>
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      id="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="johndoe"
+                      minLength={5}
+                      maxLength={12}
+                      pattern="[a-zA-Z0-9_]+"
+                      disabled={usernameLoading}
+                      className="pr-10"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                      {availability === "loading" && (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      )}
+                      {availability === "available" && (
+                        <CircleCheck className="h-4 w-4 text-positive" />
+                      )}
+                      {availability === "taken" && (
+                        <CircleX className="h-4 w-4 text-destructive" />
+                      )}
+                    </span>
+                  </div>
+                  {availability === "available" && (
+                    <Badge variant="secondary" className="shrink-0">Available</Badge>
+                  )}
+                  {availability === "taken" && (
+                    <Badge variant="destructive" className="shrink-0">Taken</Badge>
+                  )}
                 </div>
               </div>
               {error && (

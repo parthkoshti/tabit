@@ -3,15 +3,20 @@
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Link as TransitionLink } from "next-view-transitions";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, ReceiptText } from "lucide-react";
 import { appConfig } from "@/app/config";
 import { useNavTitleConfig } from "../context/nav-title-context";
+import { Button } from "@/components/ui/button";
+import { UserAvatar } from "@/components/user-avatar";
 
 export function TopNavbar() {
   const pathname = usePathname();
   const navPage = useNavTitleConfig();
   const isFriendsListPage =
     pathname === "/app/friends" || pathname === "/app/friends/";
+  const isTabsListPage = pathname === "/app/tabs" || pathname === "/app/tabs/";
+  const isTabPage =
+    pathname.startsWith("/app/tabs/") && !pathname.match(/^\/app\/tabs\/?$/);
 
   return (
     <header
@@ -20,16 +25,41 @@ export function TopNavbar() {
     >
       {navPage ? (
         <>
-          <TransitionLink
-            href={navPage.backHref}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          <Button
+            variant="ghost"
+            size="icon"
+            asChild
             aria-label={`Back to ${navPage.backHref}`}
           >
-            <ArrowLeft className="h-5 w-5" />
-          </TransitionLink>
-          <h1 className="flex-1 text-center text-lg font-semibold">
-            {navPage.title}
-          </h1>
+            <TransitionLink href={navPage.backHref}>
+              <ArrowLeft className="h-5 w-5" />
+            </TransitionLink>
+          </Button>
+          <div className="flex flex-1 items-center justify-center gap-2 min-w-0">
+            {isTabPage && (
+              <ReceiptText className="h-5 w-5 shrink-0 text-tab-icon" />
+            )}
+            <h1 className="truncate text-lg font-semibold">{navPage.title}</h1>
+            {isTabPage &&
+              navPage.avatarUserIds &&
+              navPage.avatarUserIds.length > 0 && (
+                <div className="flex -space-x-2 shrink-0 items-center">
+                  {navPage.avatarUserIds.slice(0, 2).map((userId) => (
+                    <UserAvatar
+                      key={userId}
+                      userId={userId}
+                      size="xs"
+                      className="ring-2 ring-background"
+                    />
+                  ))}
+                  {navPage.avatarUserIds.length > 3 && (
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
+                      3+
+                    </span>
+                  )}
+                </div>
+              )}
+          </div>
           <div className="w-9 shrink-0" aria-hidden />
         </>
       ) : (
@@ -44,14 +74,19 @@ export function TopNavbar() {
         </TransitionLink>
       )}
       {isFriendsListPage ? (
-        <TransitionLink
-          href="/app/friends/addFriend"
-          className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-          aria-label="Add friend"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Friend</span>
-        </TransitionLink>
+        <Button variant="ghost" size="sm" asChild aria-label="Add friend">
+          <TransitionLink href="/app/friends/addFriend" className="gap-1.5">
+            <Plus className="h-5 w-5" />
+            <span>Friend</span>
+          </TransitionLink>
+        </Button>
+      ) : isTabsListPage ? (
+        <Button variant="ghost" size="sm" asChild aria-label="New tab">
+          <TransitionLink href="/app/tabs/create" className="gap-1.5">
+            <Plus className="h-5 w-5" />
+            <span>Tab</span>
+          </TransitionLink>
+        </Button>
       ) : null}
     </header>
   );

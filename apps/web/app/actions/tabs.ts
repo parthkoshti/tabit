@@ -102,3 +102,55 @@ export async function leaveTab(tabId: string) {
 
   return { success: true };
 }
+
+export async function removeMember(tabId: string, userId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  if (userId === session.user.id) {
+    return { success: false, error: "Use leave to remove yourself" };
+  }
+
+  const [currentUserMember] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, tabId),
+        eq(tabMember.userId, session.user.id)
+      )
+    )
+    .limit(1);
+
+  if (!currentUserMember || currentUserMember.role !== "owner") {
+    return { success: false, error: "Only the tab admin can remove members" };
+  }
+
+  const [targetMember] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, tabId),
+        eq(tabMember.userId, userId)
+      )
+    )
+    .limit(1);
+
+  if (!targetMember) {
+    return { success: false, error: "User is not a member of this tab" };
+  }
+
+  await db
+    .delete(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, tabId),
+        eq(tabMember.userId, userId)
+      )
+    );
+
+  return { success: true };
+}
