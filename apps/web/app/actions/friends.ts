@@ -11,19 +11,18 @@ import {
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and, ne, desc, ilike, inArray, sql } from "drizzle-orm";
-import { nanoid } from "nanoid";
+import { createShortId } from "shared";
 
 function secureToken(): string {
-  return nanoid(5);
+  return createShortId();
 }
 
 async function createDirectTab(userId1: string, userId2: string) {
-  const id = nanoid();
-  await db.insert(tab).values({
-    id,
-    name: "Direct",
-    isDirect: true,
-  });
+  const [inserted] = await db
+    .insert(tab)
+    .values({ name: "Direct", isDirect: true })
+    .returning({ id: tab.id });
+  const id = inserted!.id;
   await db.insert(tabMember).values([
     { tabId: id, userId: userId1, role: "member" },
     { tabId: id, userId: userId2, role: "member" },
@@ -152,7 +151,6 @@ export async function sendFriendRequest(formData: FormData) {
   }
 
   await db.insert(friendRequest).values({
-    id: nanoid(),
     fromUserId: session.user.id,
     toUserId: targetUser.id,
     status: "pending",
@@ -296,7 +294,6 @@ export async function getFriendToken() {
     for (let i = 0; i < 5; i++) {
       try {
         await db.insert(pendingFriend).values({
-          id: nanoid(),
           token,
           userId: session.user.id,
           expiresAt,

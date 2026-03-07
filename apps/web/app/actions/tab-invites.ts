@@ -11,19 +11,18 @@ import {
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and, sql, desc } from "drizzle-orm";
-import { nanoid } from "nanoid";
+import { createId } from "shared";
 
 function secureToken(): string {
-  return nanoid(8);
+  return createId();
 }
 
 async function createDirectTab(userId1: string, userId2: string): Promise<string> {
-  const id = nanoid();
-  await db.insert(tab).values({
-    id,
-    name: "Direct",
-    isDirect: true,
-  });
+  const [inserted] = await db
+    .insert(tab)
+    .values({ name: "Direct", isDirect: true })
+    .returning({ id: tab.id });
+  const id = inserted!.id;
   await db.insert(tabMember).values([
     { tabId: id, userId: userId1, role: "member" },
     { tabId: id, userId: userId2, role: "member" },
@@ -132,7 +131,6 @@ export async function getTabInviteToken(tabId: string) {
     for (let i = 0; i < 5; i++) {
       try {
         await db.insert(pendingTabInvite).values({
-          id: nanoid(),
           token,
           tabId,
           createdByUserId: session.user.id,
@@ -323,7 +321,6 @@ export async function sendTabInviteRequest(tabId: string, username: string) {
   }
 
   await db.insert(tabInviteRequest).values({
-    id: nanoid(),
     tabId,
     fromUserId: session.user.id,
     toUserId: targetUser.id,

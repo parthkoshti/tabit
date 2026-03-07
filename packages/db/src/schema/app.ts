@@ -7,10 +7,13 @@ import {
   primaryKey,
   jsonb,
 } from "drizzle-orm/pg-core";
+import { createId } from "shared";
 import { user } from "./auth";
 
 export const friendRequest = pgTable("friend_request", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   fromUserId: text("fromUserId")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
@@ -22,7 +25,9 @@ export const friendRequest = pgTable("friend_request", {
 });
 
 export const pendingFriend = pgTable("pending_friend", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   token: text("token").notNull().unique(),
   userId: text("userId")
     .notNull()
@@ -32,7 +37,9 @@ export const pendingFriend = pgTable("pending_friend", {
 });
 
 export const tab = pgTable("tab", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   name: text("name").notNull(),
   isDirect: boolean("isDirect").notNull().default(false),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
@@ -49,11 +56,13 @@ export const tabMember = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     role: text("role").notNull().default("member"),
   },
-  (t) => [primaryKey({ columns: [t.tabId, t.userId] })]
+  (t) => [primaryKey({ columns: [t.tabId, t.userId] })],
 );
 
 export const expense = pgTable("expense", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   tabId: text("tabId")
     .notNull()
     .references(() => tab.id, { onDelete: "cascade" }),
@@ -68,7 +77,9 @@ export const expense = pgTable("expense", {
 });
 
 export const expenseSplit = pgTable("expense_split", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   expenseId: text("expenseId")
     .notNull()
     .references(() => expense.id, { onDelete: "cascade" }),
@@ -79,7 +90,9 @@ export const expenseSplit = pgTable("expense_split", {
 });
 
 export const pendingTabInvite = pgTable("pending_tab_invite", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   token: text("token").notNull().unique(),
   tabId: text("tabId")
     .notNull()
@@ -92,7 +105,9 @@ export const pendingTabInvite = pgTable("pending_tab_invite", {
 });
 
 export const tabInviteRequest = pgTable("tab_invite_request", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   tabId: text("tabId")
     .notNull()
     .references(() => tab.id, { onDelete: "cascade" }),
@@ -107,7 +122,9 @@ export const tabInviteRequest = pgTable("tab_invite_request", {
 });
 
 export const settlement = pgTable("settlement", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   tabId: text("tabId")
     .notNull()
     .references(() => tab.id, { onDelete: "cascade" }),
@@ -122,7 +139,9 @@ export const settlement = pgTable("settlement", {
 });
 
 export const expenseAuditLog = pgTable("expense_audit_log", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   expenseId: text("expenseId").notNull(), // No FK - audit persists after expense delete
   tabId: text("tabId")
     .notNull()
@@ -136,7 +155,9 @@ export const expenseAuditLog = pgTable("expense_audit_log", {
 });
 
 export const settlementAuditLog = pgTable("settlement_audit_log", {
-  id: text("id").primaryKey(),
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
   settlementId: text("settlementId")
     .notNull()
     .references(() => settlement.id, { onDelete: "cascade" }),

@@ -9,7 +9,6 @@ import { createExpenseSchema } from "models";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
-import { nanoid } from "nanoid";
 
 export async function createExpense(formData: FormData) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -81,7 +80,6 @@ export async function createExpense(formData: FormData) {
     return { success: false, error: "Add at least one other person to split with" };
   }
 
-  const expenseId = nanoid();
   const amount = parsed.data.amount;
 
   let splits: { userId: string; amount: number }[];
@@ -104,19 +102,21 @@ export async function createExpense(formData: FormData) {
     return { success: false, error: "Custom split requires splits array" };
   }
 
-  await db.insert(expense).values({
-    id: expenseId,
-    tabId: parsed.data.tabId,
-    paidById: parsed.data.paidById,
-    amount: parsed.data.amount.toString(),
-    description: parsed.data.description,
-    splitType: parsed.data.splitType,
-    expenseDate: parsed.data.expenseDate,
-  });
+  const [inserted] = await db
+    .insert(expense)
+    .values({
+      tabId: parsed.data.tabId,
+      paidById: parsed.data.paidById,
+      amount: parsed.data.amount.toString(),
+      description: parsed.data.description,
+      splitType: parsed.data.splitType,
+      expenseDate: parsed.data.expenseDate,
+    })
+    .returning({ id: expense.id });
+  const expenseId = inserted!.id;
 
   for (const s of splits) {
     await db.insert(expenseSplit).values({
-      id: nanoid(),
       expenseId,
       userId: s.userId,
       amount: s.amount.toString(),
@@ -124,7 +124,6 @@ export async function createExpense(formData: FormData) {
   }
 
   await db.insert(expenseAuditLog).values({
-    id: nanoid(),
     expenseId,
     tabId: parsed.data.tabId,
     action: "create",
@@ -297,7 +296,6 @@ export async function updateExpense(expenseId: string, formData: FormData) {
 
   for (const s of splits) {
     await db.insert(expenseSplit).values({
-      id: nanoid(),
       expenseId,
       userId: s.userId,
       amount: s.amount.toString(),
@@ -306,7 +304,6 @@ export async function updateExpense(expenseId: string, formData: FormData) {
 
   if (Object.keys(changes).length > 0) {
     await db.insert(expenseAuditLog).values({
-      id: nanoid(),
       expenseId,
       tabId: existing.tabId,
       action: "update",
@@ -350,7 +347,6 @@ export async function deleteExpense(expenseId: string) {
   }
 
   await db.insert(expenseAuditLog).values({
-    id: nanoid(),
     expenseId,
     tabId: exp.tabId,
     action: "delete",

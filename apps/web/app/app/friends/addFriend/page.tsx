@@ -214,7 +214,7 @@ export default function AddFriendPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-md space-y-6">
+      <div className="mx-auto max-w-md space-y-6 pb-24">
         <Card>
           <CardHeader>
             <CardTitle>Search by username</CardTitle>

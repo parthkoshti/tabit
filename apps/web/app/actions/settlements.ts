@@ -5,7 +5,6 @@ import { recordSettlementSchema } from "models";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
-import { nanoid } from "nanoid";
 
 export async function recordSettlement(formData: FormData) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -69,17 +68,18 @@ export async function recordSettlement(formData: FormData) {
     return { success: false, error: "Payer and payee must be different people" };
   }
 
-  const settlementId = nanoid();
-  await db.insert(settlement).values({
-    id: settlementId,
-    tabId: parsed.data.tabId,
-    fromUserId: parsed.data.fromUserId,
-    toUserId: parsed.data.toUserId,
-    amount: parsed.data.amount.toString(),
-  });
+  const [inserted] = await db
+    .insert(settlement)
+    .values({
+      tabId: parsed.data.tabId,
+      fromUserId: parsed.data.fromUserId,
+      toUserId: parsed.data.toUserId,
+      amount: parsed.data.amount.toString(),
+    })
+    .returning({ id: settlement.id });
+  const settlementId = inserted!.id;
 
   await db.insert(settlementAuditLog).values({
-    id: nanoid(),
     settlementId,
     tabId: parsed.data.tabId,
     action: "create",

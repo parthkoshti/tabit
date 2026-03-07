@@ -1,5 +1,6 @@
 import { betterAuth } from "better-auth";
 import { appConfig } from "@/app/config";
+import { createFullId } from "shared";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
 import Plunk from "@plunk/node";
@@ -29,6 +30,11 @@ export const auth = betterAuth({
       verification,
     },
   }),
+  advanced: {
+    database: {
+      generateId: () => createFullId(),
+    },
+  },
   emailAndPassword: {
     enabled: false,
   },
@@ -39,7 +45,7 @@ export const auth = betterAuth({
           if (plunk) {
             await plunk.emails.send({
               to: email,
-              subject: `Sign in to ${appConfig.name}`,
+              subject: `Sign in to ${appConfig.name}: ${otp}`,
               body: `Your sign-in code for ${appConfig.name} is: ${otp}\n\nThis code expires in 5 minutes.`,
             });
           } else {
@@ -49,7 +55,7 @@ export const auth = betterAuth({
           if (plunk) {
             await plunk.emails.send({
               to: email,
-              subject: `Verify your email for ${appConfig.name}`,
+              subject: `Verify your email for ${appConfig.name}: ${otp}`,
               body: `Your verification code for ${appConfig.name} is: ${otp}\n\nThis code expires in 5 minutes.`,
             });
           } else {

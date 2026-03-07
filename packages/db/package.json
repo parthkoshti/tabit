@@ -16,6 +16,7 @@
   "dependencies": {
     "drizzle-orm": "^0.41.0",
     "models": "workspace:*",
+    "shared": "workspace:*",
     "pg": "^8.13.0"
   },
   "devDependencies": {

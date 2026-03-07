@@ -5,7 +5,6 @@ import { createTabSchema, addMemberSchema, updateTabSchema } from "models";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
-import { nanoid } from "nanoid";
 
 export async function createTab(formData: FormData) {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -21,11 +20,11 @@ export async function createTab(formData: FormData) {
     return { success: false, error: parsed.error.flatten().formErrors[0] };
   }
 
-  const id = nanoid();
-  await db.insert(tab).values({
-    id,
-    name: parsed.data.name,
-  });
+  const [inserted] = await db
+    .insert(tab)
+    .values({ name: parsed.data.name })
+    .returning({ id: tab.id });
+  const id = inserted!.id;
   await db.insert(tabMember).values({
     tabId: id,
     userId: session.user.id,
