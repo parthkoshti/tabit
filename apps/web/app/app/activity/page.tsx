@@ -4,13 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchActivity } from "@/app/actions/queries";
 import { authClient } from "@/lib/auth-client";
 import { Link as TransitionLink } from "next-view-transitions";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 
@@ -34,12 +27,12 @@ export default function ActivityPage() {
 
   return (
     <div className="p-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Activity</CardTitle>
-          <CardDescription>Recent expenses and settlements across your tabs</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <div className="mx-auto max-w-2xl space-y-6 pb-16">
+        <section className="space-y-4">
+          <h2 className="text-base font-medium mb-1">Activity</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Recent expenses and settlements across your tabs
+          </p>
           {isLoading ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
               Loading...
@@ -49,79 +42,87 @@ export default function ActivityPage() {
               No activity yet
             </p>
           ) : (
-            <div className="space-y-4">
+            <div className="flex flex-col gap-3">
               {items.map((item) =>
                 item.type === "expense" ? (
                   <TransitionLink
                     key={`exp-${item.id}`}
                     href={`/app/tabs/${item.tabId}`}
                   >
-                    <Card className="transition-colors hover:bg-accent">
-                      <CardContent className="flex flex-col gap-1 p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
-                            <UserAvatar userId={item.paidById} size="sm" />
-                            <span className="font-medium">{item.description}</span>
-                          </div>
-                          <span className="text-muted-foreground shrink-0">
-                            ${item.amount.toFixed(2)}
+                    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <UserAvatar userId={item.paidById} size="sm" />
+                          <span className="font-medium truncate">
+                            {item.description}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {getDisplayName({
-                          id: item.paidById,
-                          username: item.paidByUsername,
-                          name: item.paidByName,
-                          email: item.paidByEmail,
-                        }, currentUserId)} paid in{" "}
-                          {item.tabName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(item.expenseDate)}
-                        </p>
-                      </CardContent>
-                    </Card>
+                        <span className="text-sm font-medium shrink-0">
+                          ${item.amount.toFixed(2)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {getDisplayName(
+                          {
+                            id: item.paidById,
+                            username: item.paidByUsername,
+                            name: item.paidByName,
+                            email: item.paidByEmail,
+                          },
+                          currentUserId,
+                        )}{" "}
+                        paid in {item.tabName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(item.expenseDate)}
+                      </p>
+                    </div>
                   </TransitionLink>
                 ) : (
                   <TransitionLink
                     key={`set-${item.id}`}
                     href={`/app/tabs/${item.tabId}`}
                   >
-                    <Card className="transition-colors hover:bg-accent">
-                      <CardContent className="flex flex-col gap-1 p-4">
-                        <div className="flex items-center gap-2">
-                          <UserAvatar userId={item.fromUserId} size="sm" />
-                          <span className="font-medium">
-                            {getDisplayName({
+                    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
+                      <div className="flex items-center gap-2">
+                        <UserAvatar userId={item.fromUserId} size="sm" />
+                        <span className="font-medium">
+                          {getDisplayName(
+                            {
                               id: item.fromUserId,
                               username: item.fromUserUsername,
                               name: item.fromUserName,
                               email: item.fromUserEmail,
-                            }, currentUserId)} paid{" "}
-                            {getDisplayName({
+                            },
+                            currentUserId,
+                          )}{" "}
+                          paid{" "}
+                          {getDisplayName(
+                            {
                               id: item.toUserId,
                               username: item.toUserUsername,
                               name: item.toUserName,
                               email: item.toUserEmail,
-                            }, currentUserId)} $
-                            {item.amount.toFixed(2)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Settlement in {item.tabName}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(item.createdAt)}
-                        </p>
-                      </CardContent>
-                    </Card>
+                            },
+                            currentUserId,
+                          )}{" "}
+                          ${item.amount.toFixed(2)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        Settlement in {item.tabName}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(item.createdAt)}
+                      </p>
+                    </div>
                   </TransitionLink>
-                )
+                ),
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </section>
+      </div>
     </div>
   );
 }

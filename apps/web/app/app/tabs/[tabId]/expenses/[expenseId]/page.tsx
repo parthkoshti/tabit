@@ -44,18 +44,24 @@ export default function ExpensePage() {
     queryKey: ["expense", expenseId],
     queryFn: () => fetchExpense(expenseId),
     enabled: !!expenseId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: tab } = useQuery({
     queryKey: ["tab", tabId],
     queryFn: () => fetchTab(tabId),
     enabled: !!tabId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: auditLog } = useQuery({
     queryKey: ["expenseAuditLog", expenseId],
     queryFn: () => fetchExpenseAuditLog(expenseId),
     enabled: !!expenseId && !!expense,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {

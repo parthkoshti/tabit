@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { Link as TransitionLink } from "next-view-transitions";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
+import { needsProfileSetup } from "@/lib/profile";
 import { addFriendByToken } from "@/app/actions/friends";
 import {
   getTabInviteByToken,
@@ -16,6 +17,7 @@ import { getDisplayName } from "@/lib/display-name";
 
 function InviteContent() {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { data: session, isPending } = authClient.useSession();
@@ -39,6 +41,16 @@ function InviteContent() {
 
   useEffect(() => {
     if (isPending) return;
+
+    if (session?.user && needsProfileSetup(session.user)) {
+      const returnTo =
+        pathname +
+        (searchParams.toString() ? `?${searchParams.toString()}` : "");
+      router.replace(
+        `/app/onboarding?returnTo=${encodeURIComponent(returnTo)}`,
+      );
+      return;
+    }
 
     if (isTabInvite) {
       if (!session?.user) {
@@ -87,6 +99,8 @@ function InviteContent() {
   }, [
     session,
     isPending,
+    pathname,
+    searchParams,
     qrParam,
     userParam,
     router,
@@ -137,6 +151,7 @@ function InviteContent() {
               Decline
             </Button>
             <Button
+              variant="positive"
               className="flex-1"
               onClick={handleAcceptTabInvite}
               disabled={accepting}

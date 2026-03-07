@@ -31,6 +31,8 @@ export default function FriendsPage() {
   const { data: friends, isLoading } = useQuery({
     queryKey: ["friends"],
     queryFn: fetchFriends,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
   const { data: requestsData, isLoading: requestsLoading } = useQuery({
     queryKey: ["pendingFriendRequests"],
@@ -166,45 +168,65 @@ export default function FriendsPage() {
               No friends yet. Use the add button above to add one.
             </p>
           ) : (
-            <ul className="divide-y divide-border rounded-lg border border-border">
+            <div className="flex flex-col gap-3">
               {friends.map((f) => (
-                <li key={f.id}>
-                  <TransitionLink
-                    href={`/app/tabs/${f.id}`}
-                    className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <UserAvatar userId={f.friend.id} size="sm" />
-                      <div className="flex flex-col min-w-0">
-                        <span className="font-medium">
+                <TransitionLink key={f.id} href={`/app/tabs/${f.id}`}>
+                  <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <UserAvatar
+                          userId={f.friend.id}
+                          size="sm"
+                          className="shrink-0"
+                        />
+                        <span className="font-medium truncate">
                           {getDisplayName(f.friend)}
+                          {f.friend.username && (
+                            <span className="ml-1 text-muted-foreground font-normal">
+                              @{f.friend.username}
+                            </span>
+                          )}
                         </span>
-                        {f.friend.username && (
-                          <span className="text-sm text-muted-foreground">
-                            @{f.friend.username}
-                          </span>
-                        )}
                       </div>
-                    </div>
-                    <span
-                      className={
-                        f.balance > 0
-                          ? "text-sm text-positive"
+                      <span
+                        className={
+                          f.balance > 0
+                            ? "text-sm font-medium text-positive shrink-0"
+                            : f.balance < 0
+                              ? "text-sm font-medium text-negative shrink-0"
+                              : "text-sm text-muted-foreground shrink-0"
+                        }
+                      >
+                        {f.balance > 0
+                          ? `They owe you $${f.balance.toFixed(2)}`
                           : f.balance < 0
-                            ? "text-sm text-negative"
-                            : "text-sm text-muted-foreground"
-                      }
-                    >
-                      {f.balance > 0
-                        ? `They owe you $${f.balance.toFixed(2)}`
-                        : f.balance < 0
-                          ? `You owe $${Math.abs(f.balance).toFixed(2)}`
-                          : "Settled up"}
+                            ? `You owe $${Math.abs(f.balance).toFixed(2)}`
+                            : "Settled up"}
+                      </span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {f.expenseCount === 0
+                        ? "No expenses yet"
+                        : `${f.expenseCount} expense${f.expenseCount === 1 ? "" : "s"}`}
+                      {f.lastExpenseDate && (
+                        <>
+                          {" "}
+                          &middot;{" "}
+                          {new Date(f.lastExpenseDate).toLocaleDateString(
+                            undefined,
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            }
+                          )}
+                        </>
+                      )}
                     </span>
-                  </TransitionLink>
-                </li>
+                  </div>
+                </TransitionLink>
               ))}
-            </ul>
+            </div>
           )}
         </section>
       </div>

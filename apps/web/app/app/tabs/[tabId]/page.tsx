@@ -45,24 +45,32 @@ export default function TabPage() {
     queryKey: ["tab", tabId],
     queryFn: () => fetchTab(tabId),
     enabled: !!tabId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: expenses, isLoading: expensesLoading } = useQuery({
     queryKey: ["expenses", tabId],
     queryFn: () => fetchExpenses(tabId),
     enabled: !!tabId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: settlements, isLoading: settlementsLoading } = useQuery({
     queryKey: ["settlements", tabId],
     queryFn: () => fetchSettlements(tabId),
     enabled: !!tabId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const { data: balances } = useQuery({
     queryKey: ["balances", tabId],
     queryFn: () => fetchBalances(tabId),
     enabled: !!tabId,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
 
   const [settleUpOpen, setSettleUpOpen] = useState(false);

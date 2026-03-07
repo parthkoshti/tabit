@@ -1,17 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Link as TransitionLink } from "next-view-transitions";
 import { ArrowLeft, Plus, ReceiptText } from "lucide-react";
 import { appConfig } from "@/app/config";
 import { useNavTitleConfig } from "../context/nav-title-context";
+import { SignOutButton } from "./sign-out-button";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 
 export function TopNavbar() {
   const pathname = usePathname();
+  const router = useRouter();
   const navPage = useNavTitleConfig();
+  const isMePage = pathname === "/app/me";
   const isFriendsListPage =
     pathname === "/app/friends" || pathname === "/app/friends/";
   const isTabsListPage = pathname === "/app/tabs" || pathname === "/app/tabs/";
@@ -29,12 +32,10 @@ export function TopNavbar() {
             variant="ghost"
             size="icon"
             className="relative z-10 shrink-0"
-            asChild
-            aria-label={`Back to ${navPage.backHref}`}
+            aria-label="Go back"
+            onClick={() => router.back()}
           >
-            <TransitionLink href={navPage.backHref}>
-              <ArrowLeft className="h-5 w-5" />
-            </TransitionLink>
+            <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="absolute left-0 right-0 flex items-center justify-center gap-2 px-14 pointer-events-none">
             <div className="flex items-center justify-center gap-2 min-w-0 pointer-events-auto">
@@ -67,7 +68,9 @@ export function TopNavbar() {
                 )}
             </div>
           </div>
-          <div className="relative z-10 w-9 shrink-0" aria-hidden />
+          <div className="relative z-10 flex shrink-0 justify-end">
+            {isMePage && <SignOutButton />}
+          </div>
         </>
       ) : (
         <TransitionLink href="/app/tabs" className="flex items-center gap-2">
@@ -80,21 +83,23 @@ export function TopNavbar() {
           />
         </TransitionLink>
       )}
-      {isFriendsListPage ? (
-        <Button variant="ghost" size="sm" asChild aria-label="Add friend">
-          <TransitionLink href="/app/friends/addFriend" className="gap-1.5">
+      {!navPage && (isMePage ? (
+        <SignOutButton />
+      ) : isFriendsListPage ? (
+        <Button variant="default" size="sm" asChild aria-label="Add friend">
+          <TransitionLink href="/app/friends/addFriend" className="">
             <Plus className="h-5 w-5" />
             <span>Friend</span>
           </TransitionLink>
         </Button>
       ) : isTabsListPage ? (
-        <Button variant="ghost" size="sm" asChild aria-label="New tab">
-          <TransitionLink href="/app/tabs/create" className="gap-1.5">
+        <Button variant="default" size="sm" asChild aria-label="New tab">
+          <TransitionLink href="/app/tabs/create" className="">
             <Plus className="h-5 w-5" />
             <span>Tab</span>
           </TransitionLink>
         </Button>
-      ) : null}
+      ) : null)}
     </header>
   );
 }

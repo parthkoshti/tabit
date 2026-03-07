@@ -22,6 +22,8 @@ export default function TabsPage() {
   const { data: tabs, isLoading } = useQuery({
     queryKey: ["tabs"],
     queryFn: fetchTabs,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
   const { data: tabInvitesData } = useQuery({
     queryKey: ["pendingTabInviteRequests"],
@@ -29,6 +31,8 @@ export default function TabsPage() {
       const r = await getPendingTabInviteRequests();
       return r.success ? r.requests : [];
     },
+    staleTime: 0,
+    refetchOnWindowFocus: true,
   });
   const pendingTabInvites = tabInvitesData ?? [];
 
@@ -52,37 +56,34 @@ export default function TabsPage() {
       <div className="mx-auto max-w-2xl space-y-6">
         {pendingTabInvites.length > 0 && (
           <section className="space-y-4">
-            <div>
-              <h2 className="text-lg font-semibold">Tab invites</h2>
-              <p className="text-sm text-muted-foreground">
-                Accept or reject incoming tab invites
-              </p>
-            </div>
-            <ul className="divide-y divide-border rounded-lg border border-border">
+            <h2 className="text-base font-medium mb-1">Tab invites</h2>
+            <p className="text-xs text-muted-foreground mb-4">
+              Accept or reject incoming tab invites
+            </p>
+            <div className="flex flex-col gap-3">
               {pendingTabInvites.map((r) => (
-                <li
+                <div
                   key={r.id}
-                  className="flex flex-col gap-3 px-4 py-3 transition-colors hover:bg-accent"
+                  className="flex flex-col gap-3 rounded-xl border border-border bg-card/50 p-4"
                 >
-                  <div className="flex items-start gap-4">
-                    <ReceiptText className="h-6 w-6 shrink-0 text-tab-icon" />
+                  <div className="flex items-start gap-3">
+                    <ReceiptText className="h-5 w-5 shrink-0 text-tab-icon mt-0.5" />
                     <div className="min-w-0 flex-1">
                       <p className="font-medium">Invite to join {r.tabName}</p>
-                      <p className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                      <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                         <UserAvatar userId={r.fromUserId} size="xs" />
-                        <span className="flex flex-col">
-                          <span>
-                            by{" "}
-                            {r.fromUserName ?? r.fromUserUsername ?? "Unknown"}
-                          </span>
+                        <span>
+                          by {r.fromUserName ?? r.fromUserUsername ?? "Unknown"}
                           {r.fromUserUsername && (
-                            <span>@{r.fromUserUsername}</span>
+                            <span className="ml-0.5">
+                              @{r.fromUserUsername}
+                            </span>
                           )}
                         </span>
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 pt-1">
                     <span className="text-xs text-muted-foreground">
                       {new Date(r.createdAt).toLocaleDateString(undefined, {
                         month: "short",
@@ -101,25 +102,24 @@ export default function TabsPage() {
                       </Button>
                       <Button
                         size="sm"
+                        variant="positive"
                         onClick={() => handleAcceptTabInvite(r.id)}
                       >
                         Accept
                       </Button>
                     </div>
                   </div>
-                </li>
+                </div>
               ))}
-            </ul>
+            </div>
           </section>
         )}
 
         <section className="space-y-4">
-          <div>
-            <h2 className="text-lg font-semibold">Your tabs</h2>
-            <p className="text-sm text-muted-foreground">
-              Create a tab or select one to view
-            </p>
-          </div>
+          <h2 className="text-base font-medium mb-1">Your tabs</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Create a tab or tap to view
+          </p>
           {isLoading ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
               Loading...
@@ -129,7 +129,7 @@ export default function TabsPage() {
               No tabs yet. Use the new tab button above.
             </p>
           ) : (
-            <ul className="divide-y divide-border rounded-lg border border-border">
+            <div className="flex flex-col gap-3">
               {tabs.map((t) => {
                 const otherMemberIds =
                   t.memberUserIds?.filter((id) => id !== currentUserId) ?? [];
@@ -139,64 +139,67 @@ export default function TabsPage() {
                   : otherMemberIds.slice(0, 3);
                 const extraCount = hasExtra ? otherMemberIds.length - 2 : 0;
                 return (
-                  <li key={t.id}>
-                    <TransitionLink
-                      href={`/app/tabs/${t.id}`}
-                      className="flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-accent"
-                    >
-                      <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <ReceiptText className="h-5 w-5 shrink-0 text-tab-icon" />
-                        <div className="flex min-w-0 flex-col">
-                          <span className="font-medium">{t.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(t.createdAt).toLocaleDateString(
+                  <TransitionLink key={t.id} href={`/app/tabs/${t.id}`}>
+                    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-medium">{t.name}</span>
+                        <span
+                          className={
+                            (t.balance ?? 0) > 0
+                              ? "text-sm font-medium text-positive shrink-0"
+                              : (t.balance ?? 0) < 0
+                                ? "text-sm font-medium text-negative shrink-0"
+                                : "text-sm text-muted-foreground shrink-0"
+                          }
+                        >
+                          {(t.balance ?? 0) > 0
+                            ? `+$${(t.balance ?? 0).toFixed(2)}`
+                            : (t.balance ?? 0) < 0
+                              ? `-$${Math.abs(t.balance ?? 0).toFixed(2)}`
+                              : "Settled"}
+                        </span>
+                      </div>
+                      {displayMembers.length > 0 && (
+                        <div className="flex -space-x-2">
+                          {displayMembers.map((userId) => (
+                            <UserAvatar
+                              key={userId}
+                              userId={userId}
+                              size="xs"
+                              className="ring-2 ring-background"
+                            />
+                          ))}
+                          {extraCount > 0 && (
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
+                              +{extraCount}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <span className="text-xs text-muted-foreground">
+                        {(t.expenseCount ?? 0) === 0
+                          ? "No expenses yet"
+                          : `${t.expenseCount} expense${(t.expenseCount ?? 0) === 1 ? "" : "s"}`}
+                        {t.lastExpenseDate && (
+                          <>
+                            {" "}
+                            &middot;{" "}
+                            {new Date(t.lastExpenseDate).toLocaleDateString(
                               undefined,
                               {
                                 month: "short",
                                 day: "numeric",
                                 year: "numeric",
-                              }
+                              },
                             )}
-                          </span>
-                        </div>
-                        {displayMembers.length > 0 && (
-                          <div className="flex -space-x-2 shrink-0">
-                            {displayMembers.map((userId) => (
-                              <UserAvatar
-                                key={userId}
-                                userId={userId}
-                                size="xs"
-                                className="ring-2 ring-background"
-                              />
-                            ))}
-                            {extraCount > 0 && (
-                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
-                                +{extraCount}
-                              </span>
-                            )}
-                          </div>
+                          </>
                         )}
-                      </div>
-                      <span
-                        className={
-                          (t.balance ?? 0) > 0
-                            ? "text-sm font-medium text-positive shrink-0"
-                            : (t.balance ?? 0) < 0
-                              ? "text-sm font-medium text-negative shrink-0"
-                              : "text-sm text-muted-foreground shrink-0"
-                        }
-                      >
-                        {(t.balance ?? 0) > 0
-                          ? `+$${(t.balance ?? 0).toFixed(2)}`
-                          : (t.balance ?? 0) < 0
-                            ? `-$${Math.abs(t.balance ?? 0).toFixed(2)}`
-                            : "Settled"}
                       </span>
-                    </TransitionLink>
-                  </li>
+                    </div>
+                  </TransitionLink>
                 );
               })}
-            </ul>
+            </div>
           )}
         </section>
       </div>

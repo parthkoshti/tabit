@@ -3,6 +3,7 @@
 import { useEffect, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { needsProfileSetup } from "@/lib/profile";
 import { NavTitleProvider } from "./context/nav-title-context";
 import { TopNavbar } from "./components/top-navbar";
 import { BottomNavbar } from "./components/bottom-navbar";
@@ -15,7 +16,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const { data: session, isPending } = authClient.useSession();
 
   useEffect(() => {
-    if (!isPending && !session?.user) {
+    if (isPending) return;
+    if (!session?.user) {
       const returnTo =
         pathname +
         (searchParams.toString() ? `?${searchParams.toString()}` : "");
@@ -23,6 +25,18 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         returnTo
           ? `/login?callbackURL=${encodeURIComponent(returnTo)}`
           : "/login",
+      );
+      return;
+    }
+    if (
+      needsProfileSetup(session.user) &&
+      pathname !== "/app/onboarding"
+    ) {
+      const returnTo =
+        pathname +
+        (searchParams.toString() ? `?${searchParams.toString()}` : "");
+      router.replace(
+        `/app/onboarding?returnTo=${encodeURIComponent(returnTo)}`,
       );
     }
   }, [session, isPending, router, pathname, searchParams]);
@@ -35,17 +49,19 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
     return null;
   }
 
+  const isOnboarding = pathname === "/app/onboarding";
+
   return (
     <NavTitleProvider>
       <div className="fixed inset-0 flex flex-col overflow-clip">
-        <TopNavbar />
+        {!isOnboarding && <TopNavbar />}
         <main
           className="app-layout-safe-bottom app-scroll-hide min-h-0 flex-1 overflow-auto overscroll-none pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))]"
           style={{ viewTransitionName: "main-content" }}
         >
           {children}
         </main>
-        <BottomNavbar />
+        {!isOnboarding && <BottomNavbar />}
       </div>
     </NavTitleProvider>
   );

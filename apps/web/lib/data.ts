@@ -17,6 +17,8 @@ export type TabWithBalance = {
   createdAt: Date;
   balance?: number;
   memberUserIds?: string[];
+  lastExpenseDate?: Date | null;
+  expenseCount?: number;
 };
 
 export async function getTabsForUser(
@@ -25,11 +27,15 @@ export async function getTabsForUser(
     includeDirect?: boolean;
     includeBalance?: boolean;
     includeMemberIds?: boolean;
+    includeLastExpenseDate?: boolean;
+    includeExpenseCount?: boolean;
   }
 ): Promise<TabWithBalance[]> {
   const includeDirect = options?.includeDirect ?? false;
   const includeBalance = options?.includeBalance ?? false;
   const includeMemberIds = options?.includeMemberIds ?? false;
+  const includeLastExpenseDate = options?.includeLastExpenseDate ?? false;
+  const includeExpenseCount = options?.includeExpenseCount ?? false;
 
   if (includeDirect) {
     const rows = await db
@@ -56,6 +62,37 @@ export async function getTabsForUser(
             .from(tabMember)
             .where(eq(tabMember.tabId, r.id));
           result.memberUserIds = members.map((m) => m.userId);
+        }
+        if (includeLastExpenseDate) {
+          const [latestExp] = await db
+            .select({ expenseDate: expense.expenseDate })
+            .from(expense)
+            .where(eq(expense.tabId, r.id))
+            .orderBy(desc(expense.expenseDate))
+            .limit(1);
+          const [latestSet] = await db
+            .select({ createdAt: settlement.createdAt })
+            .from(settlement)
+            .where(eq(settlement.tabId, r.id))
+            .orderBy(desc(settlement.createdAt))
+            .limit(1);
+          const expDate = latestExp?.expenseDate
+            ? new Date(latestExp.expenseDate).getTime()
+            : 0;
+          const setDate = latestSet?.createdAt
+            ? new Date(latestSet.createdAt).getTime()
+            : 0;
+          result.lastExpenseDate =
+            expDate || setDate
+              ? new Date(Math.max(expDate, setDate))
+              : null;
+        }
+        if (includeExpenseCount) {
+          const [countRow] = await db
+            .select({ count: sql<number>`count(*)::int` })
+            .from(expense)
+            .where(eq(expense.tabId, r.id));
+          result.expenseCount = countRow?.count ?? 0;
         }
         return result;
       })
@@ -89,6 +126,35 @@ export async function getTabsForUser(
           .where(eq(tabMember.tabId, r.id));
         result.memberUserIds = members.map((m) => m.userId);
       }
+      if (includeLastExpenseDate) {
+        const [latestExp] = await db
+          .select({ expenseDate: expense.expenseDate })
+          .from(expense)
+          .where(eq(expense.tabId, r.id))
+          .orderBy(desc(expense.expenseDate))
+          .limit(1);
+        const [latestSet] = await db
+          .select({ createdAt: settlement.createdAt })
+          .from(settlement)
+          .where(eq(settlement.tabId, r.id))
+          .orderBy(desc(settlement.createdAt))
+          .limit(1);
+        const expDate = latestExp?.expenseDate
+          ? new Date(latestExp.expenseDate).getTime()
+          : 0;
+        const setDate = latestSet?.createdAt
+          ? new Date(latestSet.createdAt).getTime()
+          : 0;
+        result.lastExpenseDate =
+          expDate || setDate ? new Date(Math.max(expDate, setDate)) : null;
+      }
+      if (includeExpenseCount) {
+        const [countRow] = await db
+          .select({ count: sql<number>`count(*)::int` })
+          .from(expense)
+          .where(eq(expense.tabId, r.id));
+        result.expenseCount = countRow?.count ?? 0;
+      }
       return result;
     })
   );
@@ -98,6 +164,8 @@ export type FriendTab = {
   id: string;
   createdAt: Date;
   balance: number;
+  expenseCount: number;
+  lastExpenseDate?: Date | null;
   friend: {
     id: string;
     email: string;
@@ -137,10 +205,36 @@ export async function getDirectTabsForUser(userId: string): Promise<FriendTab[]>
     if (other) {
       const balances = await getBalancesForTab(t.id);
       const myBalance = balances.find((b) => b.userId === userId);
+      const [countRow] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(expense)
+        .where(eq(expense.tabId, t.id));
+      const [latestExp] = await db
+        .select({ expenseDate: expense.expenseDate })
+        .from(expense)
+        .where(eq(expense.tabId, t.id))
+        .orderBy(desc(expense.expenseDate))
+        .limit(1);
+      const [latestSet] = await db
+        .select({ createdAt: settlement.createdAt })
+        .from(settlement)
+        .where(eq(settlement.tabId, t.id))
+        .orderBy(desc(settlement.createdAt))
+        .limit(1);
+      const expDate = latestExp?.expenseDate
+        ? new Date(latestExp.expenseDate).getTime()
+        : 0;
+      const setDate = latestSet?.createdAt
+        ? new Date(latestSet.createdAt).getTime()
+        : 0;
+      const lastExpenseDate =
+        expDate || setDate ? new Date(Math.max(expDate, setDate)) : null;
       result.push({
         id: t.id,
         createdAt: t.createdAt,
         balance: myBalance ? myBalance.amount : 0,
+        expenseCount: countRow?.count ?? 0,
+        lastExpenseDate,
         friend: {
           id: other.userId,
           email: other.email,
