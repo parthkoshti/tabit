@@ -2,6 +2,7 @@
 
 import { use, useMemo, useEffect, useState, Suspense } from "react";
 import { useParams } from "next/navigation";
+import { Link as TransitionLink } from "next-view-transitions";
 import { useNavTitle } from "@/app/app/context/nav-title-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchTab } from "@/app/actions/queries";

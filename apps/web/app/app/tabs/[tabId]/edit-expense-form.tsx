@@ -180,7 +180,8 @@ export function EditExpenseForm({
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       queryClient.invalidateQueries({ queryKey: ["expense", expenseId] });
       toast.success("Expense updated");
-      onSuccess ? onSuccess() : router.push(`/app/tabs/${tabId}`);
+      if (onSuccess) onSuccess();
+      else router.push(`/app/tabs/${tabId}`);
     } else {
       const err = result.error ?? "Failed to update expense";
       setError(err);
@@ -199,7 +200,8 @@ export function EditExpenseForm({
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       toast.success("Expense deleted");
       const cb = onDeleteSuccess ?? onSuccess;
-      cb ? cb() : router.push(`/app/tabs/${tabId}`);
+      if (cb) cb();
+      else router.push(`/app/tabs/${tabId}`);
     } else {
       setError(result.error ?? "Failed to delete expense");
     }
