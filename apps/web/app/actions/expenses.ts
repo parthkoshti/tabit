@@ -77,6 +77,10 @@ export async function createExpense(formData: FormData) {
     ? allMembers.filter((m) => participantIds.includes(m.userId))
     : allMembers;
 
+  if (members.length < 2) {
+    return { success: false, error: "Add at least one other person to split with" };
+  }
+
   const expenseId = nanoid();
   const amount = parsed.data.amount;
 
@@ -206,6 +210,10 @@ export async function updateExpense(expenseId: string, formData: FormData) {
   const members = participantIds.length > 0
     ? allMembers.filter((m) => participantIds.includes(m.userId))
     : allMembers;
+
+  if (members.length < 2) {
+    return { success: false, error: "Add at least one other person to split with" };
+  }
 
   const amount = parsed.data.amount;
   let splits: { userId: string; amount: number }[];

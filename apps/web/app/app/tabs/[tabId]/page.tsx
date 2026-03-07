@@ -12,7 +12,6 @@ import { authClient } from "@/lib/auth-client";
 import { useParams } from "next/navigation";
 import { Link as TransitionLink } from "next-view-transitions";
 import { useNavTitle } from "@/app/app/context/nav-title-context";
-import { AddExpenseForm } from "./add-expense-form";
 import { SettleUpForm } from "./settle-up-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,7 +28,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import {
   BanknoteArrowUp,
   CircleCheck,
-  Plus,
+  Settings,
   UserPlus,
   Wallet,
 } from "lucide-react";
@@ -74,7 +73,6 @@ export default function TabPage() {
   });
 
   const [settleUpOpen, setSettleUpOpen] = useState(false);
-  const [addExpenseOpen, setAddExpenseOpen] = useState(false);
 
   const currentUserId = session?.user?.id ?? "";
   const otherMember = tab?.members?.find(
@@ -96,6 +94,8 @@ export default function TabPage() {
     tab?.isDirect && otherMember
       ? getDisplayName(otherMember, currentUserId)
       : undefined;
+  const isAdmin =
+    tab?.members?.find((m) => m.userId === currentUserId)?.role === "owner";
 
   useEffect(() => {
     if (!tab) return;
@@ -141,10 +141,8 @@ export default function TabPage() {
     ...(expenses ?? []).map((e) => ({ ...e, type: "expense" as const })),
     ...(settlements ?? []).map((s) => ({ ...s, type: "settlement" as const })),
   ].sort((a, b) => {
-    const dateA =
-      a.type === "expense" ? a.expenseDate : a.createdAt;
-    const dateB =
-      b.type === "expense" ? b.expenseDate : b.createdAt;
+    const dateA = a.type === "expense" ? a.expenseDate : a.createdAt;
+    const dateB = b.type === "expense" ? b.expenseDate : b.createdAt;
     return new Date(dateB).getTime() - new Date(dateA).getTime();
   });
 
@@ -152,6 +150,18 @@ export default function TabPage() {
     <div className="p-4 pb-20">
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex gap-2 overflow-x-auto overflow-y-hidden -mx-1 px-1 app-scroll-hide">
+          {!tab.isDirect && isAdmin && (
+            <Button
+              variant="secondary"
+              className="shrink-0 justify-center gap-2 min-w-28"
+              asChild
+            >
+              <TransitionLink href={`/app/tabs/${tabId}/manage`}>
+                <Settings className="h-4 w-4" />
+                Manage
+              </TransitionLink>
+            </Button>
+          )}
           {!tab.isDirect && avatarUserIds.length > 0 && (
             <Button
               variant="secondary"
@@ -190,31 +200,6 @@ export default function TabPage() {
               />
             </DialogContent>
           </Dialog>
-          <Dialog open={addExpenseOpen} onOpenChange={setAddExpenseOpen}>
-            <DialogTrigger asChild>
-              <Button
-                variant="secondary"
-                className="shrink-0 justify-center gap-2 min-w-28"
-              >
-                <Plus className="h-4 w-4" />
-                Expense
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-[90vw] rounded-xl">
-              <DialogHeader>
-                <DialogTitle>Add expense</DialogTitle>
-                <DialogDescription>
-                  Add a new expense to split
-                </DialogDescription>
-              </DialogHeader>
-              <AddExpenseForm
-                tabId={tabId}
-                members={tab.members}
-                currentUserId={currentUserId}
-                onSuccess={() => setAddExpenseOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
         </div>
 
         {!tab.isDirect && avatarUserIds.length === 0 && (
@@ -237,37 +222,39 @@ export default function TabPage() {
         )}
         <section>
           <h2 className="text-base font-medium mb-2">Balances</h2>
-          {!balances || balances.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No balances yet</p>
-          ) : (
-            <>
-              <div className="space-y-2">
-                {youOwe.map((b) => (
-                  <p key={b.userId} className="text-negative text-xs">
-                    You owe ${Math.abs(b.amount).toFixed(2)}
-                  </p>
-                ))}
-                {owedToYou.map((b) => (
-                  <p key={b.userId} className="text-positive text-xs">
-                    You are owed ${b.amount.toFixed(2)}
-                  </p>
-                ))}
-                {others.map((b) => (
-                  <div
-                    key={b.userId}
-                    className="flex items-center gap-3 text-muted-foreground text-sm"
-                  >
-                    <UserAvatar userId={b.userId} size="xs" />
-                    <span>
-                      {b.amount > 0
-                        ? `${getDisplayName(b.user, currentUserId)} is owed $${b.amount.toFixed(2)}`
-                        : `${getDisplayName(b.user, currentUserId)} owes $${Math.abs(b.amount).toFixed(2)}`}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
+          <Card>
+            <CardContent className="p-4">
+              {!balances || balances.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No balances yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {youOwe.map((b) => (
+                    <p key={b.userId} className="text-negative text-sm">
+                      You owe ${Math.abs(b.amount).toFixed(2)}
+                    </p>
+                  ))}
+                  {owedToYou.map((b) => (
+                    <p key={b.userId} className="text-positive text-sm">
+                      You are owed ${b.amount.toFixed(2)}
+                    </p>
+                  ))}
+                  {others.map((b) => (
+                    <div
+                      key={b.userId}
+                      className="flex items-center gap-2 text-muted-foreground text-xs"
+                    >
+                      <UserAvatar userId={b.userId} size="xs" />
+                      <span>
+                        {b.amount > 0
+                          ? `${getDisplayName(b.user, currentUserId)} is owed $${b.amount.toFixed(2)}`
+                          : `${getDisplayName(b.user, currentUserId)} owes $${Math.abs(b.amount).toFixed(2)}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </section>
 
         <section>

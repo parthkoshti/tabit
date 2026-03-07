@@ -31,7 +31,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Copy, Share2 } from "lucide-react";
+import { Copy, Settings, Share2 } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
 import { Spinner } from "@/components/ui/spinner";
 import { appConfig } from "@/app/config";
@@ -294,6 +294,20 @@ export default function ManageMembersPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-md space-y-6">
+        {!tab.isDirect && isAdmin && (
+          <section className="space-y-4">
+            <h2 className="text-base font-medium mb-1">Manage tab</h2>
+            <p className="text-xs text-muted-foreground mb-4">
+              Rename this tab
+            </p>
+            <Button variant="outline" className="w-full justify-center gap-2" asChild>
+              <TransitionLink href={`/app/tabs/${tabId}/manage`}>
+                <Settings className="h-4 w-4" />
+                Rename tab
+              </TransitionLink>
+            </Button>
+          </section>
+        )}
         <section className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold">Members</h2>

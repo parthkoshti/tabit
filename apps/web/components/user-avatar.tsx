@@ -22,6 +22,8 @@ export function UserAvatar({
       scale: 80,
       backgroundColor: ["919bff", "133a94"],
       shapeColor: ["ffbe0b", "fb5607", "ff006e", "8338ec", "3a86ff"],
+      flip:
+        userId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % 2 === 0,
     });
     const svg = avatar.toString();
     return `data:image/svg+xml,${encodeURIComponent(svg)}`;

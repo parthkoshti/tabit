@@ -27,7 +27,7 @@ export default function ActivityPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-16">
+      <div className="mx-auto max-w-2xl space-y-6 pb-26">
         <section className="space-y-4">
           <h2 className="text-base font-medium mb-1">Activity</h2>
           <p className="text-xs text-muted-foreground mb-4">

@@ -43,7 +43,7 @@ export function BottomNavbar() {
 
   return (
     <nav
-      className="bottom-nav-safe fixed bottom-0 left-0 right-0 z-40 flex justify-center px-4 pb-4 pt-2"
+      className="bottom-nav-safe fixed bottom-8 left-0 right-0 z-40 flex justify-center px-4 pb-4 pt-2"
       style={{ viewTransitionName: "bottom-navbar" }}
     >
       <div className="frosted-glass flex gap-1 w-full max-w-sm items-center justify-around rounded-full border border-border/60 bg-background/95 px-2 py-2 shadow-lg">

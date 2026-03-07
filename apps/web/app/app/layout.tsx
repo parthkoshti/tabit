@@ -7,6 +7,7 @@ import { needsProfileSetup } from "@/lib/profile";
 import { NavTitleProvider } from "./context/nav-title-context";
 import { TopNavbar } from "./components/top-navbar";
 import { BottomNavbar } from "./components/bottom-navbar";
+import { AddExpenseFAB } from "./components/add-expense-fab";
 import { LoadingScreen } from "./components/loading-screen";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
@@ -28,10 +29,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
       );
       return;
     }
-    if (
-      needsProfileSetup(session.user) &&
-      pathname !== "/app/onboarding"
-    ) {
+    if (needsProfileSetup(session.user) && pathname !== "/app/onboarding") {
       const returnTo =
         pathname +
         (searchParams.toString() ? `?${searchParams.toString()}` : "");
@@ -62,6 +60,7 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
           {children}
         </main>
         {!isOnboarding && <BottomNavbar />}
+        {!isOnboarding && <AddExpenseFAB />}
       </div>
     </NavTitleProvider>
   );

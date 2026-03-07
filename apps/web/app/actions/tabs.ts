@@ -1,7 +1,7 @@
 "use server";
 
 import { db, tab, tabMember, user } from "db";
-import { createTabSchema, addMemberSchema } from "models";
+import { createTabSchema, addMemberSchema, updateTabSchema } from "models";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
 import { eq, and } from "drizzle-orm";
@@ -33,6 +33,57 @@ export async function createTab(formData: FormData) {
   });
 
   return { success: true, tabId: id };
+}
+
+export async function updateTab(tabId: string, formData: FormData) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const parsed = updateTabSchema.safeParse({
+    name: formData.get("name"),
+  });
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.flatten().formErrors[0] };
+  }
+
+  const [currentUserMember] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, tabId),
+        eq(tabMember.userId, session.user.id)
+      )
+    )
+    .limit(1);
+
+  if (!currentUserMember || currentUserMember.role !== "owner") {
+    return { success: false, error: "Only the tab admin can rename the tab" };
+  }
+
+  const [existingTab] = await db
+    .select()
+    .from(tab)
+    .where(eq(tab.id, tabId))
+    .limit(1);
+
+  if (!existingTab) {
+    return { success: false, error: "Tab not found" };
+  }
+
+  if (existingTab.isDirect) {
+    return { success: false, error: "Direct tabs cannot be renamed" };
+  }
+
+  await db
+    .update(tab)
+    .set({ name: parsed.data.name })
+    .where(eq(tab.id, tabId));
+
+  return { success: true };
 }
 
 export async function addMember(formData: FormData) {

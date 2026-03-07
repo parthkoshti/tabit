@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, ChevronDown } from "lucide-react";
+import { Calendar as CalendarIcon, CornerDownLeft } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { toast } from "sonner";
@@ -80,7 +80,10 @@ export function AddExpenseForm({
     setParticipantIds((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
-        if (next.size <= 1) return prev;
+        if (next.size <= 2) {
+          toast.error("Add at least one other person to split with");
+          return prev;
+        }
         next.delete(userId);
       } else {
         next.add(userId);
@@ -107,8 +110,10 @@ export function AddExpenseForm({
       return;
     }
 
-    if (selectedParticipants.length === 0) {
-      setError("Select at least one participant");
+    if (selectedParticipants.length < 2) {
+      const msg = "Add at least one other person to split with";
+      setError(msg);
+      toast.error(msg);
       setLoading(false);
       return;
     }
@@ -137,7 +142,9 @@ export function AddExpenseForm({
       toast.success("Expense added");
       onSuccess?.();
     } else {
-      setError(result.error ?? "Failed to add expense");
+      const err = result.error ?? "Failed to add expense";
+      setError(err);
+      if (err.includes("split with")) toast.error(err);
     }
     setLoading(false);
   }
@@ -146,12 +153,12 @@ export function AddExpenseForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex gap-2">
         <Select value={paidById} onValueChange={setPaidById} disabled={loading}>
-          <SelectTrigger className="flex-1 min-w-0">
+          <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none" hideChevron>
             <SelectValue placeholder="Select who paid">
               {(() => {
                 const payer = members.find((m) => m.userId === paidById);
                 return payer ? (
-                  <span className="flex items-center gap-2">
+                  <span className="flex items-center gap-1">
                     <UserAvatar userId={payer.userId} size="xs" />
                     {getDisplayName(payer.user, currentUserId)}
                     <span className="text-muted-foreground">paid</span>
@@ -177,13 +184,12 @@ export function AddExpenseForm({
               variant="outline"
               disabled={loading}
               className={cn(
-                "h-9 shrink-0 justify-between gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
+                "h-9 shrink-0 gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
                 !expenseDate && "text-muted-foreground",
               )}
             >
               <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
               {expenseDate ? format(expenseDate, "MMM d") : "Date"}
-              <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -240,6 +246,7 @@ export function AddExpenseForm({
             ref={descriptionRef}
             id="description"
             type="text"
+            autoComplete="off"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Dinner"
@@ -279,8 +286,9 @@ export function AddExpenseForm({
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <Button type="submit" disabled={loading}>
+      <Button type="submit" disabled={loading} className="w-full gap-2">
         {loading ? "Adding..." : "Add expense"}
+        <CornerDownLeft className="h-4 w-4" />
       </Button>
     </form>
   );

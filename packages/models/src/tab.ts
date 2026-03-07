@@ -9,6 +9,12 @@ export const createTabSchema = z.object({
 
 export type CreateTabInput = z.infer<typeof createTabSchema>;
 
+export const updateTabSchema = z.object({
+  name: z.string().min(1).max(100),
+});
+
+export type UpdateTabInput = z.infer<typeof updateTabSchema>;
+
 export const addMemberSchema = z.object({
   tabId: z.string(),
   email: z.string().email(),

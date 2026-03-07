@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon, ChevronDown } from "lucide-react";
+import { Calendar as CalendarIcon, CornerDownLeft, Trash2 } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { toast } from "sonner";
@@ -119,7 +119,10 @@ export function EditExpenseForm({
     setParticipantIds((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
-        if (next.size <= 1) return prev;
+        if (next.size <= 2) {
+          toast.error("Add at least one other person to split with");
+          return prev;
+        }
         next.delete(userId);
       } else {
         next.add(userId);
@@ -150,8 +153,10 @@ export function EditExpenseForm({
       return;
     }
 
-    if (selectedParticipants.length === 0) {
-      setError("Select at least one participant");
+    if (selectedParticipants.length < 2) {
+      const msg = "Add at least one other person to split with";
+      setError(msg);
+      toast.error(msg);
       setLoading(false);
       return;
     }
@@ -177,7 +182,9 @@ export function EditExpenseForm({
       toast.success("Expense updated");
       onSuccess ? onSuccess() : router.push(`/app/tabs/${tabId}`);
     } else {
-      setError(result.error ?? "Failed to update expense");
+      const err = result.error ?? "Failed to update expense";
+      setError(err);
+      if (err.includes("split with")) toast.error(err);
     }
     setLoading(false);
   }
@@ -208,15 +215,18 @@ export function EditExpenseForm({
             onValueChange={setPaidById}
             disabled={loading}
           >
-            <SelectTrigger className="flex-1 min-w-0">
+            <SelectTrigger
+              className="flex-1 min-w-0 [&>span]:line-clamp-none"
+              hideChevron
+            >
               <SelectValue placeholder="Select who paid">
                 {(() => {
                   const payer = members.find((m) => m.userId === paidById);
                   return payer ? (
                     <span className="flex items-center gap-2">
-                      <span className="text-muted-foreground">Paid by</span>{" "}
                       <UserAvatar userId={payer.userId} size="xs" />
                       {getDisplayName(payer.user, currentUserId)}
+                      <span className="text-muted-foreground">paid</span>
                     </span>
                   ) : null;
                 })()}
@@ -239,13 +249,12 @@ export function EditExpenseForm({
                 variant="outline"
                 disabled={loading}
                 className={cn(
-                  "h-9 shrink-0 justify-between gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
+                  "h-9 shrink-0 gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
                   !expenseDate && "text-muted-foreground",
                 )}
               >
                 <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
                 {expenseDate ? format(expenseDate, "MMM d") : "Date"}
-                <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
               </Button>
             </PopoverTrigger>
             <PopoverContent
@@ -302,6 +311,7 @@ export function EditExpenseForm({
               ref={descriptionRef}
               id="description"
               type="text"
+              autoComplete="off"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="eg. Dinner"
@@ -342,29 +352,34 @@ export function EditExpenseForm({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={loading}>
+        <div className="flex flex-col gap-2">
+          <Button type="submit" disabled={loading} className="w-full gap-2">
             {loading ? "Saving..." : "Save"}
+            <CornerDownLeft className="h-4 w-4" />
           </Button>
-          {onCancel && (
+          <div className="flex flex-col gap-2">
+            {onCancel && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading}
+                onClick={onCancel}
+                className="w-full"
+              >
+                Cancel
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
+              className="w-full gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
               disabled={loading}
-              onClick={onCancel}
+              onClick={() => setDeleteOpen(true)}
             >
-              Cancel
+              <Trash2 className="h-4 w-4" />
+              Delete
             </Button>
-          )}
-          <Button
-            type="button"
-            variant="outline"
-            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-            disabled={loading}
-            onClick={() => setDeleteOpen(true)}
-          >
-            Delete
-          </Button>
+          </div>
         </div>
       </form>
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>

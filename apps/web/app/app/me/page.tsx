@@ -156,7 +156,7 @@ export default function MePage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-16">
+      <div className="mx-auto max-w-2xl space-y-6 pb-26">
         <section className="space-y-4">
           <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/50 p-4">
             <div className="flex items-center gap-4">
