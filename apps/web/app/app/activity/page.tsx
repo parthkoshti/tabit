@@ -77,7 +77,7 @@ export default function ActivityPage() {
                           {item.tabName}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDate(item.createdAt)}
+                          {formatDate(item.expenseDate)}
                         </p>
                       </CardContent>
                     </Card>

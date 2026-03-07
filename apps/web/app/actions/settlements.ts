@@ -1,6 +1,6 @@
 "use server";
 
-import { db, settlement, tabMember } from "db";
+import { db, settlement, settlementAuditLog, tabMember } from "db";
 import { recordSettlementSchema } from "models";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -69,12 +69,21 @@ export async function recordSettlement(formData: FormData) {
     return { success: false, error: "Payer and payee must be different people" };
   }
 
+  const settlementId = nanoid();
   await db.insert(settlement).values({
-    id: nanoid(),
+    id: settlementId,
     tabId: parsed.data.tabId,
     fromUserId: parsed.data.fromUserId,
     toUserId: parsed.data.toUserId,
     amount: parsed.data.amount.toString(),
+  });
+
+  await db.insert(settlementAuditLog).values({
+    id: nanoid(),
+    settlementId,
+    tabId: parsed.data.tabId,
+    action: "create",
+    performedById: session.user.id,
   });
 
   return { success: true };

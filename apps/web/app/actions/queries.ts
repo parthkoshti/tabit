@@ -6,11 +6,15 @@ import {
   getTabsForUser,
   getTabWithMembers,
   getExpensesForTab,
+  getExpenseById,
+  getExpenseAuditLog,
   getSettlementsForTab,
   getBalancesForTab,
   getActivityForUser,
   getDirectTabsForUser,
 } from "@/lib/data";
+import { db, tabMember } from "db";
+import { eq, and } from "drizzle-orm";
 
 export async function fetchTabs() {
   const session = await auth.api.getSession({ headers: await headers() });
@@ -35,6 +39,44 @@ export async function fetchExpenses(tabId: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
   return getExpensesForTab(tabId);
+}
+
+export async function fetchExpense(expenseId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return null;
+  const exp = await getExpenseById(expenseId);
+  if (!exp) return null;
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, exp.tabId),
+        eq(tabMember.userId, session.user.id)
+      )
+    )
+    .limit(1);
+  if (!member) return null;
+  return exp;
+}
+
+export async function fetchExpenseAuditLog(expenseId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return null;
+  const exp = await getExpenseById(expenseId);
+  if (!exp) return null;
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, exp.tabId),
+        eq(tabMember.userId, session.user.id)
+      )
+    )
+    .limit(1);
+  if (!member) return null;
+  return getExpenseAuditLog(expenseId);
 }
 
 export async function fetchSettlements(tabId: string) {

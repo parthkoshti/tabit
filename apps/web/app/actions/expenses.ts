@@ -1,6 +1,10 @@
 "use server";
 
-import { db, expense, expenseSplit, tabMember } from "db";
+import { db, expense, expenseAuditLog, expenseSplit, tabMember } from "db";
+
+function roundTo2(n: number) {
+  return Math.round(n * 100) / 100;
+}
 import { createExpenseSchema } from "models";
 import { auth } from "@/lib/auth";
 import { headers } from "next/headers";
@@ -19,6 +23,7 @@ export async function createExpense(formData: FormData) {
     description: formData.get("description"),
     paidById: formData.get("paidById") ?? session.user.id,
     splitType: formData.get("splitType") ?? "equal",
+    expenseDate: formData.get("expenseDate") || undefined,
     splits: formData.get("splits")
       ? JSON.parse(formData.get("splits") as string)
       : undefined,
@@ -58,10 +63,19 @@ export async function createExpense(formData: FormData) {
     return { success: false, error: "Payer must be a member of this tab" };
   }
 
-  const members = await db
+  const allMembers = await db
     .select()
     .from(tabMember)
     .where(eq(tabMember.tabId, parsed.data.tabId));
+
+  const participantIdsRaw = formData.get("participantIds");
+  const participantIds = participantIdsRaw
+    ? (JSON.parse(participantIdsRaw as string) as string[])
+    : allMembers.map((m) => m.userId);
+
+  const members = participantIds.length > 0
+    ? allMembers.filter((m) => participantIds.includes(m.userId))
+    : allMembers;
 
   const expenseId = nanoid();
   const amount = parsed.data.amount;
@@ -69,10 +83,19 @@ export async function createExpense(formData: FormData) {
   let splits: { userId: string; amount: number }[];
 
   if (parsed.data.splitType === "equal") {
-    const perPerson = amount / members.length;
-    splits = members.map((m) => ({ userId: m.userId, amount: perPerson }));
+    const perPerson = Math.floor((amount / members.length) * 100) / 100;
+    const remainder = roundTo2(
+      amount - perPerson * (members.length - 1),
+    );
+    splits = members.map((m, i) => ({
+      userId: m.userId,
+      amount: i === members.length - 1 ? remainder : perPerson,
+    }));
   } else if (parsed.data.splits && parsed.data.splits.length > 0) {
-    splits = parsed.data.splits;
+    splits = parsed.data.splits.map((s) => ({
+      userId: s.userId,
+      amount: roundTo2(s.amount),
+    }));
   } else {
     return { success: false, error: "Custom split requires splits array" };
   }
@@ -84,6 +107,7 @@ export async function createExpense(formData: FormData) {
     amount: parsed.data.amount.toString(),
     description: parsed.data.description,
     splitType: parsed.data.splitType,
+    expenseDate: parsed.data.expenseDate,
   });
 
   for (const s of splits) {
@@ -95,7 +119,195 @@ export async function createExpense(formData: FormData) {
     });
   }
 
+  await db.insert(expenseAuditLog).values({
+    id: nanoid(),
+    expenseId,
+    tabId: parsed.data.tabId,
+    action: "create",
+    performedById: session.user.id,
+    changes: null,
+  });
+
   return { success: true, expenseId };
+}
+
+export async function updateExpense(expenseId: string, formData: FormData) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) {
+    return { success: false, error: "Unauthorized" };
+  }
+
+  const [existing] = await db
+    .select()
+    .from(expense)
+    .where(eq(expense.id, expenseId))
+    .limit(1);
+
+  if (!existing) {
+    return { success: false, error: "Expense not found" };
+  }
+
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, existing.tabId),
+        eq(tabMember.userId, session.user.id)
+      )
+    )
+    .limit(1);
+
+  if (!member) {
+    return { success: false, error: "You are not a member of this tab" };
+  }
+
+  const parsed = createExpenseSchema.safeParse({
+    tabId: existing.tabId,
+    amount: Number(formData.get("amount")),
+    description: formData.get("description"),
+    paidById: formData.get("paidById") ?? session.user.id,
+    splitType: formData.get("splitType") ?? "equal",
+    expenseDate: formData.get("expenseDate") || undefined,
+    splits: formData.get("splits")
+      ? JSON.parse(formData.get("splits") as string)
+      : undefined,
+  });
+
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.flatten().formErrors[0] ?? "Invalid input" };
+  }
+
+  const [payerIsMember] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, existing.tabId),
+        eq(tabMember.userId, parsed.data.paidById)
+      )
+    )
+    .limit(1);
+
+  if (!payerIsMember) {
+    return { success: false, error: "Payer must be a member of this tab" };
+  }
+
+  const allMembers = await db
+    .select()
+    .from(tabMember)
+    .where(eq(tabMember.tabId, existing.tabId));
+
+  const participantIdsRaw = formData.get("participantIds");
+  const participantIds = participantIdsRaw
+    ? (JSON.parse(participantIdsRaw as string) as string[])
+    : allMembers.map((m) => m.userId);
+
+  const members = participantIds.length > 0
+    ? allMembers.filter((m) => participantIds.includes(m.userId))
+    : allMembers;
+
+  const amount = parsed.data.amount;
+  let splits: { userId: string; amount: number }[];
+
+  if (parsed.data.splitType === "equal") {
+    const perPerson = Math.floor((amount / members.length) * 100) / 100;
+    const remainder = roundTo2(
+      amount - perPerson * (members.length - 1),
+    );
+    splits = members.map((m, i) => ({
+      userId: m.userId,
+      amount: i === members.length - 1 ? remainder : perPerson,
+    }));
+  } else if (parsed.data.splits && parsed.data.splits.length > 0) {
+    splits = parsed.data.splits.map((s) => ({
+      userId: s.userId,
+      amount: roundTo2(s.amount),
+    }));
+  } else {
+    return { success: false, error: "Custom split requires splits array" };
+  }
+
+  const existingSplits = await db
+    .select()
+    .from(expenseSplit)
+    .where(eq(expenseSplit.expenseId, expenseId));
+
+  const changes: Record<string, { from: unknown; to: unknown }> = {};
+  const existingDateStr = new Date(existing.expenseDate).toISOString().slice(0, 10);
+  const newDateStr = parsed.data.expenseDate.toISOString().slice(0, 10);
+  if (existingDateStr !== newDateStr) {
+    changes.expenseDate = {
+      from: existing.expenseDate,
+      to: parsed.data.expenseDate,
+    };
+  }
+  if (Number(existing.amount) !== parsed.data.amount) {
+    changes.amount = { from: Number(existing.amount), to: parsed.data.amount };
+  }
+  if (existing.description !== parsed.data.description) {
+    changes.description = { from: existing.description, to: parsed.data.description };
+  }
+  if (existing.paidById !== parsed.data.paidById) {
+    changes.paidById = { from: existing.paidById, to: parsed.data.paidById };
+  }
+  const oldParticipantIds = [...existingSplits.map((s) => s.userId)].sort();
+  const newParticipantIds = [...participantIds].sort();
+  if (
+    oldParticipantIds.length !== newParticipantIds.length ||
+    oldParticipantIds.some((id, i) => id !== newParticipantIds[i])
+  ) {
+    changes.participants = {
+      from: oldParticipantIds,
+      to: newParticipantIds,
+    };
+  }
+  const oldSplitsMap = Object.fromEntries(
+    existingSplits.map((s) => [s.userId, roundTo2(Number(s.amount))]),
+  );
+  const newSplitsMap = Object.fromEntries(
+    splits.map((s) => [s.userId, roundTo2(s.amount)]),
+  );
+  const splitsChanged =
+    JSON.stringify(oldSplitsMap) !== JSON.stringify(newSplitsMap);
+  if (splitsChanged && !changes.participants) {
+    changes.splits = { from: oldSplitsMap, to: newSplitsMap };
+  }
+
+  await db
+    .update(expense)
+    .set({
+      paidById: parsed.data.paidById,
+      amount: parsed.data.amount.toString(),
+      description: parsed.data.description,
+      splitType: parsed.data.splitType,
+      expenseDate: parsed.data.expenseDate,
+    })
+    .where(eq(expense.id, expenseId));
+
+  await db.delete(expenseSplit).where(eq(expenseSplit.expenseId, expenseId));
+
+  for (const s of splits) {
+    await db.insert(expenseSplit).values({
+      id: nanoid(),
+      expenseId,
+      userId: s.userId,
+      amount: s.amount.toString(),
+    });
+  }
+
+  if (Object.keys(changes).length > 0) {
+    await db.insert(expenseAuditLog).values({
+      id: nanoid(),
+      expenseId,
+      tabId: existing.tabId,
+      action: "update",
+      performedById: session.user.id,
+      changes: changes as unknown as Record<string, unknown>,
+    });
+  }
+
+  return { success: true };
 }
 
 export async function deleteExpense(expenseId: string) {
@@ -128,6 +340,15 @@ export async function deleteExpense(expenseId: string) {
   if (!member) {
     return { success: false, error: "You are not a member of this tab" };
   }
+
+  await db.insert(expenseAuditLog).values({
+    id: nanoid(),
+    expenseId,
+    tabId: exp.tabId,
+    action: "delete",
+    performedById: session.user.id,
+    changes: null,
+  });
 
   await db.delete(expenseSplit).where(eq(expenseSplit.expenseId, expenseId));
   await db.delete(expense).where(eq(expense.id, expenseId));

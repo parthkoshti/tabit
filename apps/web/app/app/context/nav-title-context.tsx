@@ -13,6 +13,8 @@ export type NavTitleConfig = {
   avatarUserIds?: string[];
   /** When set (direct tab), renders "Tab with <avatar> <name>" */
   avatarDisplayName?: string;
+  /** Icon to show in navbar next to title */
+  icon?: React.ReactNode;
 };
 
 const NavTitleContext = createContext<NavTitleConfig | null>(null);

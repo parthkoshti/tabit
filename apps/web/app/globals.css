@@ -62,6 +62,13 @@
   -moz-appearance: textfield;
 }
 
+/* Frosted glass for bottom nav - use class to ensure Safari gets -webkit prefix */
+.frosted-glass {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  transform: translateZ(0); /* Force own compositing layer */
+}
+
 /* Hide scrollbars in app layout - scroll still works */
 .app-scroll-hide {
   scrollbar-width: none;
@@ -92,14 +99,14 @@ body {
   --popover-foreground: #222326;
   --primary: #5e6ad2;
   --primary-foreground: #ffffff;
-  --secondary: #e8e9ec;
-  --secondary-foreground: #222326;
+  --secondary: #e8ebf8;
+  --secondary-foreground: #3d4a9e;
   --muted: #e8e9ec;
   --muted-foreground: #8a8f98;
   --accent: #e8e9ec;
   --accent-foreground: #222326;
   --destructive: #eb5757;
-  --positive: #4cb782;
+  --positive: #3a9a6a;
   --negative: #e67e22;
   --tab-icon: #5e6ad2;
   --border: #d1d3d8;
@@ -173,9 +180,9 @@ body {
   }
   .app-layout-safe-bottom {
     padding-bottom: max(
-      calc(4rem + env(safe-area-inset-bottom, 0px)),
-      calc(4rem + constant(safe-area-inset-bottom, 0px)),
-      calc(4rem + 34px)
+      calc(5.5rem + env(safe-area-inset-bottom, 0px)),
+      calc(5.5rem + constant(safe-area-inset-bottom, 0px)),
+      calc(5.5rem + 34px)
     ) !important;
   }
 }
@@ -201,14 +208,14 @@ body {
   --popover-foreground: #ffffff;
   --primary: #5e6ad2;
   --primary-foreground: #ffffff;
-  --secondary: #1a1c1f;
+  --secondary: #1e2233;
   --secondary-foreground: #b4bcd0;
   --muted: #1a1c1f;
   --muted-foreground: #8a8f98;
   --accent: #1a1c1f;
   --accent-foreground: #b4bcd0;
   --destructive: #eb5757;
-  --positive: #4cb782;
+  --positive: #3a9a6a;
   --negative: #e67e22;
   --tab-icon: #5e6ad2;
   --border: #282a2f;

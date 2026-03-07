@@ -14,13 +14,7 @@ import { Link as TransitionLink } from "next-view-transitions";
 import { useNavTitle } from "@/app/app/context/nav-title-context";
 import { AddExpenseForm } from "./add-expense-form";
 import { SettleUpForm } from "./settle-up-form";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,7 +26,13 @@ import {
 } from "@/components/ui/dialog";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
-import { BanknoteArrowUp, CircleCheck, Plus, UserPlus, Wallet } from "lucide-react";
+import {
+  BanknoteArrowUp,
+  CircleCheck,
+  Plus,
+  UserPlus,
+  Wallet,
+} from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function TabPage() {
@@ -69,7 +69,9 @@ export default function TabPage() {
   const [addExpenseOpen, setAddExpenseOpen] = useState(false);
 
   const currentUserId = session?.user?.id ?? "";
-  const otherMember = tab?.members?.find((m) => m.userId !== currentUserId)?.user;
+  const otherMember = tab?.members?.find(
+    (m) => m.userId !== currentUserId,
+  )?.user;
   const navTitle = tab
     ? tab.isDirect && otherMember
       ? `Tab with ${getDisplayName(otherMember, currentUserId)}`
@@ -111,7 +113,9 @@ export default function TabPage() {
   if (!tab) {
     return (
       <div className="flex min-h-[200px] flex-col items-center justify-center gap-4 p-4">
-        <p className="text-muted-foreground">Tab not found or you don&apos;t have access</p>
+        <p className="text-muted-foreground">
+          Tab not found or you don&apos;t have access
+        </p>
         <Button variant="outline" asChild>
           <TransitionLink href="/app/tabs">Go back</TransitionLink>
         </Button>
@@ -128,38 +132,38 @@ export default function TabPage() {
   const expensesAndSettlements = [
     ...(expenses ?? []).map((e) => ({ ...e, type: "expense" as const })),
     ...(settlements ?? []).map((s) => ({ ...s, type: "settlement" as const })),
-  ].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-  );
+  ].sort((a, b) => {
+    const dateA =
+      a.type === "expense" ? a.expenseDate : a.createdAt;
+    const dateB =
+      b.type === "expense" ? b.expenseDate : b.createdAt;
+    return new Date(dateB).getTime() - new Date(dateA).getTime();
+  });
 
   return (
     <div className="p-4 pb-20">
       <div className="mx-auto max-w-3xl space-y-6">
-        {avatarUserIds.length === 0 && (
-          <div className="rounded-lg border border-border bg-muted/50 p-4">
-            <p className="mb-3 text-sm text-muted-foreground">
-              {tab.isDirect
-                ? "Add a friend to split expenses with"
-                : "Add friends or invite members to this tab"}
-            </p>
-            <Button variant="secondary" className="w-full justify-center gap-2" asChild>
+        <div className="flex gap-2 overflow-x-auto overflow-y-hidden -mx-1 px-1 app-scroll-hide">
+          {!tab.isDirect && avatarUserIds.length > 0 && (
+            <Button
+              variant="secondary"
+              className="shrink-0 justify-center gap-2 min-w-28"
+              asChild
+            >
               <TransitionLink href={`/app/tabs/${tabId}/members`}>
                 <UserPlus className="h-4 w-4" />
-                {tab.isDirect ? "Add friend" : "Invite members"}
+                Invite
               </TransitionLink>
             </Button>
-          </div>
-        )}
-
-        <div className="flex gap-2">
+          )}
           <Dialog open={settleUpOpen} onOpenChange={setSettleUpOpen}>
             <DialogTrigger asChild>
               <Button
-                variant="secondary"
-                className="flex-1 justify-center gap-2"
+                variant="positive"
+                className="shrink-0 justify-center gap-2 min-w-28"
               >
                 <Wallet className="h-4 w-4" />
-                Settle up
+                Settle
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-[90vw] rounded-xl">
@@ -182,10 +186,10 @@ export default function TabPage() {
             <DialogTrigger asChild>
               <Button
                 variant="secondary"
-                className="flex-1 justify-center gap-2"
+                className="shrink-0 justify-center gap-2 min-w-28"
               >
                 <Plus className="h-4 w-4" />
-                Add expense
+                Expense
               </Button>
             </DialogTrigger>
             <DialogContent className="max-w-[90vw] rounded-xl">
@@ -205,30 +209,45 @@ export default function TabPage() {
           </Dialog>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Balances</CardTitle>
-            <CardDescription>Who owes whom in this tab</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {!balances || balances.length === 0 ? (
-              <p className="text-muted-foreground">No balances yet</p>
-            ) : (
-              <>
+        {!tab.isDirect && avatarUserIds.length === 0 && (
+          <div className="rounded-lg border border-border bg-muted/50 p-4">
+            <p className="mb-3 text-sm text-muted-foreground">
+              Add friends or invite members to this tab to start splitting
+              expenses
+            </p>
+            <Button
+              variant="default"
+              className="w-full justify-center gap-2"
+              asChild
+            >
+              <TransitionLink href={`/app/tabs/${tabId}/members`}>
+                <UserPlus className="h-4 w-4" />
+                Invite members
+              </TransitionLink>
+            </Button>
+          </div>
+        )}
+        <section>
+          <h2 className="text-base font-medium mb-2">Balances</h2>
+          {!balances || balances.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No balances yet</p>
+          ) : (
+            <>
+              <div className="space-y-2">
                 {youOwe.map((b) => (
-                  <p key={b.userId} className="text-negative">
+                  <p key={b.userId} className="text-negative text-xs">
                     You owe ${Math.abs(b.amount).toFixed(2)}
                   </p>
                 ))}
                 {owedToYou.map((b) => (
-                  <p key={b.userId} className="text-positive">
+                  <p key={b.userId} className="text-positive text-xs">
                     You are owed ${b.amount.toFixed(2)}
                   </p>
                 ))}
                 {others.map((b) => (
                   <div
                     key={b.userId}
-                    className="flex items-center gap-3 text-muted-foreground"
+                    className="flex items-center gap-3 text-muted-foreground text-sm"
                   >
                     <UserAvatar userId={b.userId} size="xs" />
                     <span>
@@ -238,84 +257,127 @@ export default function TabPage() {
                     </span>
                   </div>
                 ))}
-              </>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Expenses</CardTitle>
-            <CardDescription>
-              All expenses and settlements in this tab
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {expensesLoading || settlementsLoading ? (
-              <p className="text-muted-foreground">Loading...</p>
-            ) : expensesAndSettlements.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-                No expenses or settlements yet
-              </p>
-            ) : (
-              <div className="space-y-4">
-                {expensesAndSettlements.map((item) =>
-                  item.type === "expense" ? (
-                    <Card key={`exp-${item.id}`}>
-                      <CardContent className="flex flex-col gap-1 p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <UserAvatar userId={item.paidById} size="xs" />
-                            <BanknoteArrowUp className="h-5 w-5 shrink-0 text-negative" />
-                            <span className="min-w-0 flex-1 font-medium">
-                              {item.description}
-                            </span>
-                          </div>
-                          <span className="text-muted-foreground shrink-0">
-                            ${item.amount.toFixed(2)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Paid by {getDisplayName(item.paidBy, currentUserId)}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          Split:{" "}
-                          {item.splits
-                            .map(
-                              (s) =>
-                                `${getDisplayName(s.user, currentUserId)}: $${s.amount.toFixed(2)}`,
-                            )
-                            .join(", ")}
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ) : (
-                    <Card key={`set-${item.id}`}>
-                      <CardContent className="flex flex-col gap-1 p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <UserAvatar userId={item.fromUserId} size="xs" />
-                            <CircleCheck className="h-5 w-5 shrink-0 text-positive" />
-                            <span className="min-w-0 flex-1 font-medium">
-                              {getDisplayName(item.fromUser, currentUserId)}{" "}
-                              paid {getDisplayName(item.toUser, currentUserId)}
-                            </span>
-                          </div>
-                          <span className="text-muted-foreground shrink-0">
-                            ${item.amount.toFixed(2)}
-                          </span>
-                        </div>
-                        <p className="text-sm text-muted-foreground">
-                          Settlement
-                        </p>
-                      </CardContent>
-                    </Card>
-                  ),
-                )}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </>
+          )}
+        </section>
+
+        <section>
+          <h2 className="text-base font-medium mb-1">Expenses</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            All expenses and settlements in this tab
+          </p>
+          {expensesLoading || settlementsLoading ? (
+            <p className="text-muted-foreground text-sm">Loading...</p>
+          ) : expensesAndSettlements.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
+              No expenses or settlements yet
+            </p>
+          ) : (
+            <div className="flex flex-col gap-4">
+              {expensesAndSettlements.map((item) =>
+                item.type === "expense" ? (
+                  <TransitionLink
+                    key={`exp-${item.id}`}
+                    href={`/app/tabs/${tabId}/expenses/${item.id}`}
+                  >
+                    <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+                      <CardContent className="flex flex-col gap-1 p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <BanknoteArrowUp className="h-5 w-5 shrink-0 text-negative" />
+                          <span className="min-w-0 flex-1 font-medium text-sm">
+                            {item.description}
+                          </span>
+                          <span className="text-foreground shrink-0 font-medium">
+                            ${item.amount.toFixed(2)}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+                          Paid by{" "}
+                          <span className="inline-flex items-center gap-1.5">
+                            <UserAvatar userId={item.paidById} size="xs" />
+                            {getDisplayName(item.paidBy, currentUserId)}
+                          </span>
+                          <span>
+                            ·{" "}
+                            {new Date(item.expenseDate).toLocaleDateString(
+                              undefined,
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              },
+                            )}
+                          </span>
+                        </p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                          {item.splits
+                            .filter((s) => s.userId !== item.paidById)
+                            .map((s) => {
+                              const owesCurrentUser =
+                                item.paidById === currentUserId;
+                              const currentUserOwes =
+                                s.userId === currentUserId;
+                              const amountClass = owesCurrentUser
+                                ? "text-positive"
+                                : currentUserOwes
+                                  ? "text-negative"
+                                  : "text-muted-foreground";
+                              return (
+                                <span
+                                  key={s.userId}
+                                  className="inline-flex items-center gap-1.5"
+                                >
+                                  <UserAvatar userId={s.userId} size="xs" />
+                                  {getDisplayName(
+                                    s.user,
+                                    currentUserId,
+                                  )} owes{" "}
+                                  {getDisplayName(item.paidBy, currentUserId)}{" "}
+                                  <span className={amountClass}>
+                                    ${s.amount.toFixed(2)}
+                                  </span>
+                                </span>
+                              );
+                            })}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </TransitionLink>
+                ) : (
+                  <Card key={`set-${item.id}`}>
+                    <CardContent className="flex flex-col gap-1 p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <CircleCheck className="h-5 w-5 shrink-0 text-positive" />
+                        <span className="min-w-0 flex-1 font-medium text-sm">
+                          <span className="inline-flex items-center gap-1.5">
+                            <UserAvatar userId={item.fromUserId} size="xs" />
+                            {getDisplayName(item.fromUser, currentUserId)}
+                          </span>{" "}
+                          paid {getDisplayName(item.toUser, currentUserId)}
+                        </span>
+                        <span className="text-foreground shrink-0 font-medium">
+                          ${item.amount.toFixed(2)}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Settlement ·{" "}
+                        {new Date(item.createdAt).toLocaleDateString(
+                          undefined,
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ),
+              )}
+            </div>
+          )}
+        </section>
       </div>
     </div>
   );

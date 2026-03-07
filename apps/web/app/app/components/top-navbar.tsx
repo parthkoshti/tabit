@@ -28,6 +28,7 @@ export function TopNavbar() {
           <Button
             variant="ghost"
             size="icon"
+            className="relative z-10 shrink-0"
             asChild
             aria-label={`Back to ${navPage.backHref}`}
           >
@@ -35,32 +36,38 @@ export function TopNavbar() {
               <ArrowLeft className="h-5 w-5" />
             </TransitionLink>
           </Button>
-          <div className="flex flex-1 items-center justify-center gap-2 min-w-0">
-            {isTabPage && (
-              <ReceiptText className="h-5 w-5 shrink-0 text-tab-icon" />
-            )}
-            <h1 className="truncate text-lg font-semibold">{navPage.title}</h1>
-            {isTabPage &&
-              navPage.avatarUserIds &&
-              navPage.avatarUserIds.length > 0 && (
-                <div className="flex -space-x-2 shrink-0 items-center">
-                  {navPage.avatarUserIds.slice(0, 2).map((userId) => (
-                    <UserAvatar
-                      key={userId}
-                      userId={userId}
-                      size="xs"
-                      className="ring-2 ring-background"
-                    />
-                  ))}
-                  {navPage.avatarUserIds.length > 3 && (
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
-                      3+
-                    </span>
-                  )}
-                </div>
-              )}
+          <div className="absolute left-0 right-0 flex items-center justify-center gap-2 px-14 pointer-events-none">
+            <div className="flex items-center justify-center gap-2 min-w-0 pointer-events-auto">
+              {navPage.icon ? (
+                <span className="shrink-0">{navPage.icon}</span>
+              ) : isTabPage ? (
+                <ReceiptText className="h-5 w-5 shrink-0 text-tab-icon" />
+              ) : null}
+              <h1 className="truncate text-lg font-semibold">
+                {navPage.title}
+              </h1>
+              {isTabPage &&
+                navPage.avatarUserIds &&
+                navPage.avatarUserIds.length > 0 && (
+                  <div className="flex -space-x-2 shrink-0 items-center">
+                    {navPage.avatarUserIds.slice(0, 2).map((userId) => (
+                      <UserAvatar
+                        key={userId}
+                        userId={userId}
+                        size="xs"
+                        className="ring-2 ring-background"
+                      />
+                    ))}
+                    {navPage.avatarUserIds.length > 3 && (
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
+                        3+
+                      </span>
+                    )}
+                  </div>
+                )}
+            </div>
           </div>
-          <div className="w-9 shrink-0" aria-hidden />
+          <div className="relative z-10 w-9 shrink-0" aria-hidden />
         </>
       ) : (
         <TransitionLink href="/app/tabs" className="flex items-center gap-2">

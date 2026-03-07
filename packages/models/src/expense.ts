@@ -9,6 +9,7 @@ export const createExpenseSchema = z.object({
   description: z.string().min(1).max(500),
   paidById: z.string(),
   splitType: splitTypeSchema.default("equal"),
+  expenseDate: z.coerce.date().optional().default(() => new Date()),
   splits: z
     .array(
       z.object({
@@ -28,6 +29,7 @@ export const expenseSchema = z.object({
   amount: z.number(),
   description: z.string(),
   splitType: splitTypeSchema,
+  expenseDate: z.coerce.date(),
   createdAt: z.date(),
 });
 

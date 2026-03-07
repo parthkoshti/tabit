@@ -5,6 +5,7 @@ import {
   decimal,
   boolean,
   primaryKey,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
@@ -62,6 +63,7 @@ export const expense = pgTable("expense", {
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   description: text("description").notNull(),
   splitType: text("splitType").notNull().default("equal"),
+  expenseDate: timestamp("expenseDate").notNull().defaultNow(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
@@ -117,4 +119,33 @@ export const settlement = pgTable("settlement", {
     .references(() => user.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export const expenseAuditLog = pgTable("expense_audit_log", {
+  id: text("id").primaryKey(),
+  expenseId: text("expenseId").notNull(), // No FK - audit persists after expense delete
+  tabId: text("tabId")
+    .notNull()
+    .references(() => tab.id, { onDelete: "cascade" }),
+  action: text("action").notNull(), // create | update | delete
+  performedById: text("performedById")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  performedAt: timestamp("performedAt").notNull().defaultNow(),
+  changes: jsonb("changes"), // for updates: { amount: { from, to }, description: { from, to }, ... }
+});
+
+export const settlementAuditLog = pgTable("settlement_audit_log", {
+  id: text("id").primaryKey(),
+  settlementId: text("settlementId")
+    .notNull()
+    .references(() => settlement.id, { onDelete: "cascade" }),
+  tabId: text("tabId")
+    .notNull()
+    .references(() => tab.id, { onDelete: "cascade" }),
+  action: text("action").notNull().default("create"),
+  performedById: text("performedById")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  performedAt: timestamp("performedAt").notNull().defaultNow(),
 });

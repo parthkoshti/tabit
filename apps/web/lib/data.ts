@@ -4,6 +4,7 @@ import {
   tab,
   tabMember,
   expense,
+  expenseAuditLog,
   expenseSplit,
   settlement,
   user,
@@ -193,6 +194,7 @@ export async function getExpensesForTab(tabId: string) {
       amount: expense.amount,
       description: expense.description,
       splitType: expense.splitType,
+      expenseDate: expense.expenseDate,
       createdAt: expense.createdAt,
       paidByEmail: user.email,
       paidByName: user.name,
@@ -201,7 +203,7 @@ export async function getExpensesForTab(tabId: string) {
     .from(expense)
     .innerJoin(user, eq(expense.paidById, user.id))
     .where(eq(expense.tabId, tabId))
-    .orderBy(desc(expense.createdAt));
+    .orderBy(desc(expense.expenseDate));
 
   const result = [];
   for (const row of rows) {
@@ -244,6 +246,102 @@ export async function getExpensesForTab(tabId: string) {
   }
 
   return result;
+}
+
+export async function getExpenseById(expenseId: string) {
+  const [row] = await db
+    .select({
+      id: expense.id,
+      tabId: expense.tabId,
+      paidById: expense.paidById,
+      amount: expense.amount,
+      description: expense.description,
+      splitType: expense.splitType,
+      expenseDate: expense.expenseDate,
+      createdAt: expense.createdAt,
+      paidByEmail: user.email,
+      paidByName: user.name,
+      paidByUsername: user.username,
+    })
+    .from(expense)
+    .innerJoin(user, eq(expense.paidById, user.id))
+    .where(eq(expense.id, expenseId))
+    .limit(1);
+
+  if (!row) return null;
+
+  const splits = await db
+    .select({
+      id: expenseSplit.id,
+      expenseId: expenseSplit.expenseId,
+      userId: expenseSplit.userId,
+      amount: expenseSplit.amount,
+      userEmail: user.email,
+      userName: user.name,
+      userUsername: user.username,
+    })
+    .from(expenseSplit)
+    .innerJoin(user, eq(expenseSplit.userId, user.id))
+    .where(eq(expenseSplit.expenseId, row.id));
+
+  return {
+    ...row,
+    amount: Number(row.amount),
+    paidBy: {
+      id: row.paidById,
+      email: row.paidByEmail,
+      name: row.paidByName,
+      username: row.paidByUsername,
+    },
+    splits: splits.map((s) => ({
+      id: s.id,
+      expenseId: s.expenseId,
+      userId: s.userId,
+      amount: Number(s.amount),
+      user: {
+        id: s.userId,
+        email: s.userEmail,
+        name: s.userName,
+        username: s.userUsername,
+      },
+    })),
+  };
+}
+
+export async function getExpenseAuditLog(expenseId: string) {
+  const rows = await db
+    .select({
+      id: expenseAuditLog.id,
+      expenseId: expenseAuditLog.expenseId,
+      tabId: expenseAuditLog.tabId,
+      action: expenseAuditLog.action,
+      performedById: expenseAuditLog.performedById,
+      performedAt: expenseAuditLog.performedAt,
+      changes: expenseAuditLog.changes,
+      performedByEmail: user.email,
+      performedByName: user.name,
+      performedByUsername: user.username,
+    })
+    .from(expenseAuditLog)
+    .innerJoin(user, eq(expenseAuditLog.performedById, user.id))
+    .where(eq(expenseAuditLog.expenseId, expenseId))
+    .orderBy(desc(expenseAuditLog.performedAt));
+
+  return rows.map((r) => ({
+    id: r.id,
+    expenseId: r.expenseId,
+    tabId: r.tabId,
+    action: r.action as "create" | "update" | "delete",
+    performedById: r.performedById,
+    performedAt: r.performedAt,
+    changes: r.changes as Record<string, { from: unknown; to: unknown }> | null,
+    performedBy: {
+      id: r.performedById,
+      email: r.performedByEmail,
+      name: r.performedByName,
+      username: r.performedByUsername,
+    },
+  }));
 }
 
 export async function getSettlementsForTab(tabId: string) {
@@ -389,6 +487,7 @@ export type ActivityItem =
       paidByUsername: string | null;
       amount: number;
       description: string;
+      expenseDate: Date;
       createdAt: Date;
     }
   | {
@@ -422,6 +521,7 @@ export async function getActivityForUser(userId: string, limit = 50) {
       paidById: expense.paidById,
       amount: expense.amount,
       description: expense.description,
+      expenseDate: expense.expenseDate,
       createdAt: expense.createdAt,
       paidByEmail: user.email,
       paidByName: user.name,
@@ -430,7 +530,7 @@ export async function getActivityForUser(userId: string, limit = 50) {
     .from(expense)
     .innerJoin(user, eq(expense.paidById, user.id))
     .where(inArray(expense.tabId, tabIds))
-    .orderBy(desc(expense.createdAt))
+    .orderBy(desc(expense.expenseDate))
     .limit(limit);
 
   const settlementRows = await db
@@ -471,6 +571,7 @@ export async function getActivityForUser(userId: string, limit = 50) {
       paidByUsername: e.paidByUsername,
       amount: Number(e.amount),
       description: e.description,
+      expenseDate: e.expenseDate,
       createdAt: e.createdAt,
     })),
     ...settlementRows.map((s) => ({
@@ -491,8 +592,10 @@ export async function getActivityForUser(userId: string, limit = 50) {
     })),
   ];
 
-  items.sort(
-    (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
-  );
+  items.sort((a, b) => {
+    const dateA = a.type === "expense" ? a.expenseDate : a.createdAt;
+    const dateB = b.type === "expense" ? b.expenseDate : b.createdAt;
+    return dateB.getTime() - dateA.getTime();
+  });
   return items.slice(0, limit);
 }
