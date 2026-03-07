@@ -1,5 +1,6 @@
 "use client";
 
+import { ThemeProvider } from "next-themes";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
@@ -14,9 +15,10 @@ const queryClient = new QueryClient({
   },
 });
 
-const idbStore = typeof window !== "undefined"
-  ? createStore("tabit-query-cache", "queries")
-  : null;
+const idbStore =
+  typeof window !== "undefined"
+    ? createStore("tabit-query-cache", "queries")
+    : null;
 
 const persister = idbStore
   ? createAsyncStoragePersister({
@@ -34,11 +36,13 @@ const persister = idbStore
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <PersistQueryClientProvider
-      client={queryClient}
-      persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}
-    >
-      {children}
-    </PersistQueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <PersistQueryClientProvider
+        client={queryClient}
+        persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}
+      >
+        {children}
+      </PersistQueryClientProvider>
+    </ThemeProvider>
   );
 }

@@ -28,7 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <ViewTransitions>
-      <html lang="en" className={`dark ${inter.variable}`}>
+      <html lang="en" className={inter.variable} suppressHydrationWarning>
         <head>
           <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" />

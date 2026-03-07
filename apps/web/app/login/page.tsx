@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { appConfig } from "@/app/config";
 import { authClient } from "@/lib/auth-client";
@@ -22,7 +22,14 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const callbackURL = searchParams.get("callbackURL") ?? "/app/tabs";
   const router = useRouter();
+  const { data: session, isPending } = authClient.useSession();
   const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    if (!isPending && session?.user) {
+      router.replace("/app");
+    }
+  }, [session, isPending, router]);
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"email" | "otp">("email");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -74,6 +81,14 @@ function LoginForm() {
     setOtp("");
     setError(null);
     setStatus("idle");
+  }
+
+  if (isPending || session?.user) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-8">
+        <Spinner />
+      </main>
+    );
   }
 
   return (
