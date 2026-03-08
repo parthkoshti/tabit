@@ -1,25 +1,25 @@
-# Stage 1: Install dependencies
-FROM node:24-alpine AS deps
+# Stage 1: Prepare - prune monorepo for target workspaces
+FROM node:24-alpine AS prepare
 RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY . .
+# Install turbo for prune (minimal, no full monorepo install)
+RUN pnpm add -g turbo@^2
 
+COPY . .
+RUN turbo prune web api notifications --docker
+
+# Stage 2: Install dependencies (only when package.json/lockfile change)
+FROM node:24-alpine AS builder
+RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
+WORKDIR /app
+
+# Copy pruned package.json files and lockfile first (better layer caching)
+COPY --from=prepare /app/out/json/ .
 RUN pnpm install --frozen-lockfile
 
-# Stage 2: Build
-FROM node:24-alpine AS build
-RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
-WORKDIR /app
-
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
-COPY --from=deps /app/packages/auth/node_modules ./packages/auth/node_modules
-COPY --from=deps /app/packages/data/node_modules ./packages/data/node_modules
-COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
-COPY --from=deps /app/packages/models/node_modules ./packages/models/node_modules
-COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
+# Copy full source
+COPY --from=prepare /app/out/full/ .
 
 ARG NEXT_PUBLIC_APP_URL=https://localhost:3000
 ARG NEXT_PUBLIC_API_URL=/api-backend
@@ -41,10 +41,11 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 
-COPY --from=build /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/turbo.json ./
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/apps ./apps
-COPY --from=build /app/packages ./packages
+COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/turbo.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/apps ./apps
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/.env ./.env
 
 EXPOSE 3000 3002
 
