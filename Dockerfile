@@ -15,6 +15,11 @@ WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+COPY --from=deps /app/packages/auth/node_modules ./packages/auth/node_modules
+COPY --from=deps /app/packages/data/node_modules ./packages/data/node_modules
+COPY --from=deps /app/packages/db/node_modules ./packages/db/node_modules
+COPY --from=deps /app/packages/models/node_modules ./packages/models/node_modules
+COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 
 ARG NEXT_PUBLIC_APP_URL=https://localhost:3000
 ARG NEXT_PUBLIC_API_URL=/api-backend
