@@ -8,6 +8,9 @@ dist
 out
 .turbo
 
+# Local HTTPS certs (mkcert-generated)
+apps/web/certificates/*.pem
+
 # Environment
 .env
 .env.local

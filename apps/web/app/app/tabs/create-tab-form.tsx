@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createTab } from "@/app/actions/tabs";
+import { api } from "@/lib/api-client";
 import { useTransitionRouter } from "next-view-transitions";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -23,7 +23,7 @@ export function CreateTabForm() {
     const formData = new FormData();
     formData.set("name", name);
 
-    const result = await createTab(formData);
+    const result = await api.tabs.create(name);
 
     if (result.success && result.tabId) {
       queryClient.invalidateQueries({ queryKey: ["tabs"] });

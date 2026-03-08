@@ -1,0 +1,27 @@
+{
+  "name": "notifications",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "dotenv -e ../../.env -e ../../.env.local -- tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "dotenv -e ../../.env -e ../../.env.local -- node dist/index.js",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "db": "workspace:*",
+    "drizzle-orm": "^0.41.0",
+    "ioredis": "^5.4.1",
+    "ws": "^8.18.0",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "dotenv-cli": "^7.4.2",
+    "@types/node": "^22.0.0",
+    "@types/web-push": "^3.6.3",
+    "@types/ws": "^8.5.10",
+    "tsx": "^4.19.0",
+    "typescript": "^5.0.0"
+  }
+}

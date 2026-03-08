@@ -10,7 +10,7 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { useNavTitle } from "@/app/app/context/nav-title-context";
 import { useEffect, useState } from "react";
-import { deleteExpense } from "@/app/actions/expenses";
+import { api } from "@/lib/api-client";
 import { EditExpenseForm } from "../../edit-expense-form";
 import { Button } from "@/components/ui/button";
 import { Link as TransitionLink } from "next-view-transitions";
@@ -163,7 +163,7 @@ export default function ExpensePage() {
   async function handleDelete() {
     setDeleteDialogOpen(false);
     setDeleteLoading(true);
-    const result = await deleteExpense(expenseId);
+    const result = await api.expenses.delete(tabId, expenseId);
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });

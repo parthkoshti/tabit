@@ -6,12 +6,7 @@ import { Link as TransitionLink } from "next-view-transitions";
 import { useNavTitle } from "@/app/app/context/nav-title-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchTab } from "@/app/actions/queries";
-import { searchUsersByUsername } from "@/app/actions/friends";
-import {
-  getTabInviteToken,
-  sendTabInviteRequest,
-} from "@/app/actions/tab-invites";
-import { removeMember } from "@/app/actions/tabs";
+import { api } from "@/lib/api-client";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,7 +44,7 @@ function TabQRCode({ tabId }: { tabId: string }) {
   const { data, isLoading, error } = useQuery({
     queryKey: ["tabInviteToken", tabId],
     queryFn: async () => {
-      const result = await getTabInviteToken(tabId);
+      const result = await api.tabInvites.getToken(tabId);
       if (!result.success) throw new Error(result.error ?? "Failed to load");
       return result.url!;
     },
@@ -208,7 +203,7 @@ export default function ManageMembersPage() {
   async function handleRemoveMember(userId: string) {
     if (!tabId) return;
     setRemoving(true);
-    const result = await removeMember(tabId, userId);
+    const result = await api.tabs.removeMember(tabId, userId);
     setRemoving(false);
     setRemoveMemberId(null);
     if (result.success) {
@@ -254,9 +249,7 @@ export default function ManageMembersPage() {
     }
     const timer = setTimeout(async () => {
       setSearching(true);
-      const result = await searchUsersByUsername(username, {
-        includeFriends: true,
-      });
+      const result = await api.friends.search(username);
       setSearchResults(result.success ? result.users : []);
       setSearching(false);
     }, 300);
@@ -268,7 +261,7 @@ export default function ManageMembersPage() {
     setLoading(true);
     setError(null);
 
-    const result = await sendTabInviteRequest(tabId, targetUsername);
+    const result = await api.tabInvites.sendRequest(tabId, targetUsername);
 
     if (result.success) {
       toast.success("Invite sent");

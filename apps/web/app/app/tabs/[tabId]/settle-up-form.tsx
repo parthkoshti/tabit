@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { recordSettlement } from "@/app/actions/settlements";
+import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -63,13 +63,12 @@ export function SettleUpForm({
     setLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.set("tabId", tabId);
-    formData.set("fromUserId", fromUserId);
-    formData.set("toUserId", toUserId);
-    formData.set("amount", amount);
-
-    const result = await recordSettlement(formData);
+    const result = await api.settlements.record(
+      tabId,
+      fromUserId,
+      toUserId,
+      parseFloat(amount)
+    );
 
     if (result.success) {
       setFromUserId("");

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchTab } from "@/app/actions/queries";
-import { updateTab } from "@/app/actions/tabs";
+import { api } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
 import { Link as TransitionLink } from "next-view-transitions";
 import { Button } from "@/components/ui/button";
@@ -122,10 +122,7 @@ function RenameTabForm({
     setLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.set("name", name.trim());
-
-    const result = await updateTab(tabId, formData);
+    const result = await api.tabs.update(tabId, name.trim());
 
     if (result.success) {
       toast.success("Tab renamed");

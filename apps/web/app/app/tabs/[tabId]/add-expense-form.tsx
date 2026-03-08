@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { createExpense } from "@/app/actions/expenses";
+import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -118,19 +118,14 @@ export function AddExpenseForm({
       return;
     }
 
-    const formData = new FormData();
-    formData.set("tabId", tabId);
-    formData.set("amount", parsedAmount.toFixed(2));
-    formData.set("description", description);
-    formData.set("expenseDate", expenseDate.toISOString().slice(0, 10));
-    formData.set("paidById", paidById);
-    formData.set("splitType", "equal");
-    formData.set(
-      "participantIds",
-      JSON.stringify(selectedParticipants.map((p) => p.userId)),
-    );
-
-    const result = await createExpense(formData);
+    const result = await api.expenses.create(tabId, {
+      amount: parsedAmount,
+      description,
+      paidById,
+      splitType: "equal",
+      participantIds: selectedParticipants.map((p) => p.userId),
+      expenseDate: expenseDate.toISOString().slice(0, 10),
+    });
 
     if (result.success) {
       setAmount("");

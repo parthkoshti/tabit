@@ -5,10 +5,9 @@ import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Users, Activity, User, ReceiptText } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
+import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
-import { getPendingFriendRequests } from "@/app/actions/friends";
-import { getPendingTabInviteRequests } from "@/app/actions/tab-invites";
 
 const tabs = [
   { href: "/app/friends", label: "Friends", icon: Users },
@@ -23,7 +22,7 @@ export function BottomNavbar() {
   const { data: friendRequestsData } = useQuery({
     queryKey: ["pendingFriendRequests"],
     queryFn: async () => {
-      const r = await getPendingFriendRequests();
+      const r = await api.friends.getPendingRequests();
       return r.success ? r.requests : [];
     },
     staleTime: 0,
@@ -32,7 +31,7 @@ export function BottomNavbar() {
   const { data: tabInvitesData } = useQuery({
     queryKey: ["pendingTabInviteRequests"],
     queryFn: async () => {
-      const r = await getPendingTabInviteRequests();
+      const r = await api.tabInvites.getPendingRequests();
       return r.success ? r.requests : [];
     },
     staleTime: 0,

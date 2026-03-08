@@ -3,24 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchFriends } from "@/app/actions/queries";
-import {
-  getPendingFriendRequests,
-  acceptFriendRequest,
-  rejectFriendRequest,
-} from "@/app/actions/friends";
+import { api } from "@/lib/api-client";
 import { Link as TransitionLink } from "next-view-transitions";
 import { Button } from "@/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -29,16 +22,26 @@ export default function FriendsPage() {
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null);
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { data: friends, isLoading } = useQuery({
+  const { data: friendsData, isLoading } = useQuery({
     queryKey: ["friends"],
-    queryFn: fetchFriends,
+    queryFn: async () => {
+      const r = await api.friends.list();
+      return (r.success ? r.friends : []) as Array<{
+        id: string;
+        balance: number;
+        expenseCount: number;
+        lastExpenseDate?: string | null;
+        friend: { id: string; email: string; name: string | null; username: string | null };
+      }>;
+    },
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+  const friends = friendsData ?? [];
   const { data: requestsData, isLoading: requestsLoading } = useQuery({
     queryKey: ["pendingFriendRequests"],
     queryFn: async () => {
-      const r = await getPendingFriendRequests();
+      const r = await api.friends.getPendingRequests();
       return r.success ? r.requests : [];
     },
     staleTime: 0,
@@ -47,9 +50,7 @@ export default function FriendsPage() {
   const pendingRequests = requestsData ?? [];
 
   async function handleAccept(requestId: string) {
-    const formData = new FormData();
-    formData.set("requestId", requestId);
-    const result = await acceptFriendRequest(formData);
+    const result = await api.friends.acceptRequest(requestId);
     if (result.success && result.friendTabId) {
       queryClient.invalidateQueries({ queryKey: ["friends"] });
       queryClient.invalidateQueries({ queryKey: ["tabs"] });
@@ -59,9 +60,7 @@ export default function FriendsPage() {
   }
 
   async function handleReject(requestId: string) {
-    const formData = new FormData();
-    formData.set("requestId", requestId);
-    await rejectFriendRequest(formData);
+    await api.friends.rejectRequest(requestId);
     queryClient.invalidateQueries({ queryKey: ["pendingFriendRequests"] });
     setRejectRequestId(null);
   }
@@ -109,23 +108,21 @@ export default function FriendsPage() {
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-4">
                       <UserAvatar userId={r.fromUserId} size="sm" />
-                      <div className="min-w-0 flex-1">
-                        <span className="font-medium">
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <div className="font-medium">
                           {r.fromUserName ?? r.fromUserUsername ?? "Unknown"}
-                        </span>
-                        <div className="mt-0.5 flex items-center gap-2">
-                          {r.fromUserUsername && (
-                            <span className="text-sm text-muted-foreground">
-                              @{r.fromUserUsername}
-                            </span>
-                          )}
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(r.createdAt).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            })}
-                          </span>
+                        </div>
+                        {r.fromUserUsername && (
+                          <div className="text-sm text-muted-foreground">
+                            @{r.fromUserUsername}
+                          </div>
+                        )}
+                        <div className="text-xs text-muted-foreground">
+                          {new Date(r.createdAt).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          })}
                         </div>
                       </div>
                     </div>
@@ -149,30 +146,35 @@ export default function FriendsPage() {
           </section>
         )}
 
-        <AlertDialog
+        <Dialog
           open={rejectRequestId !== null}
           onOpenChange={(open) => !open && setRejectRequestId(null)}
         >
-          <AlertDialogContent className="max-w-md rounded-lg">
-            <AlertDialogHeader>
-              <AlertDialogTitle>Reject friend request?</AlertDialogTitle>
-              <AlertDialogDescription>
+          <DialogContent className="max-w-[90vw] rounded-lg">
+            <DialogHeader>
+              <DialogTitle>Reject friend request?</DialogTitle>
+              <DialogDescription>
                 {rejectRequest
                   ? `Are you sure you want to reject the friend request from ${rejectRequest.fromUserName ?? rejectRequest.fromUserUsername ?? "this user"}?`
                   : "Are you sure you want to reject this friend request?"}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => setRejectRequestId(null)}
+              >
+                Cancel
+              </Button>
+              <Button
                 variant="destructive"
                 onClick={() => rejectRequestId && handleReject(rejectRequestId)}
               >
                 Reject
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <section className="space-y-4">
           <h2 className="text-base font-medium mb-1">Your friends</h2>
@@ -240,7 +242,7 @@ export default function FriendsPage() {
                               month: "short",
                               day: "numeric",
                               year: "numeric",
-                            }
+                            },
                           )}
                         </>
                       )}

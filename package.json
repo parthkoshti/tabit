@@ -4,8 +4,10 @@
   "scripts": {
     "build": "turbo build",
     "generate-icons": "node scripts/generate-icons.js",
+    "generate-https-certs": "pnpm --filter=web generate-https-certs",
     "dev": "turbo dev",
     "dev:web": "turbo dev --filter=web",
+    "start": "pnpm --filter=web start",
     "check": "turbo check",
     "lint": "turbo lint",
     "build:db": "turbo build --filter=db",

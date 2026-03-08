@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { updateExpense, deleteExpense } from "@/app/actions/expenses";
+import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -161,18 +161,14 @@ export function EditExpenseForm({
       return;
     }
 
-    const formData = new FormData();
-    formData.set("amount", parsedAmount.toFixed(2));
-    formData.set("description", description);
-    formData.set("expenseDate", expenseDate.toISOString().slice(0, 10));
-    formData.set("paidById", paidById);
-    formData.set("splitType", "equal");
-    formData.set(
-      "participantIds",
-      JSON.stringify(selectedParticipants.map((p) => p.userId)),
-    );
-
-    const result = await updateExpense(expenseId, formData);
+    const result = await api.expenses.update(tabId, expenseId, {
+      amount: parsedAmount,
+      description,
+      paidById,
+      splitType: "equal",
+      expenseDate: expenseDate.toISOString().slice(0, 10),
+      participantIds: selectedParticipants.map((p) => p.userId),
+    });
 
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
@@ -193,7 +189,7 @@ export function EditExpenseForm({
   async function handleDelete() {
     setDeleteOpen(false);
     setLoading(true);
-    const result = await deleteExpense(expenseId);
+    const result = await api.expenses.delete(tabId, expenseId);
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });

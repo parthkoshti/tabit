@@ -8,7 +8,7 @@ import {
   jsonb,
 } from "drizzle-orm/pg-core";
 import { createId } from "shared";
-import { user } from "./auth";
+import { user } from "./auth.js";
 
 export const friendRequest = pgTable("friend_request", {
   id: text("id")
@@ -169,4 +169,33 @@ export const settlementAuditLog = pgTable("settlement_audit_log", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   performedAt: timestamp("performedAt").notNull().defaultNow(),
+});
+
+export const apiKey = pgTable("api_key", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  keyHash: text("keyHash").notNull(),
+  keyPrefix: text("keyPrefix").notNull(),
+  name: text("name").notNull(),
+  scopes: text("scopes"), // comma-separated, e.g. "read,write"
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+  expiresAt: timestamp("expiresAt"),
+});
+
+export const pushSubscription = pgTable("push_subscription", {
+  id: text("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  userId: text("userId")
+    .notNull()
+    .references(() => user.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("userAgent"),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
 });

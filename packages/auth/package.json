@@ -1,0 +1,22 @@
+{
+  "name": "auth",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@plunk/node": "^3.0.3",
+    "better-auth": "^1.0.0",
+    "db": "workspace:*",
+    "shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
+}

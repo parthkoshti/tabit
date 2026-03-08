@@ -4,6 +4,7 @@ import { useEffect, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { needsProfileSetup } from "@/lib/profile";
+import { useNotifications } from "@/lib/use-notifications";
 import { NavTitleProvider } from "./context/nav-title-context";
 import { TopNavbar } from "./components/top-navbar";
 import { BottomNavbar } from "./components/bottom-navbar";
@@ -15,6 +16,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: session, isPending } = authClient.useSession();
+
+  useNotifications(!!session?.user);
 
   useEffect(() => {
     if (isPending) return;

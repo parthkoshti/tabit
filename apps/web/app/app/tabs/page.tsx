@@ -2,12 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchTabs } from "@/app/actions/queries";
-import {
-  getPendingTabInviteRequests,
-  acceptTabInviteRequest,
-  rejectTabInviteRequest,
-} from "@/app/actions/tab-invites";
+import { api } from "@/lib/api-client";
 import { Link as TransitionLink } from "next-view-transitions";
 import { ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,17 +14,24 @@ export default function TabsPage() {
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
-  const { data: tabs, isLoading } = useQuery({
+  type TabItem = { id: string; name: string; balance?: number; memberUserIds?: string[]; expenseCount?: number; lastExpenseDate?: string | null };
+  type TabInviteItem = { id: string; tabId: string; fromUserId: string; tabName: string; fromUserName: string | null; fromUserUsername: string | null; createdAt: string };
+
+  const { data: tabsData, isLoading } = useQuery({
     queryKey: ["tabs"],
-    queryFn: fetchTabs,
+    queryFn: async () => {
+      const r = await api.tabs.list();
+      return (r.success ? r.tabs : []) as TabItem[];
+    },
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+  const tabs = tabsData ?? [];
   const { data: tabInvitesData } = useQuery({
     queryKey: ["pendingTabInviteRequests"],
     queryFn: async () => {
-      const r = await getPendingTabInviteRequests();
-      return r.success ? r.requests : [];
+      const r = await api.tabInvites.getPendingRequests();
+      return (r.success ? r.requests : []) as TabInviteItem[];
     },
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -37,7 +39,7 @@ export default function TabsPage() {
   const pendingTabInvites = tabInvitesData ?? [];
 
   async function handleAcceptTabInvite(requestId: string) {
-    const result = await acceptTabInviteRequest(requestId);
+    const result = await api.tabInvites.acceptRequest(requestId);
     if (result.success && result.tabId) {
       queryClient.invalidateQueries({ queryKey: ["friends"] });
       queryClient.invalidateQueries({ queryKey: ["tabs"] });
@@ -47,7 +49,7 @@ export default function TabsPage() {
   }
 
   async function handleRejectTabInvite(requestId: string) {
-    await rejectTabInviteRequest(requestId);
+    await api.tabInvites.rejectRequest(requestId);
     queryClient.invalidateQueries({ queryKey: ["pendingTabInviteRequests"] });
   }
 

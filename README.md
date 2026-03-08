@@ -45,8 +45,24 @@ pnpm dev
 For PWA testing with HTTPS locally:
 
 ```bash
-cd apps/web && pnpm next dev --experimental-https
+pnpm dev
 ```
+
+To access from another device on your network (e.g. iPhone), generate certs that include your local IP:
+
+```bash
+cd apps/web && pnpm generate-https-certs
+```
+
+Requires [mkcert](https://github.com/FiloSottile/mkcert) (`brew install mkcert && mkcert -install`).
+
+**SSL error when using 192.168.x.x:**
+
+1. Install mkcert: `brew install mkcert && mkcert -install`
+2. Generate certs: `pnpm generate-https-certs`
+3. Restart: `pnpm dev`
+
+**Accessing from iPhone/another device:** The device must trust the mkcert CA. On your Mac, run `mkcert -CAROOT` to get the CA path. Copy `rootCA.pem` to the device (AirDrop, etc.), install the profile, then Settings > General > About > Certificate Trust Settings > enable trust for the mkcert root.
 
 ## Project structure
 

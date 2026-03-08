@@ -3,11 +3,7 @@
 import { use, useMemo, useEffect, useState, Suspense } from "react";
 import { useNavTitle } from "@/app/app/context/nav-title-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  sendFriendRequest,
-  searchUsersByUsername,
-  getFriendToken,
-} from "@/app/actions/friends";
+import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -32,9 +28,9 @@ function MyQRCode() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["friendToken"],
     queryFn: async () => {
-      const result = await getFriendToken();
-      if (!result.success) throw new Error(result.error ?? "Failed to load");
-      return result.url!;
+      const result = await api.friends.getToken();
+      if (!result.success || !result.url) throw new Error(result.error ?? "Failed to load");
+      return result.url;
     },
   });
 
@@ -183,7 +179,7 @@ export default function AddFriendPage() {
     }
     const timer = setTimeout(async () => {
       setSearching(true);
-      const result = await searchUsersByUsername(username);
+      const result = await api.friends.search(username);
       setSearchResults(result.success ? result.users : []);
       setSearching(false);
     }, 300);
@@ -195,10 +191,7 @@ export default function AddFriendPage() {
     setError(null);
     setSuccess(null);
 
-    const formData = new FormData();
-    formData.set("username", targetUsername);
-
-    const result = await sendFriendRequest(formData);
+    const result = await api.friends.sendRequest(targetUsername);
 
     if (result.success) {
       setSuccess("Friend request sent");

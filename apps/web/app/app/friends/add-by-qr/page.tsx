@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { addFriendByToken } from "@/app/actions/friends";
+import { api } from "@/lib/api-client";
 import { useNavTitle } from "@/app/app/context/nav-title-context";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -36,7 +36,7 @@ function AddByQRContent() {
       return;
     }
 
-    addFriendByToken(code).then((result) => {
+    api.friends.addByToken(code).then((result) => {
       if (result.success && result.friendTabId) {
         setStatus("success");
         queryClient.invalidateQueries({ queryKey: ["friends"] });

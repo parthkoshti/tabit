@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
-import { completeProfile } from "@/app/actions/profile";
-import { checkUsernameAvailability } from "@/app/actions/username";
+import { api } from "@/lib/api-client";
 import { needsProfileSetup } from "@/lib/profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,7 +56,7 @@ export default function OnboardingPage() {
     const id = ++checkIdRef.current;
     const timer = setTimeout(async () => {
       const value = username;
-      const result = await checkUsernameAvailability(value);
+      const result = await api.username.check(value);
       if (id === checkIdRef.current) {
         setAvailability(result.available ? "available" : "taken");
       }
@@ -70,11 +69,13 @@ export default function OnboardingPage() {
     setLoading(true);
     setError(null);
 
-    const formData = new FormData();
-    formData.set("name", name.trim());
-    formData.set("username", username.trim());
-
-    const result = await completeProfile(formData);
+    const [profileResult, usernameResult] = await Promise.all([
+      api.profile.update(name.trim()),
+      api.username.update(username.trim().toLowerCase()),
+    ]);
+    const result = profileResult.success && usernameResult.success
+      ? { success: true as const }
+      : { success: false as const, error: profileResult.error ?? usernameResult.error ?? "Failed" };
 
     if (result.success) {
       await refetch();

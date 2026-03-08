@@ -4,12 +4,7 @@ import { useEffect, useState, useRef, useMemo, use, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
 import Image from "next/image";
 import { authClient } from "@/lib/auth-client";
-import {
-  updateUsername,
-  checkUsernameAvailability,
-} from "@/app/actions/username";
-import { updateName } from "@/app/actions/profile";
-import { getFriendToken } from "@/app/actions/friends";
+import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,6 +28,7 @@ import {
   Heart,
   ExternalLink,
 } from "lucide-react";
+import { toast } from "sonner";
 import { UserAvatar } from "@/components/user-avatar";
 import { Spinner } from "@/components/ui/spinner";
 import { useNavTitle } from "../context/nav-title-context";
@@ -104,7 +100,7 @@ export default function MePage() {
     const id = ++checkIdRef.current;
     const timer = setTimeout(async () => {
       const value = username;
-      const result = await checkUsernameAvailability(value);
+      const result = await api.username.check(value);
       if (id === checkIdRef.current) {
         setAvailability(result.available ? "available" : "taken");
       }
@@ -121,7 +117,7 @@ export default function MePage() {
     const formData = new FormData();
     formData.set("username", username);
 
-    const result = await updateUsername(formData);
+    const result = await api.username.update(username);
 
     if (result.success) {
       setSuccess(true);
@@ -142,7 +138,7 @@ export default function MePage() {
     const formData = new FormData();
     formData.set("name", name);
 
-    const result = await updateName(formData);
+    const result = await api.profile.update(name);
 
     if (result.success) {
       setNameSuccess(true);
@@ -342,11 +338,145 @@ export default function MePage() {
           </Dialog>
         </section>
 
+        <PushNotificationsSection />
+
         <SupportSection />
 
         <InviteSection />
       </div>
     </div>
+  );
+}
+
+function PushNotificationsSection() {
+  const [status, setStatus] = useState<"idle" | "loading" | "enabled" | "unsupported" | "error">("idle");
+  const [testLoading, setTestLoading] = useState(false);
+  const [testTabInviteLoading, setTestTabInviteLoading] = useState(false);
+  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+  useEffect(() => {
+    if (!vapidKey || !("serviceWorker" in navigator)) return;
+    let cancelled = false;
+    navigator.serviceWorker.ready.then((reg) => {
+      if (cancelled) return;
+      const hasPushSupport = "PushManager" in window || "pushManager" in reg;
+      if (!hasPushSupport) return;
+      return reg.pushManager.getSubscription();
+    }).then((sub) => {
+      if (cancelled || !sub) return;
+      setStatus("enabled");
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [vapidKey]);
+
+  async function handleTest() {
+    setTestLoading(true);
+    try {
+      const result = await api.push.test();
+      if (result.success) {
+        toast.success("Test notification sent");
+      } else {
+        toast.error((result as { error?: string }).error ?? "Failed to send test");
+      }
+    } catch {
+      toast.error("Failed to send test notification");
+    } finally {
+      setTestLoading(false);
+    }
+  }
+
+  async function handleTestTabInvite() {
+    setTestTabInviteLoading(true);
+    try {
+      const result = await api.push.testTabInvite();
+      if (result.success) {
+        toast.success("Test tab invite notification sent");
+      } else {
+        toast.error((result as { error?: string }).error ?? "Failed to send test");
+      }
+    } catch {
+      toast.error("Failed to send test tab invite notification");
+    } finally {
+      setTestTabInviteLoading(false);
+    }
+  }
+
+  async function handleEnable() {
+    if (!vapidKey || !("serviceWorker" in navigator)) {
+      setStatus("unsupported");
+      return;
+    }
+    setStatus("loading");
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const hasPushSupport = "PushManager" in window || "pushManager" in reg;
+      if (!hasPushSupport) {
+        setStatus("unsupported");
+        return;
+      }
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        setStatus("enabled");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setStatus("idle");
+        return;
+      }
+      const newSub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidKey,
+      });
+      await api.push.subscribe(newSub.toJSON());
+      setStatus("enabled");
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  if (!vapidKey) return null;
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-xl border border-border bg-card/50 p-4">
+        <h2 className="text-sm font-medium mb-1">Push notifications</h2>
+        <p className="text-[11px] text-muted-foreground mb-4">
+          Get notified when you receive friend requests or tab invites
+        </p>
+        {status === "enabled" ? (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm text-muted-foreground">Push notifications are enabled</p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTest}
+                disabled={testLoading}
+              >
+                {testLoading ? "Sending..." : "Test friend request"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleTestTabInvite}
+                disabled={testTabInviteLoading}
+              >
+                {testTabInviteLoading ? "Sending..." : "Test tab invite"}
+              </Button>
+            </div>
+          </div>
+        ) : status === "unsupported" ? (
+          <p className="text-sm text-muted-foreground">Push notifications are not supported in this browser</p>
+        ) : status === "error" ? (
+          <p className="text-sm text-destructive">Failed to enable. Try again later.</p>
+        ) : (
+          <Button variant="outline" size="sm" onClick={handleEnable} disabled={status === "loading"}>
+            {status === "loading" ? "Enabling..." : "Enable push notifications"}
+          </Button>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -437,7 +567,7 @@ function InviteSection() {
   } = useQuery({
     queryKey: ["friendToken"],
     queryFn: async () => {
-      const result = await getFriendToken();
+      const result = await api.friends.getToken();
       if (!result.success) throw new Error(result.error ?? "Failed to load");
       return result.url!;
     },

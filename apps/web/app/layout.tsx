@@ -11,7 +11,7 @@ import { appConfig } from "./config";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: appConfig.fullName,
+  title: appConfig.name,
   description: appConfig.description,
 };
 
@@ -30,16 +30,15 @@ export default function RootLayout({
     <ViewTransitions>
       <html lang="en" className={inter.variable} suppressHydrationWarning>
         <head>
-          <meta name="apple-mobile-web-app-capable" content="yes" />
           <meta name="apple-mobile-web-app-status-bar-style" />
           <link
             rel="apple-touch-icon"
-            href="/apple-touch-icon.png"
+            href="/icon-192x192.png"
             sizes="192x192"
           />
           <link
             rel="apple-touch-icon-precomposed"
-            href="/apple-touch-icon-precomposed.png"
+            href="/icon-192x192.png"
             sizes="192x192"
           />
           <SplashScreenLinks />

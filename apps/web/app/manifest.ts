@@ -11,9 +11,21 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: appConfig.pwa.backgroundColor,
     theme_color: appConfig.pwa.themeColor,
     icons: [
-      { src: appConfig.icons.sm.src, sizes: appConfig.icons.sm.sizes, type: "image/png" },
-      { src: appConfig.icons.md.src, sizes: appConfig.icons.md.sizes, type: "image/png" },
-      { src: appConfig.icons.lg.src, sizes: appConfig.icons.lg.sizes, type: "image/png" },
+      {
+        src: appConfig.icons.sm.src,
+        sizes: appConfig.icons.sm.sizes,
+        type: "image/png",
+      },
+      {
+        src: appConfig.icons.md.src,
+        sizes: appConfig.icons.md.sizes,
+        type: "image/png",
+      },
+      {
+        src: appConfig.icons.lg.src,
+        sizes: appConfig.icons.lg.sizes,
+        type: "image/png",
+      },
     ],
   };
 }

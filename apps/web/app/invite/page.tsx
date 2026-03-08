@@ -6,11 +6,7 @@ import { Link as TransitionLink } from "next-view-transitions";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { needsProfileSetup } from "@/lib/profile";
-import { addFriendByToken } from "@/app/actions/friends";
-import {
-  getTabInviteByToken,
-  joinTabByToken,
-} from "@/app/actions/tab-invites";
+import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
@@ -58,7 +54,7 @@ function InviteContent() {
         router.replace(`/login?callbackURL=${encodeURIComponent(returnTo)}`);
         return;
       }
-      getTabInviteByToken(tokenParam!).then((result) => {
+      api.tabInvites.getByToken(tokenParam!).then((result) => {
         if (result.success && result.tab && result.creator && result.tabId) {
           setTabInvite({
             tab: result.tab,
@@ -80,7 +76,7 @@ function InviteContent() {
         router.replace(`/login?callbackURL=${encodeURIComponent(returnTo)}`);
         return;
       }
-      addFriendByToken(qrParam).then((result) => {
+      api.friends.addByToken(qrParam).then((result) => {
         if (result.success && result.friendTabId) {
           queryClient.invalidateQueries({ queryKey: ["friends"] });
           queryClient.invalidateQueries({ queryKey: ["tabs"] });
@@ -112,7 +108,7 @@ function InviteContent() {
   async function handleAcceptTabInvite() {
     if (!tokenParam) return;
     setAccepting(true);
-    const result = await joinTabByToken(tokenParam);
+    const result = await api.tabInvites.joinByToken(tokenParam);
     setAccepting(false);
     if (result.success && result.tabId) {
       queryClient.invalidateQueries({ queryKey: ["friends"] });
