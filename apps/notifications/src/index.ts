@@ -10,13 +10,28 @@ import webpush from "web-push";
 import { db, pushSubscription } from "db";
 import { eq } from "drizzle-orm";
 
+const LOG_PREFIX = "[notifications]";
+
+function log(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
+  const line = data ? `${LOG_PREFIX} ${msg} ${JSON.stringify(data)}` : `${LOG_PREFIX} ${msg}`;
+  if (level === "error") console.error(line);
+  else if (level === "warn") console.warn(line);
+  else console.log(line);
+}
+
 const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
 const redis = new Redis(redisUrl);
+
+redis.on("connect", () => log("info", "Redis connected"));
+redis.on("error", (err) => log("error", "Redis error", { error: String(err) }));
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 if (vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails("mailto:support@tabit.app", vapidPublicKey, vapidPrivateKey);
+  log("info", "VAPID keys configured, push notifications enabled");
+} else {
+  log("warn", "VAPID keys not configured, push notifications disabled");
 }
 
 const userConnections = new Map<string, Set<WebSocket>>();
@@ -26,6 +41,7 @@ function subscribeToUser(userId: string) {
   if (subscribedUsers.has(userId)) return;
   subscribedUsers.add(userId);
   redis.subscribe(`notifications:user:${userId}`);
+  log("info", "Subscribed to user notifications", { userId });
 }
 
 function unsubscribeFromUser(userId: string) {
@@ -34,6 +50,7 @@ function unsubscribeFromUser(userId: string) {
   if (!connections || connections.size === 0) {
     subscribedUsers.delete(userId);
     redis.unsubscribe(`notifications:user:${userId}`);
+    log("info", "Unsubscribed from user notifications", { userId });
   }
 }
 
@@ -75,6 +92,7 @@ async function sendPushNotifications(userId: string, payload: unknown): Promise<
   if (subs.length === 0) return;
 
   const payloadObj = typeof payload === "string" ? JSON.parse(payload) : payload;
+  log("info", "Sending push notifications", { userId, subscriptionCount: subs.length, type: payloadObj?.type });
   const title = getPushTitle(payloadObj);
   const body = getPushBody(payloadObj);
   const navigate = new URL(getNavigatePath(payloadObj), appBaseUrl).href;
@@ -94,7 +112,7 @@ async function sendPushNotifications(userId: string, payload: unknown): Promise<
     ...payloadObj,
   });
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     subs.map((sub) =>
       webpush.sendNotification(
         {
@@ -106,6 +124,14 @@ async function sendPushNotifications(userId: string, payload: unknown): Promise<
       )
     )
   );
+  const fulfilled = results.filter((r) => r.status === "fulfilled").length;
+  const rejected = results.filter((r) => r.status === "rejected").length;
+  if (rejected > 0) {
+    results.forEach((r, i) => {
+      if (r.status === "rejected") log("error", "Push send failed", { userId, error: String(r.reason), endpoint: subs[i]?.endpoint?.slice(0, 50) });
+    });
+  }
+  log("info", "Push notifications sent", { userId, fulfilled, rejected });
 }
 
 redis.on("message", (channel, message) => {
@@ -116,6 +142,8 @@ redis.on("message", (channel, message) => {
     const connections = userConnections.get(userId);
     const hasConnections = connections && connections.size > 0;
 
+    log("info", "Notification received", { userId, type: payload?.type, wsClients: hasConnections ? connections!.size : 0 });
+
     if (hasConnections) {
       connections!.forEach((conn) => {
         if (conn.readyState === 1) {
@@ -124,7 +152,7 @@ redis.on("message", (channel, message) => {
       });
     }
     sendPushNotifications(userId, message).catch((err) =>
-      console.error("Push notification error:", err)
+      log("error", "Push notification error", { userId, error: String(err) })
     );
   }
 });
@@ -147,14 +175,16 @@ if (existsSync(certPath) && existsSync(keyPath)) {
         res.end("Notifications WebSocket server");
       }
     );
-    console.log("Notifications WebSocket server using HTTPS (WSS)");
-  } catch {
+    log("info", "Notifications WebSocket server using HTTPS (WSS)");
+  } catch (err) {
+    log("warn", "HTTPS cert load failed, falling back to HTTP", { error: String(err) });
     server = createHttpServer((_req, res) => {
       res.writeHead(200, { "Content-Type": "text/plain" });
       res.end("Notifications WebSocket server");
     });
   }
 } else {
+  log("info", "Notifications WebSocket server using HTTP (WS)");
   server = createHttpServer((_req, res) => {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("Notifications WebSocket server");
@@ -168,6 +198,7 @@ server.on("upgrade", (request, socket, head) => {
   const token = url.searchParams.get("token");
 
   if (!token) {
+    log("warn", "WebSocket upgrade rejected: missing token");
     socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
     socket.destroy();
     return;
@@ -179,6 +210,7 @@ server.on("upgrade", (request, socket, head) => {
     const timestamp = Number(timestampStr);
 
     if (!userId || !timestamp) {
+      log("warn", "WebSocket upgrade rejected: invalid token format");
       socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
       socket.destroy();
       return;
@@ -186,6 +218,7 @@ server.on("upgrade", (request, socket, head) => {
 
     const age = Date.now() - timestamp;
     if (age > 5 * 60 * 1000) {
+      log("warn", "WebSocket upgrade rejected: token expired", { userId });
       socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
       socket.destroy();
       return;
@@ -194,7 +227,8 @@ server.on("upgrade", (request, socket, head) => {
     wss.handleUpgrade(request, socket, head, (ws) => {
       wss.emit("connection", ws, request, userId);
     });
-  } catch {
+  } catch (err) {
+    log("error", "WebSocket upgrade failed", { error: String(err) });
     socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
     socket.destroy();
   }
@@ -206,6 +240,7 @@ wss.on("connection", (ws: WebSocket, _request: IncomingMessage, userId: string) 
     subscribeToUser(userId);
   }
   userConnections.get(userId)!.add(ws);
+  log("info", "WebSocket client connected", { userId, totalConnections: userConnections.get(userId)!.size });
 
   ws.on("close", () => {
     const connections = userConnections.get(userId);
@@ -214,6 +249,7 @@ wss.on("connection", (ws: WebSocket, _request: IncomingMessage, userId: string) 
       if (connections.size === 0) {
         userConnections.delete(userId);
         unsubscribeFromUser(userId);
+        log("info", "WebSocket client disconnected (last for user)", { userId });
       }
     }
   });
@@ -221,5 +257,5 @@ wss.on("connection", (ws: WebSocket, _request: IncomingMessage, userId: string) 
 
 const port = Number(process.env.PORT ?? 3002);
 server.listen(port, () => {
-  console.log(`Notifications WebSocket server listening on port ${port}`);
+  log("info", `Notifications WebSocket server listening on port ${port}`);
 });
