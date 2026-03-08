@@ -28,7 +28,7 @@ redis.on("error", (err) => log("error", "Redis error", { error: String(err) }));
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails("mailto:support@tabit.app", vapidPublicKey, vapidPrivateKey);
+  webpush.setVapidDetails("mailto:support@tabit.in", vapidPublicKey, vapidPrivateKey);
   log("info", "VAPID keys configured, push notifications enabled");
 } else {
   log("warn", "VAPID keys not configured, push notifications disabled");
