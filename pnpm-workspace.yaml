@@ -1,3 +1,5 @@
 packages:
-  - "apps/*"
+  - "apps/web"
+  - "apps/api"
+  - "apps/notifications"
   - "packages/*"
