@@ -1,0 +1,13 @@
+node_modules
+.next
+dist
+*.log
+.git
+.env
+.env.*
+!.env.example
+apps/web/certificates
+apps/web/scripts/dev-https.js
+.cursor
+*.md
+!README.md

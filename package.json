@@ -17,7 +17,9 @@
     "build:db": "turbo build --filter=db",
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
-    "db:push": "turbo db:push"
+    "db:push": "turbo db:push",
+    "docker:build": "docker build -t tabit .",
+    "docker:run": "docker run -p 3000:3000 -p 3002:3002 --env-file .env tabit"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.6",
@@ -27,6 +29,6 @@
   },
   "packageManager": "pnpm@9.14.2",
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   }
 }
