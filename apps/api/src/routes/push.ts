@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { db, pushSubscription } from "db";
 import { eq, and } from "drizzle-orm";
 import { publishNotification } from "../lib/redis.js";
+import { log } from "../lib/logger.js";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
 
@@ -32,6 +33,7 @@ pushRoutes.post("/subscribe", async (c) => {
     userAgent,
   });
 
+  log("info", "Push subscription added", { userId });
   return c.json({ success: true });
 });
 
@@ -49,11 +51,13 @@ pushRoutes.delete("/subscribe", async (c) => {
     .delete(pushSubscription)
     .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, endpoint)));
 
+  log("info", "Push subscription removed", { userId });
   return c.json({ success: true });
 });
 
 pushRoutes.post("/test", async (c) => {
   const { userId } = c.get("auth");
+  log("info", "Push test requested", { userId, type: "friend_request" });
   await publishNotification(
     userId,
     {
@@ -71,6 +75,7 @@ pushRoutes.post("/test", async (c) => {
 
 pushRoutes.post("/test-tab-invite", async (c) => {
   const { userId } = c.get("auth");
+  log("info", "Push test requested", { userId, type: "tab_invite" });
   await publishNotification(
     userId,
     {

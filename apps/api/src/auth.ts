@@ -3,6 +3,7 @@ import { auth } from "auth";
 import { db, apiKey } from "db";
 import { eq } from "drizzle-orm";
 import { createHash } from "node:crypto";
+import { log } from "./lib/logger.js";
 
 export type AuthContext = {
   userId: string;
@@ -27,6 +28,7 @@ export const authMiddleware = createMiddleware<{
 
     if (key) {
       if (key.expiresAt && new Date(key.expiresAt) < new Date()) {
+        log("warn", "API key rejected: expired");
         return c.json({ error: "API key expired" }, 401);
       }
       c.set("auth", { userId: key.userId, authType: "api_key" });
@@ -39,6 +41,7 @@ export const authMiddleware = createMiddleware<{
   });
 
   if (!session?.user) {
+    log("warn", "Auth rejected: no valid session or API key");
     return c.json({ error: "Unauthorized" }, 401);
   }
 
