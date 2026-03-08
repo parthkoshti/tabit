@@ -8,16 +8,20 @@
     "dev": "turbo dev",
     "dev:web": "turbo dev --filter=web",
     "start": "pnpm --filter=web start",
+    "start:api": "pnpm --filter=api start",
+    "start:notifications": "pnpm --filter=notifications start",
+    "start:all": "concurrently -n api,notifications,web -c blue,green,magenta \"pnpm --filter=api start\" \"pnpm --filter=notifications start\" \"pnpm --filter=web start\"",
+    "start:prod": "pnpm --filter=db db:migrate:prod && concurrently -n api,notifications,web -c blue,green,magenta \"pnpm --filter=api start\" \"pnpm --filter=notifications start\" \"pnpm --filter=web start:prod\"",
     "check": "turbo check",
     "lint": "turbo lint",
     "build:db": "turbo build --filter=db",
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
-    "db:push": "turbo db:push",
-    "start:prod": "pnpm --filter=db db:migrate:prod && pnpm --filter=web start:prod"
+    "db:push": "turbo db:push"
   },
   "devDependencies": {
     "@types/qrcode": "^1.5.6",
+    "concurrently": "^9.1.0",
     "sharp": "^0.34.5",
     "turbo": "^2.3.0"
   },
