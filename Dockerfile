@@ -1,6 +1,8 @@
 # Stage 1: Prepare - prune monorepo for target workspaces
 FROM node:24-alpine AS prepare
 RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
 
 # Install turbo for prune (minimal, no full monorepo install)
