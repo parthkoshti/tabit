@@ -12,10 +12,10 @@ function getWebSocketUrl(): string {
   if (typeof window === "undefined") return configuredWsUrl;
   try {
     const parsed = new URL(configuredWsUrl);
-    const host =
-      parsed.hostname === "localhost"
-        ? window.location.hostname
-        : parsed.hostname;
+    if (parsed.hostname !== "localhost") {
+      return configuredWsUrl;
+    }
+    const host = window.location.hostname;
     const port = parsed.port || "3002";
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     return `${protocol}//${host}:${port}`;
