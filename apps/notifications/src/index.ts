@@ -12,8 +12,14 @@ import { eq, and } from "drizzle-orm";
 
 const LOG_PREFIX = "[notifications]";
 
-function log(level: "info" | "warn" | "error", msg: string, data?: Record<string, unknown>) {
-  const line = data ? `${LOG_PREFIX} ${msg} ${JSON.stringify(data)}` : `${LOG_PREFIX} ${msg}`;
+function log(
+  level: "info" | "warn" | "error",
+  msg: string,
+  data?: Record<string, unknown>,
+) {
+  const line = data
+    ? `${LOG_PREFIX} ${msg} ${JSON.stringify(data)}`
+    : `${LOG_PREFIX} ${msg}`;
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
   else console.log(line);
@@ -28,7 +34,11 @@ redis.on("error", (err) => log("error", "Redis error", { error: String(err) }));
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 if (vapidPublicKey && vapidPrivateKey) {
-  webpush.setVapidDetails("mailto:support@tabit.in", vapidPublicKey, vapidPrivateKey);
+  webpush.setVapidDetails(
+    "mailto:support@tabit.in",
+    vapidPublicKey,
+    vapidPrivateKey,
+  );
   log("info", "VAPID keys configured, push notifications enabled", {
     vapidPublicKey,
     vapidPrivateKey,
@@ -58,17 +68,29 @@ function unsubscribeFromUser(userId: string) {
 }
 
 const appBaseUrl =
-  process.env.PWA_APP_URL ??
+  process.env.NEXT_PUBLIC_PWA_URL ??
   process.env.NEXT_PUBLIC_APP_URL ??
   process.env.APP_URL ??
   "https://localhost:3003";
 
-function getPushTitle(payload: { type: string; fromUserName?: string | null; tabName?: string; forcePush?: boolean }): string {
-  if (payload.forcePush) return payload.type === "tab_invite" ? "Test tab invite" : "Test push notification";
+function getPushTitle(payload: {
+  type: string;
+  fromUserName?: string | null;
+  tabName?: string;
+  forcePush?: boolean;
+}): string {
+  if (payload.forcePush)
+    return payload.type === "tab_invite"
+      ? "Test tab invite"
+      : "Test push notification";
   if (payload.type === "friend_request" && payload.fromUserName) {
     return `Friend request from ${payload.fromUserName}`;
   }
-  if (payload.type === "tab_invite" && payload.fromUserName && payload.tabName) {
+  if (
+    payload.type === "tab_invite" &&
+    payload.fromUserName &&
+    payload.tabName
+  ) {
     return `${payload.fromUserName} invited you to ${payload.tabName}`;
   }
   if (payload.type === "friend_request") return "New friend request";
@@ -87,7 +109,10 @@ function getNavigatePath(payload: { type: string }): string {
   return payload.type === "tab_invite" ? "/tabs" : "/friends";
 }
 
-async function sendPushNotifications(userId: string, payload: unknown): Promise<void> {
+async function sendPushNotifications(
+  userId: string,
+  payload: unknown,
+): Promise<void> {
   if (!vapidPublicKey || !vapidPrivateKey) return;
 
   const subs = await db
@@ -98,8 +123,13 @@ async function sendPushNotifications(userId: string, payload: unknown): Promise<
 
   if (subs.length === 0) return;
 
-  const payloadObj = typeof payload === "string" ? JSON.parse(payload) : payload;
-  log("info", "Sending push notifications", { userId, subscriptionCount: subs.length, type: payloadObj?.type });
+  const payloadObj =
+    typeof payload === "string" ? JSON.parse(payload) : payload;
+  log("info", "Sending push notifications", {
+    userId,
+    subscriptionCount: subs.length,
+    type: payloadObj?.type,
+  });
   const title = getPushTitle(payloadObj);
   const body = getPushBody(payloadObj);
   const navigate = new URL(getNavigatePath(payloadObj), appBaseUrl).href;
@@ -127,9 +157,9 @@ async function sendPushNotifications(userId: string, payload: unknown): Promise<
           keys: { p256dh: sub.p256dh, auth: sub.auth },
         },
         pushPayload,
-        { TTL: 86400, urgency: "high" }
-      )
-    )
+        { TTL: 86400, urgency: "high" },
+      ),
+    ),
   );
   const fulfilled = results.filter((r) => r.status === "fulfilled").length;
   const rejected = results.filter((r) => r.status === "rejected").length;
@@ -151,8 +181,16 @@ async function sendPushNotifications(userId: string, payload: unknown): Promise<
         if (statusCode === 404 || statusCode === 410) {
           await db
             .delete(pushSubscription)
-            .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, sub.endpoint)));
-          log("info", "Removed expired push subscription", { userId, endpoint: sub.endpoint.slice(0, 60) });
+            .where(
+              and(
+                eq(pushSubscription.userId, userId),
+                eq(pushSubscription.endpoint, sub.endpoint),
+              ),
+            );
+          log("info", "Removed expired push subscription", {
+            userId,
+            endpoint: sub.endpoint.slice(0, 60),
+          });
         }
       }
     }
@@ -168,7 +206,11 @@ redis.on("message", (channel, message) => {
     const connections = userConnections.get(userId);
     const hasConnections = connections && connections.size > 0;
 
-    log("info", "Notification received", { userId, type: payload?.type, wsClients: hasConnections ? connections!.size : 0 });
+    log("info", "Notification received", {
+      userId,
+      type: payload?.type,
+      wsClients: hasConnections ? connections!.size : 0,
+    });
 
     if (hasConnections) {
       connections!.forEach((conn) => {
@@ -178,15 +220,17 @@ redis.on("message", (channel, message) => {
       });
     }
     sendPushNotifications(userId, message).catch((err) =>
-      log("error", "Push notification error", { userId, error: String(err) })
+      log("error", "Push notification error", { userId, error: String(err) }),
     );
   }
 });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const certDir = join(__dirname, "../../web/certificates");
-const certPath = process.env.NOTIFICATIONS_WS_HTTPS_CERT ?? join(certDir, "cert.pem");
-const keyPath = process.env.NOTIFICATIONS_WS_HTTPS_KEY ?? join(certDir, "key.pem");
+const certPath =
+  process.env.NOTIFICATIONS_WS_HTTPS_CERT ?? join(certDir, "cert.pem");
+const keyPath =
+  process.env.NOTIFICATIONS_WS_HTTPS_KEY ?? join(certDir, "key.pem");
 
 let server: ReturnType<typeof createHttpServer>;
 if (existsSync(certPath) && existsSync(keyPath)) {
@@ -199,11 +243,13 @@ if (existsSync(certPath) && existsSync(keyPath)) {
       (_req, res) => {
         res.writeHead(200, { "Content-Type": "text/plain" });
         res.end("Notifications WebSocket server");
-      }
+      },
     );
     log("info", "Notifications WebSocket server using HTTPS (WSS)");
   } catch (err) {
-    log("warn", "HTTPS cert load failed, falling back to HTTP", { error: String(err) });
+    log("warn", "HTTPS cert load failed, falling back to HTTP", {
+      error: String(err),
+    });
     server = createHttpServer((_req, res) => {
       res.writeHead(200, { "Content-Type": "text/plain" });
       res.end("Notifications WebSocket server");
@@ -260,26 +306,34 @@ server.on("upgrade", (request, socket, head) => {
   }
 });
 
-wss.on("connection", (ws: WebSocket, _request: IncomingMessage, userId: string) => {
-  if (!userConnections.has(userId)) {
-    userConnections.set(userId, new Set());
-    subscribeToUser(userId);
-  }
-  userConnections.get(userId)!.add(ws);
-  log("info", "WebSocket client connected", { userId, totalConnections: userConnections.get(userId)!.size });
-
-  ws.on("close", () => {
-    const connections = userConnections.get(userId);
-    if (connections) {
-      connections.delete(ws);
-      if (connections.size === 0) {
-        userConnections.delete(userId);
-        unsubscribeFromUser(userId);
-        log("info", "WebSocket client disconnected (last for user)", { userId });
-      }
+wss.on(
+  "connection",
+  (ws: WebSocket, _request: IncomingMessage, userId: string) => {
+    if (!userConnections.has(userId)) {
+      userConnections.set(userId, new Set());
+      subscribeToUser(userId);
     }
-  });
-});
+    userConnections.get(userId)!.add(ws);
+    log("info", "WebSocket client connected", {
+      userId,
+      totalConnections: userConnections.get(userId)!.size,
+    });
+
+    ws.on("close", () => {
+      const connections = userConnections.get(userId);
+      if (connections) {
+        connections.delete(ws);
+        if (connections.size === 0) {
+          userConnections.delete(userId);
+          unsubscribeFromUser(userId);
+          log("info", "WebSocket client disconnected (last for user)", {
+            userId,
+          });
+        }
+      }
+    });
+  },
+);
 
 const port = Number(process.env.PORT ?? 3002);
 server.listen(port, () => {

@@ -17,7 +17,10 @@ function secureToken(): string {
   return createId();
 }
 
-async function createDirectTab(userId1: string, userId2: string): Promise<string> {
+async function createDirectTab(
+  userId1: string,
+  userId2: string,
+): Promise<string> {
   const [inserted] = await db
     .insert(tab)
     .values({ name: "Direct", isDirect: true })
@@ -32,7 +35,7 @@ async function createDirectTab(userId1: string, userId2: string): Promise<string
 
 async function getOrCreateDirectTab(
   userId1: string,
-  userId2: string
+  userId2: string,
 ): Promise<string> {
   const directTabs = await db
     .select({ id: tab.id })
@@ -44,9 +47,7 @@ async function getOrCreateDirectTab(
     const [other] = await db
       .select()
       .from(tabMember)
-      .where(
-        and(eq(tabMember.tabId, t.id), eq(tabMember.userId, userId2))
-      )
+      .where(and(eq(tabMember.tabId, t.id), eq(tabMember.userId, userId2)))
       .limit(1);
     if (other) return t.id;
   }
@@ -56,7 +57,7 @@ async function getOrCreateDirectTab(
 
 async function addUserToTabAndCreateFriendships(
   userId: string,
-  tabId: string
+  tabId: string,
 ): Promise<void> {
   const members = await db
     .select({ userId: tabMember.userId })
@@ -76,12 +77,17 @@ async function addUserToTabAndCreateFriendships(
   }
 }
 
-export const tabInvitesRoutes = new Hono<{ Variables: { auth: AuthContext } }>();
+export const tabInvitesRoutes = new Hono<{
+  Variables: { auth: AuthContext };
+}>();
 
 tabInvitesRoutes.get("/by-token", async (c) => {
   const token = c.req.query("token");
   if (!token?.trim()) {
-    return c.json({ success: false, error: "Invalid token", tab: null, creator: null }, 400);
+    return c.json(
+      { success: false, error: "Invalid token", tab: null, creator: null },
+      400,
+    );
   }
 
   const [pending] = await db
@@ -93,13 +99,21 @@ tabInvitesRoutes.get("/by-token", async (c) => {
     .where(
       and(
         eq(pendingTabInvite.token, token.trim()),
-        sql`${pendingTabInvite.expiresAt} > NOW()`
-      )
+        sql`${pendingTabInvite.expiresAt} > NOW()`,
+      ),
     )
     .limit(1);
 
   if (!pending) {
-    return c.json({ success: false, error: "Invalid or expired link", tab: null, creator: null }, 404);
+    return c.json(
+      {
+        success: false,
+        error: "Invalid or expired link",
+        tab: null,
+        creator: null,
+      },
+      404,
+    );
   }
 
   const [tabRow] = await db
@@ -115,7 +129,15 @@ tabInvitesRoutes.get("/by-token", async (c) => {
     .limit(1);
 
   if (!tabRow || !creator) {
-    return c.json({ success: false, error: "Tab or creator not found", tab: null, creator: null }, 404);
+    return c.json(
+      {
+        success: false,
+        error: "Tab or creator not found",
+        tab: null,
+        creator: null,
+      },
+      404,
+    );
   }
 
   return c.json({
@@ -144,23 +166,30 @@ tabInvitesRoutes.post("/join-by-token", async (c) => {
     .where(
       and(
         eq(pendingTabInvite.token, token),
-        sql`${pendingTabInvite.expiresAt} > NOW()`
-      )
+        sql`${pendingTabInvite.expiresAt} > NOW()`,
+      ),
     )
     .limit(1);
 
   if (!pending) {
-    return c.json({ success: false, error: "Invalid or expired link", tabId: null }, 404);
+    return c.json(
+      { success: false, error: "Invalid or expired link", tabId: null },
+      404,
+    );
   }
 
   const [existing] = await db
     .select()
     .from(tabMember)
-    .where(and(eq(tabMember.tabId, pending.tabId), eq(tabMember.userId, userId)))
+    .where(
+      and(eq(tabMember.tabId, pending.tabId), eq(tabMember.userId, userId)),
+    )
     .limit(1);
 
   if (existing) {
-    await db.delete(pendingTabInvite).where(eq(pendingTabInvite.id, pending.id));
+    await db
+      .delete(pendingTabInvite)
+      .where(eq(pendingTabInvite.id, pending.id));
     return c.json({ success: true, tabId: pending.tabId, alreadyMember: true });
   }
 
@@ -185,7 +214,10 @@ tabInvitesRoutes.get("/token", async (c) => {
     .limit(1);
 
   if (!member) {
-    return c.json({ success: false, error: "Not a member of this tab", url: null }, 403);
+    return c.json(
+      { success: false, error: "Not a member of this tab", url: null },
+      403,
+    );
   }
 
   const expiresAt = new Date();
@@ -198,8 +230,8 @@ tabInvitesRoutes.get("/token", async (c) => {
       and(
         eq(pendingTabInvite.tabId, tabId),
         eq(pendingTabInvite.createdByUserId, userId),
-        sql`${pendingTabInvite.expiresAt} > NOW()`
-      )
+        sql`${pendingTabInvite.expiresAt} > NOW()`,
+      ),
     )
     .limit(1);
 
@@ -212,8 +244,8 @@ tabInvitesRoutes.get("/token", async (c) => {
       .where(
         and(
           eq(pendingTabInvite.tabId, tabId),
-          eq(pendingTabInvite.createdByUserId, userId)
-        )
+          eq(pendingTabInvite.createdByUserId, userId),
+        ),
       );
     token = secureToken();
     for (let i = 0; i < 5; i++) {
@@ -233,7 +265,7 @@ tabInvitesRoutes.get("/token", async (c) => {
   }
 
   const baseUrl =
-    process.env.PWA_APP_URL ??
+    process.env.NEXT_PUBLIC_PWA_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
     process.env.APP_URL ??
     "http://localhost:3003";
@@ -261,8 +293,8 @@ tabInvitesRoutes.get("/requests/pending", async (c) => {
     .where(
       and(
         eq(tabInviteRequest.toUserId, userId),
-        eq(tabInviteRequest.status, "pending")
-      )
+        eq(tabInviteRequest.status, "pending"),
+      ),
     )
     .orderBy(desc(tabInviteRequest.createdAt));
 
@@ -297,9 +329,7 @@ tabInvitesRoutes.post("/requests", async (c) => {
   const [member] = await db
     .select()
     .from(tabMember)
-    .where(
-      and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId))
-    )
+    .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId)))
     .limit(1);
 
   if (!member) {
@@ -323,12 +353,7 @@ tabInvitesRoutes.post("/requests", async (c) => {
   const [existingMember] = await db
     .select()
     .from(tabMember)
-    .where(
-      and(
-        eq(tabMember.tabId, tabId),
-        eq(tabMember.userId, targetUser.id)
-      )
-    )
+    .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, targetUser.id)))
     .limit(1);
 
   if (existingMember) {
@@ -342,8 +367,8 @@ tabInvitesRoutes.post("/requests", async (c) => {
       and(
         eq(tabInviteRequest.tabId, tabId),
         eq(tabInviteRequest.toUserId, targetUser.id),
-        eq(tabInviteRequest.status, "pending")
-      )
+        eq(tabInviteRequest.status, "pending"),
+      ),
     )
     .limit(1);
 
@@ -386,7 +411,7 @@ tabInvitesRoutes.post("/requests", async (c) => {
       fromUserName: fromUser?.name ?? null,
       fromUserUsername: fromUser?.username ?? null,
       createdAt: inserted!.createdAt,
-    })
+    }),
   );
 
   return c.json({ success: true });
@@ -403,27 +428,26 @@ tabInvitesRoutes.post("/requests/:id/accept", async (c) => {
       and(
         eq(tabInviteRequest.id, requestId),
         eq(tabInviteRequest.toUserId, userId),
-        eq(tabInviteRequest.status, "pending")
-      )
+        eq(tabInviteRequest.status, "pending"),
+      ),
     )
     .limit(1);
 
   if (!req) {
     return c.json(
-      { success: false, error: "Request not found or already handled", tabId: null },
-      404
+      {
+        success: false,
+        error: "Request not found or already handled",
+        tabId: null,
+      },
+      404,
     );
   }
 
   const [existing] = await db
     .select()
     .from(tabMember)
-    .where(
-      and(
-        eq(tabMember.tabId, req.tabId),
-        eq(tabMember.userId, userId)
-      )
-    )
+    .where(and(eq(tabMember.tabId, req.tabId), eq(tabMember.userId, userId)))
     .limit(1);
 
   if (existing) {
@@ -454,15 +478,15 @@ tabInvitesRoutes.post("/requests/:id/reject", async (c) => {
       and(
         eq(tabInviteRequest.id, requestId),
         eq(tabInviteRequest.toUserId, userId),
-        eq(tabInviteRequest.status, "pending")
-      )
+        eq(tabInviteRequest.status, "pending"),
+      ),
     )
     .limit(1);
 
   if (!req) {
     return c.json(
       { success: false, error: "Request not found or already handled" },
-      404
+      404,
     );
   }
 

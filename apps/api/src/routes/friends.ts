@@ -1,12 +1,5 @@
 import { Hono } from "hono";
-import {
-  db,
-  tab,
-  tabMember,
-  user,
-  friendRequest,
-  pendingFriend,
-} from "db";
+import { db, tab, tabMember, user, friendRequest, pendingFriend } from "db";
 import { eq, and, ne, desc, ilike, inArray, sql } from "drizzle-orm";
 import { createShortId } from "shared";
 import { authMiddleware, type AuthContext } from "../auth.js";
@@ -18,7 +11,10 @@ function secureToken(): string {
   return createShortId();
 }
 
-async function createDirectTab(userId1: string, userId2: string): Promise<string> {
+async function createDirectTab(
+  userId1: string,
+  userId2: string,
+): Promise<string> {
   const [inserted] = await db
     .insert(tab)
     .values({ name: "Direct", isDirect: true })
@@ -53,8 +49,8 @@ friendsRoutes.get("/requests/pending", async (c) => {
     .where(
       and(
         eq(friendRequest.toUserId, userId),
-        eq(friendRequest.status, "pending")
-      )
+        eq(friendRequest.status, "pending"),
+      ),
     )
     .orderBy(desc(friendRequest.createdAt));
 
@@ -105,13 +101,13 @@ friendsRoutes.post("/requests", async (c) => {
       .select()
       .from(tabMember)
       .where(
-        and(eq(tabMember.tabId, t.id), eq(tabMember.userId, targetUser.id))
+        and(eq(tabMember.tabId, t.id), eq(tabMember.userId, targetUser.id)),
       )
       .limit(1);
     if (otherMember) {
       return c.json(
         { success: false, error: "You are already friends with this person" },
-        400
+        400,
       );
     }
   }
@@ -123,15 +119,15 @@ friendsRoutes.post("/requests", async (c) => {
       and(
         eq(friendRequest.fromUserId, userId),
         eq(friendRequest.toUserId, targetUser.id),
-        eq(friendRequest.status, "pending")
-      )
+        eq(friendRequest.status, "pending"),
+      ),
     )
     .limit(1);
 
   if (existingRequest) {
     return c.json(
       { success: false, error: "Friend request already sent" },
-      400
+      400,
     );
   }
 
@@ -161,7 +157,7 @@ friendsRoutes.post("/requests", async (c) => {
       fromUserName: sender?.name ?? null,
       fromUserUsername: sender?.username ?? null,
       createdAt: inserted!.createdAt,
-    })
+    }),
   );
 
   return c.json({ success: true });
@@ -178,15 +174,15 @@ friendsRoutes.post("/requests/:id/accept", async (c) => {
       and(
         eq(friendRequest.id, requestId),
         eq(friendRequest.toUserId, userId),
-        eq(friendRequest.status, "pending")
-      )
+        eq(friendRequest.status, "pending"),
+      ),
     )
     .limit(1);
 
   if (!req) {
     return c.json(
       { success: false, error: "Request not found or already handled" },
-      404
+      404,
     );
   }
 
@@ -208,7 +204,7 @@ friendsRoutes.post("/requests/:id/reject", async (c) => {
     .update(friendRequest)
     .set({ status: "rejected" })
     .where(
-      and(eq(friendRequest.id, requestId), eq(friendRequest.toUserId, userId))
+      and(eq(friendRequest.id, requestId), eq(friendRequest.toUserId, userId)),
     );
 
   return c.json({ success: true });
@@ -227,7 +223,7 @@ friendsRoutes.get("/token", async (c) => {
   if (!username) {
     return c.json(
       { success: false, error: "Set a username first", token: null, url: null },
-      400
+      400,
     );
   }
 
@@ -240,8 +236,8 @@ friendsRoutes.get("/token", async (c) => {
     .where(
       and(
         eq(pendingFriend.userId, userId),
-        sql`${pendingFriend.expiresAt} > NOW()`
-      )
+        sql`${pendingFriend.expiresAt} > NOW()`,
+      ),
     )
     .limit(1);
 
@@ -269,7 +265,7 @@ friendsRoutes.get("/token", async (c) => {
   }
 
   const baseUrl =
-    process.env.PWA_APP_URL ??
+    process.env.NEXT_PUBLIC_PWA_URL ??
     process.env.NEXT_PUBLIC_APP_URL ??
     process.env.APP_URL ??
     "http://localhost:3003";
@@ -294,8 +290,8 @@ friendsRoutes.post("/add-by-token", async (c) => {
     .where(
       and(
         eq(pendingFriend.token, token.trim()),
-        sql`${pendingFriend.expiresAt} > NOW()`
-      )
+        sql`${pendingFriend.expiresAt} > NOW()`,
+      ),
     )
     .limit(1);
 
@@ -318,7 +314,7 @@ friendsRoutes.post("/add-by-token", async (c) => {
       .select()
       .from(tabMember)
       .where(
-        and(eq(tabMember.tabId, t.id), eq(tabMember.userId, pending.userId))
+        and(eq(tabMember.tabId, t.id), eq(tabMember.userId, pending.userId)),
       )
       .limit(1);
     if (otherMember) {
@@ -355,10 +351,7 @@ friendsRoutes.get("/search", async (c) => {
       .select({ userId: tabMember.userId })
       .from(tabMember)
       .where(
-        and(
-          inArray(tabMember.tabId, tabIds),
-          ne(tabMember.userId, userId)
-        )
+        and(inArray(tabMember.tabId, tabIds), ne(tabMember.userId, userId)),
       );
     otherMembers.forEach((m) => friendIdSet.add(m.userId));
   }
