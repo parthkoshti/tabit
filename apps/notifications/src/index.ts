@@ -57,7 +57,11 @@ function unsubscribeFromUser(userId: string) {
   }
 }
 
-const appBaseUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? "https://localhost:3000";
+const appBaseUrl =
+  process.env.PWA_APP_URL ??
+  process.env.NEXT_PUBLIC_APP_URL ??
+  process.env.APP_URL ??
+  "https://localhost:3003";
 
 function getPushTitle(payload: { type: string; fromUserName?: string | null; tabName?: string; forcePush?: boolean }): string {
   if (payload.forcePush) return payload.type === "tab_invite" ? "Test tab invite" : "Test push notification";
@@ -80,7 +84,7 @@ function getPushBody(payload: { type: string; forcePush?: boolean }): string {
 }
 
 function getNavigatePath(payload: { type: string }): string {
-  return payload.type === "tab_invite" ? "/app/tabs" : "/app/friends";
+  return payload.type === "tab_invite" ? "/tabs" : "/friends";
 }
 
 async function sendPushNotifications(userId: string, payload: unknown): Promise<void> {

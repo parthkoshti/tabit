@@ -1,0 +1,204 @@
+"use client";
+
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { Link as TransitionLink } from "next-view-transitions";
+import { useQueryClient } from "@tanstack/react-query";
+import { authClient } from "@/lib/auth-client";
+import { needsProfileSetup } from "@/lib/profile";
+import { api } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { getDisplayName } from "@/lib/display-name";
+
+function InviteContent() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const { data: session, isPending } = authClient.useSession();
+  const [status, setStatus] = useState<
+    "loading" | "error" | "tab-accept" | "tab-success"
+  >("loading");
+  const [error, setError] = useState<string | null>(null);
+  const [tabInvite, setTabInvite] = useState<{
+    tab: { id: string; name: string };
+    creator: { id: string; name: string | null; username: string | null };
+    tabId: string;
+  } | null>(null);
+  const [accepting, setAccepting] = useState(false);
+
+  const typeParam = searchParams.get("type");
+  const tokenParam = searchParams.get("token");
+  const userParam = searchParams.get("user");
+  const qrParam = searchParams.get("qr");
+
+  const isTabInvite = typeParam === "tab" && tokenParam;
+
+  useEffect(() => {
+    if (isPending) return;
+
+    if (session?.user && needsProfileSetup(session.user)) {
+      const returnTo =
+        pathname +
+        (searchParams.toString() ? `?${searchParams.toString()}` : "");
+      router.replace(
+        `/onboarding?returnTo=${encodeURIComponent(returnTo)}`,
+      );
+      return;
+    }
+
+    if (isTabInvite) {
+      if (!session?.user) {
+        const returnTo = `/invite?type=tab&token=${encodeURIComponent(tokenParam!)}`;
+        router.replace(`/login?callbackURL=${encodeURIComponent(returnTo)}`);
+        return;
+      }
+      api.tabInvites.getByToken(tokenParam!).then((result) => {
+        if (result.success && result.tab && result.creator && result.tabId) {
+          setTabInvite({
+            tab: result.tab,
+            creator: result.creator,
+            tabId: result.tabId,
+          });
+          setStatus("tab-accept");
+        } else {
+          setStatus("error");
+          setError(result.error ?? "Invalid or expired link");
+        }
+      });
+      return;
+    }
+
+    if (qrParam) {
+      if (!session?.user) {
+        const returnTo = `/invite?user=${encodeURIComponent(userParam ?? "")}&qr=${encodeURIComponent(qrParam)}`;
+        router.replace(`/login?callbackURL=${encodeURIComponent(returnTo)}`);
+        return;
+      }
+      api.friends.addByToken(qrParam).then((result) => {
+        if (result.success && result.friendTabId) {
+          queryClient.invalidateQueries({ queryKey: ["friends"] });
+          queryClient.invalidateQueries({ queryKey: ["tabs"] });
+          queryClient.invalidateQueries({ queryKey: ["activity"] });
+          router.replace(`/tabs/${result.friendTabId}`);
+        } else {
+          setStatus("error");
+          setError(result.error ?? "Failed to add friend");
+        }
+      });
+      return;
+    }
+
+    setStatus("error");
+    setError("Invalid invite link");
+  }, [
+    session,
+    isPending,
+    pathname,
+    searchParams,
+    qrParam,
+    userParam,
+    router,
+    queryClient,
+    isTabInvite,
+    tokenParam,
+  ]);
+
+  async function handleAcceptTabInvite() {
+    if (!tokenParam) return;
+    setAccepting(true);
+    const result = await api.tabInvites.joinByToken(tokenParam);
+    setAccepting(false);
+    if (result.success && result.tabId) {
+      queryClient.invalidateQueries({ queryKey: ["friends"] });
+      queryClient.invalidateQueries({ queryKey: ["tabs"] });
+      queryClient.invalidateQueries({ queryKey: ["activity"] });
+      if (result.alreadyMember) {
+        router.replace(`/tabs/${result.tabId}`);
+      } else {
+        setStatus("tab-success");
+        setTimeout(() => {
+          router.replace(`/tabs/${result.tabId}`);
+        }, 500);
+      }
+    } else {
+      setStatus("error");
+      setError(result.error ?? "Failed to join tab");
+    }
+  }
+
+  if (status === "tab-accept" && tabInvite) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-8">
+        <div className="w-full max-w-sm space-y-4 rounded-lg border border-border bg-card p-6 text-center">
+          <h1 className="text-lg font-semibold">Join tab</h1>
+          <p className="text-sm text-muted-foreground">
+            {getDisplayName({ ...tabInvite.creator, email: "" })} invited you to join{" "}
+            <span className="font-medium">{tabInvite.tab.name}</span>
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => router.push("/tabs")}
+              disabled={accepting}
+            >
+              Decline
+            </Button>
+            <Button
+              variant="positive"
+              className="flex-1"
+              onClick={handleAcceptTabInvite}
+              disabled={accepting}
+            >
+              {accepting ? "Joining..." : "Accept"}
+            </Button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (status === "tab-success") {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-8">
+        <p className="text-muted-foreground">You joined the tab. Redirecting...</p>
+        <Spinner className="mt-4" />
+      </main>
+    );
+  }
+
+  if (status === "error") {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center p-8">
+        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
+          {error}
+        </div>
+        <Button variant="link" asChild className="mt-4">
+          <TransitionLink href="/login">Sign in</TransitionLink>
+        </Button>
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-8">
+      <Spinner />
+    </main>
+  );
+}
+
+export default function InvitePage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen flex-col items-center justify-center p-8">
+          <Spinner />
+        </main>
+      }
+    >
+      <InviteContent />
+    </Suspense>
+  );
+}

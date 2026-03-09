@@ -2,4 +2,5 @@ packages:
   - "apps/web"
   - "apps/api"
   - "apps/notifications"
+  - "apps/pwa"
   - "packages/*"

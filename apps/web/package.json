@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/dev-https.js",
+    "dev": "dotenv -e ../../.env -e ../../.env.local -- next dev --turbopack",
     "dev:http": "dotenv -e ../../.env -e ../../.env.local -- next dev --turbopack",
-    "generate-https-certs": "node scripts/generate-https-certs.js",
+    "generate-https-certs": "node ../../scripts/generate-https-certs.js",
     "build": "dotenv -e ../../.env -e ../../.env.local -- next build",
     "start": "dotenv -e ../../.env -e ../../.env.local -- next start",
     "start:prod": "next start",

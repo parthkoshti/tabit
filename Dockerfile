@@ -9,7 +9,7 @@ WORKDIR /app
 RUN pnpm add -g turbo@^2
 
 COPY . .
-RUN turbo prune web api notifications --docker
+RUN turbo prune web pwa api notifications --docker
 
 # Stage 2: Install dependencies (only when package.json/lockfile change)
 FROM node:24-alpine AS builder
@@ -24,17 +24,17 @@ RUN pnpm install --frozen-lockfile
 COPY --from=prepare /app/out/full/ .
 
 ARG NEXT_PUBLIC_APP_URL=https://localhost:3000
-ARG NEXT_PUBLIC_API_URL=/api-backend
+ARG PWA_APP_URL=https://apps.tabit.in
 ARG NEXT_PUBLIC_NOTIFICATIONS_WS_URL=ws://localhost:3002
 ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY=
 
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV PWA_APP_URL=$PWA_APP_URL
 ENV NEXT_PUBLIC_NOTIFICATIONS_WS_URL=$NEXT_PUBLIC_NOTIFICATIONS_WS_URL
 ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=$NEXT_PUBLIC_VAPID_PUBLIC_KEY
 
-RUN printf "NEXT_PUBLIC_APP_URL=%s\nNEXT_PUBLIC_API_URL=%s\nNEXT_PUBLIC_NOTIFICATIONS_WS_URL=%s\nNEXT_PUBLIC_VAPID_PUBLIC_KEY=%s\n" \
-    "$NEXT_PUBLIC_APP_URL" "$NEXT_PUBLIC_API_URL" "$NEXT_PUBLIC_NOTIFICATIONS_WS_URL" "$NEXT_PUBLIC_VAPID_PUBLIC_KEY" > .env
+RUN printf "NEXT_PUBLIC_APP_URL=%s\nPWA_APP_URL=%s\nNEXT_PUBLIC_NOTIFICATIONS_WS_URL=%s\nNEXT_PUBLIC_VAPID_PUBLIC_KEY=%s\n" \
+    "$NEXT_PUBLIC_APP_URL" "$PWA_APP_URL" "$NEXT_PUBLIC_NOTIFICATIONS_WS_URL" "$NEXT_PUBLIC_VAPID_PUBLIC_KEY" > .env
 
 ARG TURBO_TEAM
 ARG TURBO_TOKEN
@@ -56,6 +56,6 @@ COPY --from=builder /app/apps ./apps
 COPY --from=builder /app/packages ./packages
 COPY --from=builder /app/.env ./.env
 
-EXPOSE 3000 3002
+EXPOSE 3000 3002 3003
 
 CMD ["pnpm", "start:prod"]

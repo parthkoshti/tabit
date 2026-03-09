@@ -3,10 +3,9 @@ import { Inter } from "next/font/google";
 import { ViewTransitions } from "next-view-transitions";
 import "./globals.css";
 import { Providers } from "./providers";
-import { RegisterSW } from "./register-sw";
-import { Toaster } from "@/components/ui/sonner";
-import { SplashScreenLinks } from "./splash-screen-links";
 import { appConfig } from "./config";
+import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -18,7 +17,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -29,25 +27,15 @@ export default function RootLayout({
   return (
     <ViewTransitions>
       <html lang="en" className={inter.variable} suppressHydrationWarning>
-        <head>
-          <meta name="apple-mobile-web-app-status-bar-style" />
-          <link
-            rel="apple-touch-icon"
-            href="/icon-192x192.png"
-            sizes="192x192"
-          />
-          <link
-            rel="apple-touch-icon-precomposed"
-            href="/icon-192x192.png"
-            sizes="192x192"
-          />
-          <SplashScreenLinks />
-        </head>
         <body className="min-h-screen bg-background font-sans text-foreground">
           <Providers>
-            <RegisterSW />
-            {children}
-            <Toaster />
+            <div className="flex min-h-screen flex-col">
+              <Navbar />
+              <main className="flex-1">
+                <div className="mx-auto w-full max-w-7xl">{children}</div>
+              </main>
+              <Footer />
+            </div>
           </Providers>
         </body>
       </html>
