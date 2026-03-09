@@ -64,7 +64,10 @@ export const api = {
         alreadyFriends?: boolean;
         error?: string;
       }>("/friends/add-by-token", { method: "POST", body: { token } }),
-    search: (q: string) =>
+    search: (
+      q: string,
+      options?: { includeFriends?: boolean },
+    ) =>
       request<{
         success: boolean;
         users: Array<{
@@ -72,7 +75,9 @@ export const api = {
           username: string | null;
           name: string | null;
         }>;
-      }>(`/friends/search?q=${encodeURIComponent(q)}`),
+      }>(
+        `/friends/search?q=${encodeURIComponent(q)}${options?.includeFriends ? "&includeFriends=true" : ""}`,
+      ),
     list: () => request<{ success: boolean; friends: unknown[] }>("/friends"),
   },
   tabInvites: {

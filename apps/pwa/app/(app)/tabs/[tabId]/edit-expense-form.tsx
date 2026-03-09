@@ -119,13 +119,14 @@ export function EditExpenseForm({
     setParticipantIds((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
-        if (next.size <= 2) {
-          toast.error("Add at least one other person to split with");
+        if (next.size <= 1) {
+          setError("At least one person must be in the split");
           return prev;
         }
         next.delete(userId);
       } else {
         next.add(userId);
+        setError(null);
       }
       return next;
     });
@@ -153,10 +154,17 @@ export function EditExpenseForm({
       return;
     }
 
-    if (selectedParticipants.length < 2) {
-      const msg = "Add at least one other person to split with";
-      setError(msg);
-      toast.error(msg);
+    if (selectedParticipants.length < 1) {
+      setError("At least one person must be in the split");
+      setLoading(false);
+      return;
+    }
+
+    if (
+      selectedParticipants.length === 1 &&
+      selectedParticipants[0].userId === paidById
+    ) {
+      setError("Payer cannot be the only member of the split");
       setLoading(false);
       return;
     }
@@ -179,9 +187,7 @@ export function EditExpenseForm({
       if (onSuccess) onSuccess();
       else router.push(`/tabs/${tabId}`);
     } else {
-      const err = result.error ?? "Failed to update expense";
-      setError(err);
-      if (err.includes("split with")) toast.error(err);
+      setError(result.error ?? "Failed to update expense");
     }
     setLoading(false);
   }
@@ -298,8 +304,9 @@ export function EditExpenseForm({
             ))}
           </div>
           <p className="text-xs text-muted-foreground">
-            Split equally among {selectedParticipants.length} participant
-            {selectedParticipants.length !== 1 ? "s" : ""}
+            {selectedParticipants.length === 1
+              ? "1 person owes the full amount"
+              : `Split equally among ${selectedParticipants.length} participants`}
           </p>
         </div>
         <div className="space-y-2">

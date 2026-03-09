@@ -4,13 +4,20 @@ import {
   expense,
   expenseAuditLog,
   expenseSplit,
+  tab,
   tabMember,
+  user,
 } from "db";
 import { eq, and } from "drizzle-orm";
-import { createExpenseSchema } from "models";
+import {
+  createExpenseSchema,
+  createExpenseAddedNotificationPayload,
+  createExpenseUpdatedNotificationPayload,
+} from "models";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
 import { getExpenseById, getExpensesForTab } from "data";
+import { publishNotification } from "../lib/redis.js";
 
 function roundTo2(n: number) {
   return Math.round(n * 100) / 100;
@@ -118,9 +125,19 @@ expensesRoutes.post("/", async (c) => {
       ? allMembers.filter((m) => participantIds.includes(m.userId))
       : allMembers;
 
-  if (members.length < 2) {
+  if (members.length < 1) {
     return c.json(
-      { success: false, error: "Add at least one other person to split with" },
+      { success: false, error: "At least one person must be in the split" },
+      400
+    );
+  }
+
+  if (
+    members.length === 1 &&
+    members[0].userId === parsed.data.paidById
+  ) {
+    return c.json(
+      { success: false, error: "Payer cannot be the only member of the split" },
       400
     );
   }
@@ -175,6 +192,35 @@ expensesRoutes.post("/", async (c) => {
     performedById: userId,
     changes: null,
   });
+
+  const [tabRow] = await db
+    .select({ name: tab.name })
+    .from(tab)
+    .where(eq(tab.id, parsed.data.tabId))
+    .limit(1);
+
+  const [fromUser] = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  const payload = createExpenseAddedNotificationPayload({
+    tabId: parsed.data.tabId,
+    expenseId,
+    tabName: tabRow?.name ?? "Tab",
+    fromUserId: userId,
+    fromUserName: fromUser?.name ?? null,
+    description: parsed.data.description ?? "",
+    amount: parsed.data.amount.toString(),
+    createdAt: new Date(),
+  });
+
+  for (const m of members) {
+    if (m.userId !== userId) {
+      await publishNotification(m.userId, payload);
+    }
+  }
 
   return c.json({ success: true, expenseId });
 });
@@ -245,9 +291,19 @@ expensesRoutes.patch("/:expenseId", async (c) => {
       ? allMembers.filter((m) => participantIds.includes(m.userId))
       : allMembers;
 
-  if (members.length < 2) {
+  if (members.length < 1) {
     return c.json(
-      { success: false, error: "Add at least one other person to split with" },
+      { success: false, error: "At least one person must be in the split" },
+      400
+    );
+  }
+
+  if (
+    members.length === 1 &&
+    members[0].userId === parsed.data.paidById
+  ) {
+    return c.json(
+      { success: false, error: "Payer cannot be the only member of the split" },
       400
     );
   }
@@ -302,6 +358,35 @@ expensesRoutes.patch("/:expenseId", async (c) => {
     performedById: userId,
     changes: null,
   });
+
+  const [tabRow] = await db
+    .select({ name: tab.name })
+    .from(tab)
+    .where(eq(tab.id, tabId))
+    .limit(1);
+
+  const [fromUser] = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  const payload = createExpenseUpdatedNotificationPayload({
+    tabId,
+    expenseId,
+    tabName: tabRow?.name ?? "Tab",
+    fromUserId: userId,
+    fromUserName: fromUser?.name ?? null,
+    description: parsed.data.description ?? "",
+    amount: parsed.data.amount.toString(),
+    createdAt: new Date(),
+  });
+
+  for (const m of members) {
+    if (m.userId !== userId) {
+      await publishNotification(m.userId, payload);
+    }
+  }
 
   return c.json({ success: true });
 });

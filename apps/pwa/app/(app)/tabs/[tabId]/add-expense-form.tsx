@@ -80,13 +80,14 @@ export function AddExpenseForm({
     setParticipantIds((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
-        if (next.size <= 2) {
-          toast.error("Add at least one other person to split with");
+        if (next.size <= 1) {
+          setError("At least one person must be in the split");
           return prev;
         }
         next.delete(userId);
       } else {
         next.add(userId);
+        setError(null);
       }
       return next;
     });
@@ -110,10 +111,17 @@ export function AddExpenseForm({
       return;
     }
 
-    if (selectedParticipants.length < 2) {
-      const msg = "Add at least one other person to split with";
-      setError(msg);
-      toast.error(msg);
+    if (selectedParticipants.length < 1) {
+      setError("At least one person must be in the split");
+      setLoading(false);
+      return;
+    }
+
+    if (
+      selectedParticipants.length === 1 &&
+      selectedParticipants[0].userId === paidById
+    ) {
+      setError("Payer cannot be the only member of the split");
       setLoading(false);
       return;
     }
@@ -137,9 +145,7 @@ export function AddExpenseForm({
       toast.success("Expense added");
       onSuccess?.();
     } else {
-      const err = result.error ?? "Failed to add expense";
-      setError(err);
-      if (err.includes("split with")) toast.error(err);
+      setError(result.error ?? "Failed to add expense");
     }
     setLoading(false);
   }
@@ -148,7 +154,10 @@ export function AddExpenseForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex gap-2">
         <Select value={paidById} onValueChange={setPaidById} disabled={loading}>
-          <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none" hideChevron>
+          <SelectTrigger
+            className="flex-1 min-w-0 [&>span]:line-clamp-none"
+            hideChevron
+          >
             <SelectValue placeholder="Select who paid">
               {(() => {
                 const payer = members.find((m) => m.userId === paidById);
@@ -230,8 +239,9 @@ export function AddExpenseForm({
           ))}
         </div>
         <p className="text-xs text-muted-foreground">
-          Split equally among {selectedParticipants.length} participant
-          {selectedParticipants.length !== 1 ? "s" : ""}
+          {selectedParticipants.length === 1
+            ? "1 person owes the full amount"
+            : `Split equally among ${selectedParticipants.length} participants`}
         </p>
       </div>
       <div className="space-y-2">

@@ -4,7 +4,10 @@ import { eq, and, ne, desc, ilike, inArray, sql } from "drizzle-orm";
 import { createShortId } from "shared";
 import { authMiddleware, type AuthContext } from "../auth.js";
 import { publishNotification } from "../lib/redis.js";
-import { createFriendRequestNotificationPayload } from "models";
+import {
+  createFriendRequestNotificationPayload,
+  createFriendRequestAcceptedNotificationPayload,
+} from "models";
 import { getDirectTabsForUser } from "data";
 
 function secureToken(): string {
@@ -193,6 +196,24 @@ friendsRoutes.post("/requests/:id/accept", async (c) => {
 
   const friendTabId = await createDirectTab(userId, req.fromUserId);
 
+  const [accepter] = await db
+    .select({ name: user.name, username: user.username })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  await publishNotification(
+    req.fromUserId,
+    createFriendRequestAcceptedNotificationPayload({
+      requestId,
+      friendTabId,
+      fromUserId: userId,
+      fromUserName: accepter?.name ?? null,
+      fromUserUsername: accepter?.username ?? null,
+      createdAt: new Date(),
+    }),
+  );
+
   return c.json({ success: true, friendTabId });
 });
 
@@ -332,6 +353,7 @@ friendsRoutes.post("/add-by-token", async (c) => {
 friendsRoutes.get("/search", async (c) => {
   const { userId } = c.get("auth");
   const query = c.req.query("q") ?? "";
+  const includeFriends = c.req.query("includeFriends") === "true";
 
   const trimmed = query.trim().toLowerCase();
   if (trimmed.length < 3) {
@@ -339,21 +361,23 @@ friendsRoutes.get("/search", async (c) => {
   }
 
   const friendIdSet = new Set<string>();
-  const directTabIds = await db
-    .select({ tabId: tabMember.tabId })
-    .from(tab)
-    .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
-    .where(and(eq(tab.isDirect, true), eq(tabMember.userId, userId)));
+  if (!includeFriends) {
+    const directTabIds = await db
+      .select({ tabId: tabMember.tabId })
+      .from(tab)
+      .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
+      .where(and(eq(tab.isDirect, true), eq(tabMember.userId, userId)));
 
-  if (directTabIds.length > 0) {
-    const tabIds = directTabIds.map((d) => d.tabId);
-    const otherMembers = await db
-      .select({ userId: tabMember.userId })
-      .from(tabMember)
-      .where(
-        and(inArray(tabMember.tabId, tabIds), ne(tabMember.userId, userId)),
-      );
-    otherMembers.forEach((m) => friendIdSet.add(m.userId));
+    if (directTabIds.length > 0) {
+      const tabIds = directTabIds.map((d) => d.tabId);
+      const otherMembers = await db
+        .select({ userId: tabMember.userId })
+        .from(tabMember)
+        .where(
+          and(inArray(tabMember.tabId, tabIds), ne(tabMember.userId, userId)),
+        );
+      otherMembers.forEach((m) => friendIdSet.add(m.userId));
+    }
   }
 
   const users = await db

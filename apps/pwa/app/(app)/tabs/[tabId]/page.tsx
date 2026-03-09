@@ -170,7 +170,7 @@ export default function TabPage() {
             >
               <TransitionLink href={`/tabs/${tabId}/members`}>
                 <UserPlus className="h-4 w-4" />
-                Invite
+                Members
               </TransitionLink>
             </Button>
           )}
@@ -341,22 +341,28 @@ export default function TabPage() {
                   </TransitionLink>
                 ) : (
                   <Card key={`set-${item.id}`}>
-                    <CardContent className="flex flex-col gap-1 p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <CircleCheck className="h-5 w-5 shrink-0 text-positive" />
-                        <span className="min-w-0 flex-1 font-medium text-sm">
-                          <span className="inline-flex items-center gap-1.5">
-                            <UserAvatar userId={item.fromUserId} size="xs" />
-                            {getDisplayName(item.fromUser, currentUserId)}
-                          </span>{" "}
-                          paid {getDisplayName(item.toUser, currentUserId)}
-                        </span>
-                        <span className="text-foreground shrink-0 font-medium">
+                    <CardContent className="flex flex-col gap-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+                          <div className="flex items-center gap-2">
+                            <UserAvatar userId={item.fromUserId} size="sm" />
+                            <span className="font-medium text-sm truncate">
+                              {getDisplayName(item.fromUser, currentUserId)}
+                            </span>
+                          </div>
+                          <p className="flex items-center gap-2 pl-7 text-sm text-muted-foreground">
+                            paid{" "}
+                            <UserAvatar userId={item.toUserId} size="xs" />
+                            <span className="truncate">
+                              {getDisplayName(item.toUser, currentUserId)}
+                            </span>
+                          </p>
+                        </div>
+                        <span className="shrink-0 font-semibold text-positive">
                           ${item.amount.toFixed(2)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Settlement ·{" "}
                         {new Date(item.createdAt).toLocaleDateString(
                           undefined,
                           {

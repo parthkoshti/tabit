@@ -76,8 +76,15 @@ export async function createExpense(formData: FormData) {
     ? allMembers.filter((m) => participantIds.includes(m.userId))
     : allMembers;
 
-  if (members.length < 2) {
-    return { success: false, error: "Add at least one other person to split with" };
+  if (members.length < 1) {
+    return { success: false, error: "At least one person must be in the split" };
+  }
+
+  if (members.length === 1 && members[0].userId === parsed.data.paidById) {
+    return {
+      success: false,
+      error: "Payer cannot be the only member of the split",
+    };
   }
 
   const amount = parsed.data.amount;
@@ -210,8 +217,15 @@ export async function updateExpense(expenseId: string, formData: FormData) {
     ? allMembers.filter((m) => participantIds.includes(m.userId))
     : allMembers;
 
-  if (members.length < 2) {
-    return { success: false, error: "Add at least one other person to split with" };
+  if (members.length < 1) {
+    return { success: false, error: "At least one person must be in the split" };
+  }
+
+  if (members.length === 1 && members[0].userId === parsed.data.paidById) {
+    return {
+      success: false,
+      error: "Payer cannot be the only member of the split",
+    };
   }
 
   const amount = parsed.data.amount;

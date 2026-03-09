@@ -11,7 +11,10 @@ import { eq, and, desc, sql } from "drizzle-orm";
 import { createId } from "shared";
 import { authMiddleware, type AuthContext } from "../auth.js";
 import { publishNotification } from "../lib/redis.js";
-import { createTabInviteNotificationPayload } from "models";
+import {
+  createTabInviteNotificationPayload,
+  createTabInviteAcceptedNotificationPayload,
+} from "models";
 
 function secureToken(): string {
   return createId();
@@ -53,6 +56,37 @@ async function getOrCreateDirectTab(
   }
 
   return createDirectTab(userId1, userId2);
+}
+
+async function publishTabInviteAcceptedNotification(
+  accepterUserId: string,
+  requestId: string,
+  req: { tabId: string; fromUserId: string },
+): Promise<void> {
+  const [tabRow] = await db
+    .select({ name: tab.name })
+    .from(tab)
+    .where(eq(tab.id, req.tabId))
+    .limit(1);
+
+  const [accepter] = await db
+    .select({ name: user.name, username: user.username })
+    .from(user)
+    .where(eq(user.id, accepterUserId))
+    .limit(1);
+
+  await publishNotification(
+    req.fromUserId,
+    createTabInviteAcceptedNotificationPayload({
+      requestId,
+      tabId: req.tabId,
+      tabName: tabRow?.name ?? "Tab",
+      fromUserId: accepterUserId,
+      fromUserName: accepter?.name ?? null,
+      fromUserUsername: accepter?.username ?? null,
+      createdAt: new Date(),
+    }),
+  );
 }
 
 async function addUserToTabAndCreateFriendships(
@@ -455,6 +489,7 @@ tabInvitesRoutes.post("/requests/:id/accept", async (c) => {
       .update(tabInviteRequest)
       .set({ status: "accepted" })
       .where(eq(tabInviteRequest.id, requestId));
+    await publishTabInviteAcceptedNotification(userId, requestId, req);
     return c.json({ success: true, tabId: req.tabId, alreadyMember: true });
   }
 
@@ -464,6 +499,7 @@ tabInvitesRoutes.post("/requests/:id/accept", async (c) => {
     .set({ status: "accepted" })
     .where(eq(tabInviteRequest.id, requestId));
 
+  await publishTabInviteAcceptedNotification(userId, requestId, req);
   return c.json({ success: true, tabId: req.tabId });
 });
 

@@ -77,6 +77,8 @@ function getPushTitle(payload: {
   type: string;
   fromUserName?: string | null;
   tabName?: string;
+  description?: string;
+  amount?: string;
   forcePush?: boolean;
 }): string {
   if (payload.forcePush)
@@ -93,20 +95,84 @@ function getPushTitle(payload: {
   ) {
     return `${payload.fromUserName} invited you to ${payload.tabName}`;
   }
+  if (
+    payload.type === "friend_request_accepted" &&
+    payload.fromUserName
+  ) {
+    return `${payload.fromUserName} accepted your friend request`;
+  }
+  if (
+    payload.type === "tab_invite_accepted" &&
+    payload.fromUserName &&
+    payload.tabName
+  ) {
+    return `${payload.fromUserName} joined ${payload.tabName}`;
+  }
+  if (payload.type === "expense_added" && payload.fromUserName && payload.tabName) {
+    const desc = payload.description ? ` for ${payload.description}` : "";
+    const amt = payload.amount ? ` $${payload.amount}` : "";
+    return `${payload.fromUserName} added${amt}${desc} to ${payload.tabName}`;
+  }
+  if (payload.type === "expense_updated" && payload.fromUserName && payload.tabName) {
+    return `${payload.fromUserName} updated an expense in ${payload.tabName}`;
+  }
   if (payload.type === "friend_request") return "New friend request";
   if (payload.type === "tab_invite") return "New tab invite";
+  if (payload.type === "friend_request_accepted") return "Friend request accepted";
+  if (payload.type === "tab_invite_accepted") return "Tab invite accepted";
+  if (payload.type === "expense_added") return "New expense added";
+  if (payload.type === "expense_updated") return "Expense updated";
   return "New notification";
 }
 
-function getPushBody(payload: { type: string; forcePush?: boolean }): string {
+function getPushBody(payload: {
+  type: string;
+  description?: string;
+  amount?: string;
+  forcePush?: boolean;
+}): string {
   if (payload.forcePush) return "This is a test notification";
   if (payload.type === "friend_request") return "New friend request";
   if (payload.type === "tab_invite") return "New tab invite";
+  if (payload.type === "friend_request_accepted") return "Accepted your friend request";
+  if (payload.type === "tab_invite_accepted") return "Joined your tab";
+  if (payload.type === "expense_added") {
+    if (payload.description && payload.amount) {
+      return `${payload.description} - $${payload.amount}`;
+    }
+    if (payload.description) return payload.description;
+    if (payload.amount) return `$${payload.amount}`;
+    return "New expense added to tab";
+  }
+  if (payload.type === "expense_updated") {
+    if (payload.description) return payload.description;
+    return "An expense was updated";
+  }
   return "You have a new notification";
 }
 
-function getNavigatePath(payload: { type: string }): string {
-  return payload.type === "tab_invite" ? "/tabs" : "/friends";
+function getNavigatePath(payload: {
+  type: string;
+  tabId?: string;
+  expenseId?: string;
+  friendTabId?: string;
+}): string {
+  if (payload.type === "tab_invite") return "/tabs";
+  if (payload.type === "friend_request_accepted" && payload.friendTabId) {
+    return `/tabs/${payload.friendTabId}`;
+  }
+  if (payload.type === "tab_invite_accepted" && payload.tabId) {
+    return `/tabs/${payload.tabId}`;
+  }
+  if (
+    (payload.type === "expense_added" || payload.type === "expense_updated") &&
+    payload.tabId
+  ) {
+    return payload.expenseId
+      ? `/tabs/${payload.tabId}/expenses/${payload.expenseId}`
+      : `/tabs/${payload.tabId}`;
+  }
+  return "/friends";
 }
 
 async function sendPushNotifications(

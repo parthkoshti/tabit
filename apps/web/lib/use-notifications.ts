@@ -61,6 +61,37 @@ export function useNotifications(enabled: boolean) {
               queryClient.invalidateQueries({
                 queryKey: ["pendingTabInviteRequests"],
               });
+            } else if (
+              payload.type === "friend_request_accepted" ||
+              payload.type === "tab_invite_accepted"
+            ) {
+              queryClient.invalidateQueries({ queryKey: ["friends"] });
+              queryClient.invalidateQueries({ queryKey: ["tabs"] });
+              if (payload.tabId) {
+                queryClient.invalidateQueries({
+                  queryKey: ["tab", payload.tabId],
+                });
+                queryClient.invalidateQueries({
+                  queryKey: ["members", payload.tabId],
+                });
+              }
+            } else if (
+              payload.type === "expense_added" ||
+              payload.type === "expense_updated"
+            ) {
+              if (payload.tabId) {
+                queryClient.invalidateQueries({
+                  queryKey: ["expenses", payload.tabId],
+                });
+                queryClient.invalidateQueries({
+                  queryKey: ["balances", payload.tabId],
+                });
+                queryClient.invalidateQueries({
+                  queryKey: ["tab", payload.tabId],
+                });
+              }
+              queryClient.invalidateQueries({ queryKey: ["tabs"] });
+              queryClient.invalidateQueries({ queryKey: ["activity"] });
             }
           } catch {
             // ignore parse errors

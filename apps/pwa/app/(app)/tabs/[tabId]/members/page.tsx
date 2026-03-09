@@ -194,7 +194,9 @@ export default function ManageMembersPage() {
     enabled: !!tabId,
   });
   const currentUserId = session?.user?.id ?? "";
-  const currentUserMember = tab?.members.find((m) => m.userId === currentUserId);
+  const currentUserMember = tab?.members.find(
+    (m) => m.userId === currentUserId,
+  );
   const isAdmin = currentUserMember?.role === "owner";
   const memberToRemove = removeMemberId
     ? tab?.members.find((m) => m.userId === removeMemberId)
@@ -214,7 +216,9 @@ export default function ManageMembersPage() {
     }
   }
 
-  const otherMember = tab?.members.find((m) => m.userId !== currentUserId)?.user;
+  const otherMember = tab?.members.find(
+    (m) => m.userId !== currentUserId,
+  )?.user;
   const navTitle = tab
     ? tab.isDirect && otherMember
       ? `Tab with ${getDisplayName(otherMember, currentUserId)}`
@@ -225,7 +229,7 @@ export default function ManageMembersPage() {
       tab?.members
         .filter((m) => m.userId !== currentUserId)
         .map((m) => m.userId) ?? [],
-    [tab?.members, currentUserId]
+    [tab?.members, currentUserId],
   );
   const avatarDisplayName =
     tab?.isDirect && otherMember
@@ -242,6 +246,11 @@ export default function ManageMembersPage() {
     return () => setNavTitle?.(null);
   }, [setNavTitle, navTitle, tabId, avatarUserIds, avatarDisplayName]);
 
+  const memberIds = useMemo(
+    () => new Set(tab?.members.map((m) => m.userId) ?? []),
+    [tab?.members],
+  );
+
   useEffect(() => {
     if (!username.trim() || username.trim().length < 3) {
       setSearchResults([]);
@@ -249,12 +258,15 @@ export default function ManageMembersPage() {
     }
     const timer = setTimeout(async () => {
       setSearching(true);
-      const result = await api.friends.search(username);
-      setSearchResults(result.success ? result.users : []);
+      const result = await api.friends.search(username, {
+        includeFriends: true,
+      });
+      const users = result.success ? result.users : [];
+      setSearchResults(users.filter((u) => !memberIds.has(u.id)));
       setSearching(false);
     }, 300);
     return () => clearTimeout(timer);
-  }, [username]);
+  }, [username, memberIds]);
 
   async function handleInvite(targetUsername: string) {
     if (!tabId) return;
@@ -287,14 +299,18 @@ export default function ManageMembersPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-md space-y-6">
+      <div className="mx-auto max-w-md space-y-6 pb-24">
         {!tab.isDirect && isAdmin && (
           <section className="space-y-4">
             <h2 className="text-base font-medium mb-1">Manage tab</h2>
             <p className="text-xs text-muted-foreground mb-4">
               Rename this tab
             </p>
-            <Button variant="outline" className="w-full justify-center gap-2" asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-center gap-2"
+              asChild
+            >
               <TransitionLink href={`/tabs/${tabId}/manage`}>
                 <Settings className="h-4 w-4" />
                 Rename tab
@@ -304,9 +320,10 @@ export default function ManageMembersPage() {
         )}
         <section className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold">Members</h2>
-            <p className="text-sm text-muted-foreground">
-              {tab.members.length} member{tab.members.length !== 1 ? "s" : ""} in this tab
+            <h2 className="text-base font-medium mb-1">Members</h2>
+            <p className="text-xs text-muted-foreground mb-4">
+              {tab.members.length} member{tab.members.length !== 1 ? "s" : ""}{" "}
+              in this tab
             </p>
           </div>
           <ul className="divide-y divide-border rounded-lg border border-border">
@@ -380,76 +397,81 @@ export default function ManageMembersPage() {
 
         <section className="space-y-4">
           <div>
-            <h2 className="text-lg font-semibold">Invite members</h2>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-base font-medium mb-1">Invite members</h2>
+            <p className="text-xs text-muted-foreground mb-4">
               Search by username or share a link to add people to this tab
             </p>
           </div>
 
           <Card>
             <CardHeader>
-              <CardTitle>Search by username</CardTitle>
-            <CardDescription>
-              Enter a username to invite them to this tab. They must accept
-              first.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="username"
-              disabled={loading}
-            />
-            {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            {searching && (
-              <p className="text-sm text-muted-foreground">Searching...</p>
-            )}
-            {searchResults.length > 0 && (
-              <div className="space-y-2">
-                {searchResults.map((u) => (
-                  <div
-                    key={u.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <UserAvatar userId={u.id} size="sm" />
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {u.name ?? u.username ?? "Unknown"}
-                        </span>
-                        {u.username && (
-                          <span className="text-sm text-muted-foreground">
-                            @{u.username}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <Button
-                      size="sm"
-                      onClick={() => handleInvite(u.username ?? "")}
-                      disabled={loading}
+              <CardTitle className="text-sm font-medium">
+                Search by username
+              </CardTitle>
+              <CardDescription>
+                Enter a username to invite them to this tab. They must accept
+                first.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder="username"
+                disabled={loading}
+                className="text-sm"
+              />
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+              {searching && (
+                <p className="text-sm text-muted-foreground">Searching...</p>
+              )}
+              {searchResults.length > 0 && (
+                <div className="space-y-2">
+                  {searchResults.map((u) => (
+                    <div
+                      key={u.id}
+                      className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
                     >
-                      Invite to tab
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <UserAvatar userId={u.id} size="sm" />
+                        <div className="flex flex-col">
+                          <span className="font-medium">
+                            {u.name ?? u.username ?? "Unknown"}
+                          </span>
+                          {u.username && (
+                            <span className="text-sm text-muted-foreground">
+                              @{u.username}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleInvite(u.username ?? "")}
+                        disabled={loading}
+                      >
+                        Invite to tab
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle>QR code / Invite link</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                QR code / Invite link
+              </CardTitle>
               <CardDescription>
-                Share this link or QR code. Existing users can accept to join the
-                tab. New users will sign up and then join.
+                Share this link or QR code. Existing users can accept to join
+                the tab. New users will sign up and then join.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
