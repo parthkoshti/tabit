@@ -3,12 +3,26 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   transpilePackages: ["models", "db"],
   async rewrites() {
-    return [
+    const rewrites: { source: string; destination: string }[] = [
       {
         source: "/api-backend/:path*",
         destination: "http://localhost:3001/:path*",
       },
     ];
+    const rybbitHost = process.env.RYBBIT_HOST;
+    if (rybbitHost) {
+      rewrites.push(
+        {
+          source: "/api/script.js",
+          destination: `${rybbitHost}/api/script.js`,
+        },
+        {
+          source: "/api/track",
+          destination: `${rybbitHost}/api/track`,
+        },
+      );
+    }
+    return rewrites;
   },
   async headers() {
     return [

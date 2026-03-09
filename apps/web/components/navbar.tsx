@@ -23,6 +23,12 @@ export function Navbar() {
           />
         </TransitionLink>
         <div className="flex items-center gap-2">
+          <TransitionLink
+            href="/why"
+            className="hidden sm:inline-flex text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Why?
+          </TransitionLink>
           {appConfig.githubUrl ? (
             <Button
               variant="ghost"

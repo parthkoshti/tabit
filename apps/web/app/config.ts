@@ -2,6 +2,12 @@ export const appConfig = {
   name: "Tab",
   fullName: "Tab - Split expenses with friends",
   description: "A simple way to split expenses with friends and tabs",
+  seo: {
+    title: "Tab - Splitwise Alternative Free | Expense Splitting for Friends",
+    description:
+      "Splitwise alternative free. Split bills with friends—no limits, no paywall, no wait timer. Free forever. Create tabs, add expenses, settle up.",
+  },
+  appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "https://tabit.in",
   githubUrl: process.env.NEXT_PUBLIC_GITHUB_URL ?? "",
   donateUrl: process.env.NEXT_PUBLIC_DONATE_URL ?? "",
   pwaUrl: process.env.NEXT_PUBLIC_PWA_URL ?? "https://localhost:3003",
@@ -9,6 +15,7 @@ export const appConfig = {
     name: "Parth Koshti",
     github: "https://github.com/parthkoshti",
     website: "https://parthkoshti.com",
+    twitter: "https://x.com/itsparthvader",
     otherProjects: [
       { name: "SnitchFeed", url: "https://snitchfeed.com" },
       { name: "Conncord", url: "https://conncord.com" },
