@@ -18,7 +18,7 @@
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
     "db:push": "turbo db:push",
-    "docker:build": "docker build -t tabit .",
+    "docker:build": "docker build --build-arg TURBO_TEAM=$TURBO_TEAM --build-arg TURBO_TOKEN=$TURBO_TOKEN -t tabit .",
     "docker:run": "docker run -p 3000:3000 -p 3002:3002 --env-file .env tabit"
   },
   "devDependencies": {
