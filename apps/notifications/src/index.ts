@@ -8,7 +8,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { Redis } from "ioredis";
 import webpush from "web-push";
 import { db, pushSubscription } from "db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 const LOG_PREFIX = "[notifications]";
 
@@ -29,7 +29,10 @@ const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 if (vapidPublicKey && vapidPrivateKey) {
   webpush.setVapidDetails("mailto:support@tabit.in", vapidPublicKey, vapidPrivateKey);
-  log("info", "VAPID keys configured, push notifications enabled");
+  log("info", "VAPID keys configured, push notifications enabled", {
+    vapidPublicKey,
+    vapidPrivateKey,
+  });
 } else {
   log("warn", "VAPID keys not configured, push notifications disabled");
 }
@@ -127,9 +130,28 @@ async function sendPushNotifications(userId: string, payload: unknown): Promise<
   const fulfilled = results.filter((r) => r.status === "fulfilled").length;
   const rejected = results.filter((r) => r.status === "rejected").length;
   if (rejected > 0) {
-    results.forEach((r, i) => {
-      if (r.status === "rejected") log("error", "Push send failed", { userId, error: String(r.reason), endpoint: subs[i]?.endpoint?.slice(0, 50) });
-    });
+    for (let i = 0; i < results.length; i++) {
+      const r = results[i];
+      const sub = subs[i];
+      if (r.status === "rejected" && sub) {
+        const err = r.reason as { statusCode?: number; body?: string };
+        const statusCode = err?.statusCode;
+        const body = err?.body;
+        log("error", "Push send failed", {
+          userId,
+          error: String(r.reason),
+          statusCode,
+          body: body?.slice?.(0, 200),
+          endpoint: sub.endpoint.slice(0, 60),
+        });
+        if (statusCode === 404 || statusCode === 410) {
+          await db
+            .delete(pushSubscription)
+            .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, sub.endpoint)));
+          log("info", "Removed expired push subscription", { userId, endpoint: sub.endpoint.slice(0, 60) });
+        }
+      }
+    }
   }
   log("info", "Push notifications sent", { userId, fulfilled, rejected });
 }
