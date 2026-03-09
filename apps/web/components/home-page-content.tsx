@@ -146,7 +146,7 @@ function HeroPreview() {
 export function HomePageContent() {
   return (
     <>
-      <section className="relative overflow-hidden px-6 pt-28 pb-32 sm:px-8 sm:pt-36 sm:pb-40 lg:px-12">
+      <section className="relative w-screen left-1/2 -ml-[50vw] overflow-hidden px-6 pt-28 pb-32 sm:px-8 sm:pt-36 sm:pb-40 lg:px-12">
         <div
           className="absolute inset-0 -z-10"
           style={{
@@ -208,7 +208,7 @@ export function HomePageContent() {
         </div>
       </section>
 
-      <section className="border-t border-border/30 bg-muted/10 px-6 py-24 sm:px-8 sm:py-32 lg:px-12">
+      <section className="relative w-screen left-1/2 -ml-[50vw] border-t border-border/30 bg-muted/10 px-6 py-24 sm:px-8 sm:py-32 lg:px-12">
         <div className="mx-auto max-w-4xl">
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-border/20 bg-card/60 px-8 py-10 shadow-sm ring-1 ring-border/5 dark:bg-card/40 dark:ring-white/5 sm:px-10 sm:py-12">
@@ -260,7 +260,7 @@ export function HomePageContent() {
         </div>
       </section>
 
-      <section className="border-t border-border/30 bg-muted/5 px-6 py-24 sm:px-8 sm:py-32 lg:px-12">
+      <section className="relative w-screen left-1/2 -ml-[50vw] border-t border-border/30 bg-muted/5 px-6 py-24 sm:px-8 sm:py-32 lg:px-12">
         <div className="mx-auto max-w-5xl">
           <div className="text-center">
             <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
@@ -293,7 +293,7 @@ export function HomePageContent() {
         </div>
       </section>
 
-      <section className="border-t border-border/30 px-6 py-24 sm:px-8 sm:py-32 lg:px-12">
+      <section className="relative w-screen left-1/2 -ml-[50vw] border-t border-border/30 px-6 py-24 sm:px-8 sm:py-32 lg:px-12">
         <div className="mx-auto max-w-2xl text-center">
           <h2 className="text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
             Ready to split?
