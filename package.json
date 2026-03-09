@@ -1,5 +1,5 @@
 {
-  "name": "tabit-turbo",
+  "name": "tabit",
   "private": true,
   "scripts": {
     "build": "turbo build",
