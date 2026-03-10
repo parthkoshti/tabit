@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,6 +17,9 @@ import {
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { AnimatedCard } from "@/components/motion/animated-card";
 
 export default function FriendsPage() {
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null);
@@ -197,10 +200,16 @@ export default function FriendsPage() {
               No friends yet. Use the add button above to add one.
             </p>
           ) : (
-            <div className="flex flex-col gap-3">
+            <motion.div
+              className="flex flex-col gap-3"
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+            >
               {friends.map((f) => (
-                <TransitionLink key={f.id} href={`/tabs/${f.id}`}>
-                  <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
+                <motion.div key={f.id} variants={staggerItem}>
+                  <Link href={`/tabs/${f.id}`}>
+                    <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-3">
                         <UserAvatar
@@ -254,10 +263,11 @@ export default function FriendsPage() {
                         </>
                       )}
                     </span>
-                  </div>
-                </TransitionLink>
+                  </AnimatedCard>
+                </Link>
+              </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
         </section>
       </div>

@@ -5,12 +5,15 @@ import useInfiniteScroll from "react-infinite-scroll-hook";
 import { fetchActivity } from "@/app/actions/queries";
 import type { ActivityItem } from "@/lib/data";
 import { authClient } from "@/lib/auth-client";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { ReceiptText } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { AnimatedCard } from "@/components/motion/animated-card";
 
 function formatDate(d: Date) {
   const date = new Date(d);
@@ -118,14 +121,17 @@ export default function ActivityPage() {
               No activity yet
             </p>
           ) : (
-            <div className="flex flex-col gap-3">
+            <motion.div
+              className="flex flex-col gap-3"
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+            >
               {items.map((item) =>
                 item.type === "expense" ? (
-                  <TransitionLink
-                    key={`exp-${item.id}`}
-                    href={`/tabs/${item.tabId}/expenses/${item.id}`}
-                  >
-                    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
+                  <motion.div key={`exp-${item.id}`} variants={staggerItem}>
+                    <Link href={`/tabs/${item.tabId}/expenses/${item.id}`}>
+                      <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <UserAvatar userId={item.paidById} size="sm" />
@@ -156,14 +162,13 @@ export default function ActivityPage() {
                       <p className="text-xs text-muted-foreground">
                         {formatDate(item.expenseDate)}
                       </p>
-                    </div>
-                  </TransitionLink>
+                    </AnimatedCard>
+                  </Link>
+                </motion.div>
                 ) : (
-                  <TransitionLink
-                    key={`set-${item.id}`}
-                    href={`/tabs/${item.tabId}/settlements/${item.id}`}
-                  >
-                    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
+                  <motion.div key={`set-${item.id}`} variants={staggerItem}>
+                    <Link href={`/tabs/${item.tabId}/settlements/${item.id}`}>
+                      <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-center gap-2">
                         <UserAvatar userId={item.fromUserId} size="sm" />
                         <span className="font-medium">
@@ -199,8 +204,9 @@ export default function ActivityPage() {
                       <p className="text-xs text-muted-foreground">
                         {formatDate(item.createdAt)}
                       </p>
-                    </div>
-                  </TransitionLink>
+                    </AnimatedCard>
+                  </Link>
+                </motion.div>
                 ),
               )}
               {isFetchingNextPage && (
@@ -223,7 +229,7 @@ export default function ActivityPage() {
                 </div>
               )}
               {hasNextPage && <div ref={infiniteRef} className="h-1" />}
-            </div>
+            </motion.div>
           )}
         </section>
       </div>

@@ -16,10 +16,12 @@ import {
 } from "@/components/ui/dialog";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { createStore, clear } from "idb-keyval";
 import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
+import { motion } from "framer-motion";
+import { fabSpring } from "@/lib/animations";
 
 type Member = {
   userId: string;
@@ -150,10 +152,7 @@ export function AddExpenseFAB() {
   };
 
   return (
-    <div
-      className="fixed bottom-28 right-4 z-30 flex flex-col items-end gap-2"
-      style={{ viewTransitionName: "add-expense-fab" }}
-    >
+    <div className="fixed bottom-28 right-4 z-30 flex flex-col items-end gap-2">
       {process.env.NODE_ENV === "development" && (
         <Button
           variant="outline"
@@ -165,13 +164,18 @@ export function AddExpenseFAB() {
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
       )}
-      <Button
-        className="h-12 gap-2 rounded-full px-4 shadow-lg"
-        onClick={() => setOpen(true)}
+      <motion.div
+        {...fabSpring}
+        whileTap={{ scale: 0.95 }}
       >
-        <Plus className="h-4 w-4" />
-        Expense
-      </Button>
+        <Button
+          className="h-12 gap-2 rounded-full px-4 shadow-lg"
+          onClick={() => setOpen(true)}
+        >
+          <Plus className="h-4 w-4" />
+          Expense
+        </Button>
+      </motion.div>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-[90vw] rounded-xl">
           <DialogHeader>
@@ -197,9 +201,9 @@ export function AddExpenseFAB() {
                         No friends yet. Add a friend first.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <TransitionLink href="/friends/addFriend">
+                        <Link href="/friends/addFriend">
                           Add friend
-                        </TransitionLink>
+                        </Link>
                       </Button>
                     </div>
                   ) : (
@@ -317,9 +321,9 @@ export function AddExpenseFAB() {
                         No tabs yet. Create a tab first.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <TransitionLink href="/tabs/create">
+                        <Link href="/tabs/create">
                           Create tab
-                        </TransitionLink>
+                        </Link>
                       </Button>
                     </div>
                   ) : (
@@ -429,9 +433,9 @@ export function AddExpenseFAB() {
                         Add members to this tab to start splitting expenses.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <TransitionLink href={`/tabs/${selectedTabId}/members`}>
+                        <Link href={`/tabs/${selectedTabId}/members`}>
                           Invite members
-                        </TransitionLink>
+                        </Link>
                       </Button>
                     </div>
                   ) : (
@@ -472,9 +476,9 @@ export function AddExpenseFAB() {
                     Add members to this tab to start splitting expenses.
                   </p>
                   <Button asChild variant="outline" className="w-full">
-                    <TransitionLink href={`/tabs/${tabIdFromParams}/members`}>
+                    <Link href={`/tabs/${tabIdFromParams}/members`}>
                       Invite members
-                    </TransitionLink>
+                    </Link>
                   </Button>
                 </div>
               ) : (

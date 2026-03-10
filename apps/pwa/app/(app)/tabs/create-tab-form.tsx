@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api-client";
-import { useTransitionRouter } from "next-view-transitions";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ export function CreateTabForm() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useTransitionRouter();
+  const router = useRouter();
   const queryClient = useQueryClient();
 
   async function handleSubmit(e: React.FormEvent) {

@@ -2,7 +2,7 @@
 
 import { use, useMemo, useEffect, useState, Suspense } from "react";
 import { useParams } from "next/navigation";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { useNavTitle } from "../../../context/nav-title-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchTab } from "@/app/actions/queries";
@@ -311,10 +311,10 @@ export default function ManageMembersPage() {
               className="w-full justify-center gap-2"
               asChild
             >
-              <TransitionLink href={`/tabs/${tabId}/manage`}>
+              <Link href={`/tabs/${tabId}/manage`}>
                 <Settings className="h-4 w-4" />
                 Rename tab
-              </TransitionLink>
+              </Link>
             </Button>
           </section>
         )}

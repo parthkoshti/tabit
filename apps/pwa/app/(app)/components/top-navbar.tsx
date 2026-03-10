@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { ArrowLeft, Plus, ReceiptText } from "lucide-react";
 import { appConfig } from "@/app/config";
 import { useNavTitleConfig } from "../context/nav-title-context";
@@ -22,10 +22,7 @@ export function TopNavbar() {
     pathname.startsWith("/tabs/") && !pathname.match(/^\/tabs\/?$/);
 
   return (
-    <header
-      className="top-nav-safe fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]"
-      style={{ viewTransitionName: "top-navbar" }}
-    >
+    <header className="top-nav-safe fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]">
       {navPage ? (
         <>
           <Button
@@ -73,7 +70,7 @@ export function TopNavbar() {
           </div>
         </>
       ) : (
-        <TransitionLink href="/tabs" className="flex items-center gap-2">
+        <Link href="/tabs" className="flex items-center gap-2">
           <Image
             src={appConfig.icons.sm.src}
             alt="Tab It Logo"
@@ -81,23 +78,23 @@ export function TopNavbar() {
             height={52}
             className=""
           />
-        </TransitionLink>
+        </Link>
       )}
       {!navPage && (isMePage ? (
         <SignOutButton />
       ) : isFriendsListPage ? (
         <Button variant="default" size="sm" asChild aria-label="Add friend">
-          <TransitionLink href="/friends/addFriend" className="">
+          <Link href="/friends/addFriend" className="">
             <Plus className="h-5 w-5" />
             <span>Friend</span>
-          </TransitionLink>
+          </Link>
         </Button>
       ) : isTabsListPage ? (
         <Button variant="default" size="sm" asChild aria-label="New tab">
-          <TransitionLink href="/tabs/create" className="">
+          <Link href="/tabs/create" className="">
             <Plus className="h-5 w-5" />
             <span>Tab</span>
-          </TransitionLink>
+          </Link>
         </Button>
       ) : null)}
     </header>

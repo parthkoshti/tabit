@@ -11,6 +11,7 @@ import { TopNavbar } from "./components/top-navbar";
 import { BottomNavbar } from "./components/bottom-navbar";
 import { AddExpenseFAB } from "./components/add-expense-fab";
 import { LoadingScreen } from "./components/loading-screen";
+import { PageTransition } from "@/components/motion/page-transition";
 
 function AppLayoutContent({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -59,9 +60,8 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
         {!isOnboarding && <TopNavbar />}
         <main
           className="app-layout-safe-bottom app-scroll-hide min-h-0 flex-1 overflow-auto overscroll-none pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))]"
-          style={{ viewTransitionName: "main-content" }}
         >
-          {children}
+          <PageTransition>{children}</PageTransition>
         </main>
         {!isOnboarding && <BottomNavbar />}
         {!isOnboarding && <AddExpenseFAB />}

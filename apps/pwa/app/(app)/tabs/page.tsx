@@ -3,11 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { authClient } from "@/lib/auth-client";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { AnimatedCard } from "@/components/motion/animated-card";
 
 export default function TabsPage() {
   const router = useRouter();
@@ -69,7 +72,12 @@ export default function TabsPage() {
             <p className="text-xs text-muted-foreground mb-4">
               Accept or reject incoming tab invites
             </p>
-            <div className="flex flex-col gap-3">
+            <motion.div
+              className="flex flex-col gap-3"
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+            >
               {pendingTabInvites.map((r) => (
                 <div
                   key={r.id}
@@ -120,7 +128,7 @@ export default function TabsPage() {
                   </div>
                 </div>
               ))}
-            </div>
+            </motion.div>
           </section>
         )}
 
@@ -138,7 +146,12 @@ export default function TabsPage() {
               No tabs yet. Use the new tab button above.
             </p>
           ) : (
-            <div className="flex flex-col gap-3">
+            <motion.div
+              className="flex flex-col gap-3"
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+            >
               {tabs.map((t) => {
                 const otherMemberIds =
                   t.memberUserIds?.filter((id) => id !== currentUserId) ?? [];
@@ -148,8 +161,9 @@ export default function TabsPage() {
                   : otherMemberIds.slice(0, 3);
                 const extraCount = hasExtra ? otherMemberIds.length - 2 : 0;
                 return (
-                  <TransitionLink key={t.id} href={`/tabs/${t.id}`}>
-                    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
+                  <motion.div key={t.id} variants={staggerItem}>
+                    <Link href={`/tabs/${t.id}`}>
+                      <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-medium">{t.name}</span>
                         <span
@@ -204,11 +218,12 @@ export default function TabsPage() {
                           </>
                         )}
                       </span>
-                    </div>
-                  </TransitionLink>
+                    </AnimatedCard>
+                  </Link>
+                </motion.div>
                 );
               })}
-            </div>
+            </motion.div>
           )}
         </section>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Users, Activity, User, ReceiptText } from "lucide-react";
@@ -43,10 +43,7 @@ export function BottomNavbar() {
   const needsPushResubscription = useNeedsPushResubscription();
 
   return (
-    <nav
-      className="bottom-nav-safe fixed bottom-8 left-0 right-0 z-40 flex justify-center px-4 pb-4 pt-2"
-      style={{ viewTransitionName: "bottom-navbar" }}
-    >
+    <nav className="bottom-nav-safe fixed bottom-8 left-0 right-0 z-40 flex justify-center px-4 pb-4 pt-2">
       <div className="frosted-glass flex gap-1 w-full max-w-sm items-center justify-around rounded-full border border-border/60 bg-background/95 px-2 py-2 shadow-lg">
         {tabs.map(({ href, label, icon: Icon }) => {
           const isActive =
@@ -57,7 +54,11 @@ export function BottomNavbar() {
             (href === "/tabs" && tabInviteCount > 0) ||
             (href === "/me" && needsPushResubscription);
           const badgeCount =
-            href === "/friends" ? friendInviteCount : href === "/tabs" ? tabInviteCount : 0;
+            href === "/friends"
+              ? friendInviteCount
+              : href === "/tabs"
+                ? tabInviteCount
+                : 0;
           const isMeTab = href === "/me";
           const showAvatar = isMeTab && session?.user?.id;
 
@@ -73,7 +74,7 @@ export function BottomNavbar() {
               }`}
               asChild
             >
-              <TransitionLink href={href}>
+              <Link href={href} prefetch>
                 <span className="relative inline-block">
                   {showAvatar ? (
                     <UserAvatar
@@ -101,7 +102,7 @@ export function BottomNavbar() {
                   )}
                 </span>
                 {!isMeTab && label}
-              </TransitionLink>
+              </Link>
             </Button>
           );
         })}

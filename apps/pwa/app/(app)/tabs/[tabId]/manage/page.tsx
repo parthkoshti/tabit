@@ -6,7 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchTab, fetchExpenses } from "@/app/actions/queries";
 import { api } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -94,7 +94,7 @@ export default function ManageTabPage() {
             </AlertDescription>
           </Alert>
           <Button variant="outline" className="mt-4" asChild>
-            <TransitionLink href={`/tabs/${tabId}`}>Back to tab</TransitionLink>
+            <Link href={`/tabs/${tabId}`}>Back to tab</Link>
           </Button>
         </div>
       </div>
@@ -109,7 +109,7 @@ export default function ManageTabPage() {
             <AlertDescription>Direct tabs cannot be renamed.</AlertDescription>
           </Alert>
           <Button variant="outline" className="mt-4" asChild>
-            <TransitionLink href={`/tabs/${tabId}`}>Back to tab</TransitionLink>
+            <Link href={`/tabs/${tabId}`}>Back to tab</Link>
           </Button>
         </div>
       </div>

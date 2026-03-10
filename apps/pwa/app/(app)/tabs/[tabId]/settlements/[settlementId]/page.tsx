@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api-client";
 import { EditSettlementForm } from "../../edit-settlement-form";
 import { Button } from "@/components/ui/button";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -92,10 +92,10 @@ export default function SettlementPage() {
           Settlement not found or you don&apos;t have access
         </p>
         <Button variant="outline" asChild>
-          <TransitionLink href={`/tabs/${tabId}`}>
+          <Link href={`/tabs/${tabId}`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to tab
-          </TransitionLink>
+          </Link>
         </Button>
       </div>
     );

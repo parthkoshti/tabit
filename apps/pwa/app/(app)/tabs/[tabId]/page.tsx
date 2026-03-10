@@ -11,7 +11,7 @@ import {
 } from "@/app/actions/queries";
 import { authClient } from "@/lib/auth-client";
 import { useParams } from "next/navigation";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { useNavTitle } from "../../context/nav-title-context";
 import { SettleUpForm } from "./settle-up-form";
 import { Card, CardContent } from "@/components/ui/card";
@@ -35,6 +35,9 @@ import {
 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { motion } from "framer-motion";
+import { staggerContainer, staggerItem } from "@/lib/animations";
+import { AnimatedCard } from "@/components/motion/animated-card";
 
 export default function TabPage() {
   const params = useParams<{ tabId: string }>();
@@ -179,7 +182,7 @@ export default function TabPage() {
           Tab not found or you don&apos;t have access
         </p>
         <Button variant="outline" asChild>
-          <TransitionLink href="/tabs">Go back</TransitionLink>
+          <Link href="/tabs">Go back</Link>
         </Button>
       </div>
     );
@@ -210,10 +213,10 @@ export default function TabPage() {
               className="shrink-0 justify-center gap-2 min-w-28"
               asChild
             >
-              <TransitionLink href={`/tabs/${tabId}/manage`}>
+              <Link href={`/tabs/${tabId}/manage`}>
                 <Settings className="h-4 w-4" />
                 Manage
-              </TransitionLink>
+              </Link>
             </Button>
           )}
           {!tab.isDirect && avatarUserIds.length > 0 && (
@@ -222,10 +225,10 @@ export default function TabPage() {
               className="shrink-0 justify-center gap-2 min-w-28"
               asChild
             >
-              <TransitionLink href={`/tabs/${tabId}/members`}>
+              <Link href={`/tabs/${tabId}/members`}>
                 <UserPlus className="h-4 w-4" />
                 Members
-              </TransitionLink>
+              </Link>
             </Button>
           )}
           <Dialog open={settleUpOpen} onOpenChange={setSettleUpOpen}>
@@ -267,10 +270,10 @@ export default function TabPage() {
               className="w-full justify-center gap-2"
               asChild
             >
-              <TransitionLink href={`/tabs/${tabId}/members`}>
+              <Link href={`/tabs/${tabId}/members`}>
                 <UserPlus className="h-4 w-4" />
                 Invite members
-              </TransitionLink>
+              </Link>
             </Button>
           </div>
         )}
@@ -357,14 +360,18 @@ export default function TabPage() {
               No expenses or settlements yet
             </p>
           ) : (
-            <div className="flex flex-col gap-4">
+            <motion.div
+              className="flex flex-col gap-4"
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+            >
               {expensesAndSettlements.map((item) =>
                 item.type === "expense" ? (
-                  <TransitionLink
-                    key={`exp-${item.id}`}
-                    href={`/tabs/${tabId}/expenses/${item.id}`}
-                  >
-                    <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+                  <motion.div key={`exp-${item.id}`} variants={staggerItem}>
+                    <Link href={`/tabs/${tabId}/expenses/${item.id}`}>
+                      <AnimatedCard>
+                        <Card className="cursor-pointer hover:bg-muted/50">
                       <CardContent className="flex flex-col gap-1 p-4">
                         <div className="flex items-center justify-between gap-2">
                           <BanknoteArrowUp className="h-5 w-5 shrink-0 text-negative" />
@@ -433,13 +440,14 @@ export default function TabPage() {
                         </div>
                       </CardContent>
                     </Card>
-                  </TransitionLink>
+                      </AnimatedCard>
+                    </Link>
+                  </motion.div>
                 ) : (
-                  <TransitionLink
-                    key={`set-${item.id}`}
-                    href={`/tabs/${tabId}/settlements/${item.id}`}
-                  >
-                    <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+                  <motion.div key={`set-${item.id}`} variants={staggerItem}>
+                    <Link href={`/tabs/${tabId}/settlements/${item.id}`}>
+                      <AnimatedCard>
+                        <Card className="cursor-pointer hover:bg-muted/50">
                       <CardContent className="flex flex-col gap-1 p-4">
                         <div className="flex items-center justify-between gap-2">
                           <Wallet className="h-5 w-5 shrink-0 text-positive" />
@@ -475,7 +483,9 @@ export default function TabPage() {
                         </p>
                       </CardContent>
                     </Card>
-                  </TransitionLink>
+                      </AnimatedCard>
+                    </Link>
+                  </motion.div>
                 ),
               )}
               {isLoadingMoreExpenses && (
@@ -500,7 +510,7 @@ export default function TabPage() {
                 </div>
               )}
               {hasMoreExpenses && <div ref={infiniteRef} className="h-1" />}
-            </div>
+            </motion.div>
           )}
         </section>
       </div>

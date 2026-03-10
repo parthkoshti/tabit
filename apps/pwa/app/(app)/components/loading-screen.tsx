@@ -1,9 +1,17 @@
+"use client";
+
+import { motion } from "framer-motion";
 import Image from "next/image";
 import { appConfig } from "@/app/config";
 
 export function LoadingScreen() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <motion.div
+      className="flex min-h-screen items-center justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.2 }}
+    >
       <Image
         src={appConfig.icons.md.src}
         alt={appConfig.name}
@@ -12,6 +20,6 @@ export function LoadingScreen() {
         priority
         className="h-32 w-32"
       />
-    </div>
+    </motion.div>
   );
 }

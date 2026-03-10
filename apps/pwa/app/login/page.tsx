@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { appConfig } from "@/app/config";
 import { authClient } from "@/lib/auth-client";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -175,7 +175,7 @@ function LoginForm() {
           )}
 
           <Button variant="link" asChild className="w-full">
-            <TransitionLink href="/">Back to home</TransitionLink>
+            <Link href="/">Back to home</Link>
           </Button>
         </CardContent>
       </Card>

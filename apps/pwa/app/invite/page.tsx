@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { needsProfileSetup } from "@/lib/profile";
@@ -176,7 +176,7 @@ function InviteContent() {
           {error}
         </div>
         <Button variant="link" asChild className="mt-4">
-          <TransitionLink href="/login">Sign in</TransitionLink>
+          <Link href="/login">Sign in</Link>
         </Button>
       </main>
     );
