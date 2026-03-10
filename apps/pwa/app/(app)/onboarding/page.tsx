@@ -64,7 +64,7 @@ export default function OnboardingPage() {
   const [installed, setInstalled] = useState(false);
   const checkIdRef = useRef(0);
 
-  const DISABLE_REDIRECT = true; // TODO: remove - temp disable to view page
+  const DISABLE_REDIRECT = false; // TODO: remove - temp disable to view page
 
   useEffect(() => {
     setPlatform(getPlatform());

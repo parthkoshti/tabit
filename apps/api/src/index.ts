@@ -11,6 +11,7 @@ import { usernameRoutes } from "./routes/username.js";
 import { apiKeysRoutes } from "./routes/api-keys.js";
 import { activityRoutes } from "./routes/activity.js";
 import { pushRoutes } from "./routes/push.js";
+import { aiRoutes } from "./routes/ai.js";
 import { authMiddleware } from "./auth.js";
 
 const app = new Hono<{ Variables: { auth: AuthContext } }>();
@@ -63,6 +64,7 @@ app.route("/username", usernameRoutes);
 app.route("/api-keys", apiKeysRoutes);
 app.route("/activity", activityRoutes);
 app.route("/push", pushRoutes);
+app.route("/ai", aiRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 log("info", `API server listening on port ${port}`, { corsOrigins: origins });

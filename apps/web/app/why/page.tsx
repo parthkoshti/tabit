@@ -41,8 +41,8 @@ export default function WhyPage() {
               <p>
                 That pattern is everywhere now. Free tiers that feel like demos.
                 Artificial limits that push you toward upgrades. Dark patterns
-                that make you feel like you&apos;re doing something wrong for
-                wanting to split a fourth expense.
+                that make you feel like you're doing something wrong for wanting
+                to split a fourth expense.
               </p>
             </div>
           </div>
@@ -55,15 +55,15 @@ export default function WhyPage() {
               <p>
                 No daily cap. No wait timer. No upgrade prompt when you add your
                 tenth expense. Create as many tabs as you want. Add as many
-                friends as you need. Settle up when you&apos;re ready.
+                friends as you need. Settle up when you're ready.
               </p>
               <p>
                 Tab is open source. Your data, your control. No lock-in, no
-                surprise limits. If the product changes in a way you don&apos;t
-                like, the code is there. The community can fork it.
+                surprise limits. If the product changes in a way you don't like,
+                the code is there. The community can fork it.
               </p>
               <p>
-                Splitting bills shouldn&apos;t cost you. Not in money, not in
+                Splitting bills shouldn't cost you. Not in money, not in
                 friction, not in guilt. Tab exists because that should be the
                 default.
               </p>

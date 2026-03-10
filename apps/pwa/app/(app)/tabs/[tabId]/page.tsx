@@ -2,7 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useInfiniteScroll from "react-infinite-scroll-hook";
-import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useInfiniteQuery,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import {
   fetchTab,
   fetchExpenses,
@@ -71,10 +75,13 @@ export default function TabPage() {
       if (!lastPage || !("total" in lastPage)) return undefined;
       const pages = allPages ?? [];
       const loaded = pages.reduce(
-        (sum, p) => sum + (p && "expenses" in p ? (p.expenses?.length ?? 0) : 0),
+        (sum, p) =>
+          sum + (p && "expenses" in p ? (p.expenses?.length ?? 0) : 0),
         0,
       );
-      return loaded < (lastPage as { total: number }).total ? loaded : undefined;
+      return loaded < (lastPage as { total: number }).total
+        ? loaded
+        : undefined;
     },
     enabled: !!tabId && !!session?.user,
     staleTime: 0,
@@ -179,7 +186,7 @@ export default function TabPage() {
     return (
       <div className="flex min-h-[200px] flex-col items-center justify-center gap-4 p-4">
         <p className="text-muted-foreground">
-          Tab not found or you don&apos;t have access
+          Tab not found or you don't have access
         </p>
         <Button variant="outline" asChild>
           <Link href="/tabs">Go back</Link>
@@ -372,74 +379,74 @@ export default function TabPage() {
                     <Link href={`/tabs/${tabId}/expenses/${item.id}`}>
                       <AnimatedCard>
                         <Card className="cursor-pointer hover:bg-muted/50">
-                      <CardContent className="flex flex-col gap-1 p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <BanknoteArrowUp className="h-5 w-5 shrink-0 text-negative" />
-                          <span className="min-w-0 flex-1 font-medium text-sm">
-                            {item.description}
-                          </span>
-                          <span className="text-foreground text-sm shrink-0 font-medium">
-                            ${formatAmount(item.amount)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
-                          Paid by{" "}
-                          <span className="inline-flex items-center gap-1.5">
-                            <UserAvatar userId={item.paidById} size="xs" />
-                            {getDisplayName(
-                              getMemberUser(item.paidById),
-                              currentUserId,
-                            )}
-                          </span>
-                          <span>
-                            ·{" "}
-                            {new Date(item.expenseDate).toLocaleDateString(
-                              undefined,
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )}
-                          </span>
-                        </p>
-                        <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                          {item.splits
-                            .filter((s) => s.userId !== item.paidById)
-                            .map((s) => {
-                              const owesCurrentUser =
-                                item.paidById === currentUserId;
-                              const currentUserOwes =
-                                s.userId === currentUserId;
-                              const amountClass = owesCurrentUser
-                                ? "text-positive"
-                                : currentUserOwes
-                                  ? "text-negative"
-                                  : "text-muted-foreground";
-                              return (
-                                <span
-                                  key={s.userId}
-                                  className="inline-flex items-center gap-1.5"
-                                >
-                                  <UserAvatar userId={s.userId} size="xs" />
-                                  {getDisplayName(
-                                    getMemberUser(s.userId),
-                                    currentUserId,
-                                  )}{" "}
-                                  owes{" "}
-                                  {getDisplayName(
-                                    getMemberUser(item.paidById),
-                                    currentUserId,
-                                  )}{" "}
-                                  <span className={amountClass}>
-                                    ${formatAmount(s.amount)}
-                                  </span>
-                                </span>
-                              );
-                            })}
-                        </div>
-                      </CardContent>
-                    </Card>
+                          <CardContent className="flex flex-col gap-1 p-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <BanknoteArrowUp className="h-5 w-5 shrink-0 text-negative" />
+                              <span className="min-w-0 flex-1 font-medium text-sm">
+                                {item.description}
+                              </span>
+                              <span className="text-foreground text-sm shrink-0 font-medium">
+                                ${formatAmount(item.amount)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+                              Paid by{" "}
+                              <span className="inline-flex items-center gap-1.5">
+                                <UserAvatar userId={item.paidById} size="xs" />
+                                {getDisplayName(
+                                  getMemberUser(item.paidById),
+                                  currentUserId,
+                                )}
+                              </span>
+                              <span>
+                                ·{" "}
+                                {new Date(item.expenseDate).toLocaleDateString(
+                                  undefined,
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  },
+                                )}
+                              </span>
+                            </p>
+                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                              {item.splits
+                                .filter((s) => s.userId !== item.paidById)
+                                .map((s) => {
+                                  const owesCurrentUser =
+                                    item.paidById === currentUserId;
+                                  const currentUserOwes =
+                                    s.userId === currentUserId;
+                                  const amountClass = owesCurrentUser
+                                    ? "text-positive"
+                                    : currentUserOwes
+                                      ? "text-negative"
+                                      : "text-muted-foreground";
+                                  return (
+                                    <span
+                                      key={s.userId}
+                                      className="inline-flex items-center gap-1.5"
+                                    >
+                                      <UserAvatar userId={s.userId} size="xs" />
+                                      {getDisplayName(
+                                        getMemberUser(s.userId),
+                                        currentUserId,
+                                      )}{" "}
+                                      owes{" "}
+                                      {getDisplayName(
+                                        getMemberUser(item.paidById),
+                                        currentUserId,
+                                      )}{" "}
+                                      <span className={amountClass}>
+                                        ${formatAmount(s.amount)}
+                                      </span>
+                                    </span>
+                                  );
+                                })}
+                            </div>
+                          </CardContent>
+                        </Card>
                       </AnimatedCard>
                     </Link>
                   </motion.div>
@@ -448,41 +455,45 @@ export default function TabPage() {
                     <Link href={`/tabs/${tabId}/settlements/${item.id}`}>
                       <AnimatedCard>
                         <Card className="cursor-pointer hover:bg-muted/50">
-                      <CardContent className="flex flex-col gap-1 p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <Wallet className="h-5 w-5 shrink-0 text-positive" />
-                          <span className="min-w-0 flex-1 font-medium text-sm">
-                            {getDisplayName(item.fromUser, currentUserId)} paid{" "}
-                            {getDisplayName(item.toUser, currentUserId)}
-                          </span>
-                          <span className="text-foreground text-sm shrink-0 font-medium">
-                            ${formatAmount(item.amount)}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <span className="inline-flex items-center gap-1.5">
-                            <UserAvatar userId={item.fromUserId} size="xs" />
-                            {getDisplayName(item.fromUser, currentUserId)}
-                          </span>
-                          <span>to</span>
-                          <span className="inline-flex items-center gap-1.5">
-                            <UserAvatar userId={item.toUserId} size="xs" />
-                            {getDisplayName(item.toUser, currentUserId)}
-                          </span>
-                          <span>
-                            ·{" "}
-                            {new Date(item.createdAt).toLocaleDateString(
-                              undefined,
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
-                            )}
-                          </span>
-                        </p>
-                      </CardContent>
-                    </Card>
+                          <CardContent className="flex flex-col gap-1 p-4">
+                            <div className="flex items-center justify-between gap-2">
+                              <Wallet className="h-5 w-5 shrink-0 text-positive" />
+                              <span className="min-w-0 flex-1 font-medium text-sm">
+                                {getDisplayName(item.fromUser, currentUserId)}{" "}
+                                paid{" "}
+                                {getDisplayName(item.toUser, currentUserId)}
+                              </span>
+                              <span className="text-foreground text-sm shrink-0 font-medium">
+                                ${formatAmount(item.amount)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+                              <span className="inline-flex items-center gap-1.5">
+                                <UserAvatar
+                                  userId={item.fromUserId}
+                                  size="xs"
+                                />
+                                {getDisplayName(item.fromUser, currentUserId)}
+                              </span>
+                              <span>to</span>
+                              <span className="inline-flex items-center gap-1.5">
+                                <UserAvatar userId={item.toUserId} size="xs" />
+                                {getDisplayName(item.toUser, currentUserId)}
+                              </span>
+                              <span>
+                                ·{" "}
+                                {new Date(item.createdAt).toLocaleDateString(
+                                  undefined,
+                                  {
+                                    month: "short",
+                                    day: "numeric",
+                                    year: "numeric",
+                                  },
+                                )}
+                              </span>
+                            </p>
+                          </CardContent>
+                        </Card>
                       </AnimatedCard>
                     </Link>
                   </motion.div>

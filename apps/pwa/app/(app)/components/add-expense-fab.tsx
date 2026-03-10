@@ -1,11 +1,12 @@
 "use client";
 
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useRef, useState } from "react";
 import { usePathname, useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchFriends, fetchTabs, fetchTab } from "@/app/actions/queries";
 import { authClient } from "@/lib/auth-client";
 import { AddExpenseForm } from "../tabs/[tabId]/add-expense-form";
+import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,10 +19,21 @@ import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import Link from "next/link";
 import { createStore, clear } from "idb-keyval";
-import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
+import {
+  ArrowLeft,
+  CornerDownLeft,
+  Loader2,
+  Plus,
+  ReceiptText,
+  RefreshCw,
+  Sparkles,
+  User,
+} from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
 import { fabSpring } from "@/lib/animations";
+import { ExpenseAddedToast } from "@/components/expense-added-toast";
 
 type Member = {
   userId: string;
@@ -75,6 +87,7 @@ function buildMembersFromFriend(
 function isFabVisible(pathname: string): boolean {
   if (pathname === "/friends") return true;
   if (pathname === "/tabs") return true;
+  if (pathname === "/activity") return true;
   if (/^\/tabs\/[^/]+$/.test(pathname)) return true;
   return false;
 }
@@ -89,37 +102,65 @@ export function AddExpenseFAB() {
   const currentUserId = session?.user?.id ?? "";
 
   const [open, setOpen] = useState(false);
+  const [addExpenseMode, setAddExpenseMode] = useState<"tab" | "direct">("tab");
   const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
   const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
+  const [pickedAnotherTab, setPickedAnotherTab] = useState(false);
+
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiInputText, setAiInputText] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const aiFormRef = useRef<HTMLFormElement>(null);
 
   const { data: friends, isLoading: friendsLoading } = useQuery({
     queryKey: ["friends"],
     queryFn: fetchFriends,
-    enabled: open && deferredPathname === "/friends",
+    enabled: open,
     staleTime: 0,
   });
 
   const { data: tabs, isLoading: tabsLoading } = useQuery({
     queryKey: ["tabs"],
     queryFn: fetchTabs,
-    enabled: open && deferredPathname === "/tabs",
+    enabled: open,
     staleTime: 0,
   });
 
   const effectiveTabId =
-    deferredPathname === "/tabs" ? selectedTabId : tabIdFromParams;
+    addExpenseMode === "tab"
+      ? (selectedTabId ??
+        (tabIdFromParams && !pickedAnotherTab ? tabIdFromParams : null))
+      : addExpenseMode === "direct"
+        ? selectedFriendId
+        : null;
 
   const { data: tab, isLoading: tabLoading } = useQuery({
     queryKey: ["tab", effectiveTabId],
     queryFn: () => fetchTab(effectiveTabId!),
-    enabled: open && !!effectiveTabId,
+    enabled:
+      open &&
+      addExpenseMode === "tab" &&
+      !!effectiveTabId,
     staleTime: 0,
   });
 
   const handleOpenChange = (next: boolean) => {
-    if (!next) {
+    if (next) {
+      const isFriendsRoute = deferredPathname === "/friends";
+      setAddExpenseMode(isFriendsRoute ? "direct" : "tab");
+      setPickedAnotherTab(false);
+      if (isFriendsRoute) {
+        setSelectedFriendId(null);
+        setSelectedTabId(null);
+      } else {
+        setSelectedTabId(tabIdFromParams ?? null);
+        setSelectedFriendId(null);
+      }
+    } else {
       setSelectedFriendId(null);
       setSelectedTabId(null);
+      setPickedAnotherTab(false);
     }
     setOpen(next);
   };
@@ -131,13 +172,6 @@ export function AddExpenseFAB() {
   };
 
   if (!isFabVisible(deferredPathname)) return null;
-
-  const context =
-    deferredPathname === "/friends"
-      ? "friends"
-      : deferredPathname === "/tabs"
-        ? "tabs"
-        : "tabDetail";
 
   const bustCache = async () => {
     queryClient.clear();
@@ -164,11 +198,23 @@ export function AddExpenseFAB() {
           <RefreshCw className="h-3.5 w-3.5" />
         </Button>
       )}
-      <motion.div
-        {...fabSpring}
-        whileTap={{ scale: 0.95 }}
-      >
+      <motion.div {...fabSpring} whileTap={{ scale: 0.95 }}>
         <Button
+          variant="default"
+          className="h-12 gap-2 rounded-full px-4 shadow-lg"
+          onClick={() => {
+            setAiError(null);
+            setAiInputText("");
+            setAiDialogOpen(true);
+          }}
+        >
+          <Sparkles className="h-4 w-4" />
+          AI Add expense
+        </Button>
+      </motion.div>
+      <motion.div {...fabSpring} whileTap={{ scale: 0.95 }}>
+        <Button
+          variant="outline"
           className="h-12 gap-2 rounded-full px-4 shadow-lg"
           onClick={() => setOpen(true)}
         >
@@ -181,13 +227,43 @@ export function AddExpenseFAB() {
           <DialogHeader>
             <DialogTitle>Add expense</DialogTitle>
             <DialogDescription>
-              {context === "friends" && "Split an expense with a friend"}
-              {context === "tabs" && "Select a tab to add an expense"}
-              {context === "tabDetail" && "Add a new expense to split"}
+              Add an expense to a tab or split with a friend
             </DialogDescription>
           </DialogHeader>
 
-          {context === "friends" && (
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant={addExpenseMode === "tab" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 gap-2"
+              onClick={() => {
+                setAddExpenseMode("tab");
+                setSelectedFriendId(null);
+                setPickedAnotherTab(false);
+                setSelectedTabId(tabIdFromParams ?? null);
+              }}
+            >
+              <ReceiptText className="h-4 w-4" />
+              Tab
+            </Button>
+            <Button
+              type="button"
+              variant={addExpenseMode === "direct" ? "default" : "outline"}
+              size="sm"
+              className="flex-1 gap-2"
+              onClick={() => {
+                setAddExpenseMode("direct");
+                setSelectedTabId(null);
+                setSelectedFriendId(null);
+              }}
+            >
+              <User className="h-4 w-4" />
+              Direct
+            </Button>
+          </div>
+
+          {addExpenseMode === "direct" && (
             <>
               {!selectedFriendId ? (
                 <>
@@ -201,9 +277,7 @@ export function AddExpenseFAB() {
                         No friends yet. Add a friend first.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <Link href="/friends/addFriend">
-                          Add friend
-                        </Link>
+                        <Link href="/friends/addFriend">Add friend</Link>
                       </Button>
                     </div>
                   ) : (
@@ -307,9 +381,9 @@ export function AddExpenseFAB() {
             </>
           )}
 
-          {context === "tabs" && (
+          {addExpenseMode === "tab" && (
             <>
-              {!selectedTabId ? (
+              {!effectiveTabId ? (
                 <>
                   {tabsLoading ? (
                     <div className="flex justify-center py-8">
@@ -321,9 +395,7 @@ export function AddExpenseFAB() {
                         No tabs yet. Create a tab first.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <Link href="/tabs/create">
-                          Create tab
-                        </Link>
+                        <Link href="/tabs/create">Create tab</Link>
                       </Button>
                     </div>
                   ) : (
@@ -425,7 +497,10 @@ export function AddExpenseFAB() {
                         variant="ghost"
                         size="sm"
                         className="-ml-2"
-                        onClick={() => setSelectedTabId(null)}
+                        onClick={() => {
+                          setPickedAnotherTab(true);
+                          setSelectedTabId(null);
+                        }}
                       >
                         <ArrowLeft /> Pick another tab
                       </Button>
@@ -433,7 +508,7 @@ export function AddExpenseFAB() {
                         Add members to this tab to start splitting expenses.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <Link href={`/tabs/${selectedTabId}/members`}>
+                        <Link href={`/tabs/${effectiveTabId}/members`}>
                           Invite members
                         </Link>
                       </Button>
@@ -445,12 +520,15 @@ export function AddExpenseFAB() {
                         variant="ghost"
                         size="sm"
                         className="-ml-2"
-                        onClick={() => setSelectedTabId(null)}
+                        onClick={() => {
+                          setPickedAnotherTab(true);
+                          setSelectedTabId(null);
+                        }}
                       >
                         <ArrowLeft /> Pick another tab
                       </Button>
                       <AddExpenseForm
-                        tabId={selectedTabId}
+                        tabId={effectiveTabId}
                         members={tab.members}
                         currentUserId={currentUserId}
                         onSuccess={handleExpenseSuccess}
@@ -462,35 +540,120 @@ export function AddExpenseFAB() {
             </>
           )}
 
-          {context === "tabDetail" && (
-            <>
-              {tabLoading ? (
-                <div className="flex justify-center py-8">
-                  <Spinner />
-                </div>
-              ) : !tab ? (
-                <p className="text-sm text-muted-foreground">Tab not found</p>
-              ) : tab.members.length < 2 ? (
-                <div className="space-y-4 py-4">
-                  <p className="text-sm text-muted-foreground">
-                    Add members to this tab to start splitting expenses.
-                  </p>
-                  <Button asChild variant="outline" className="w-full">
-                    <Link href={`/tabs/${tabIdFromParams}/members`}>
-                      Invite members
-                    </Link>
-                  </Button>
-                </div>
-              ) : (
-                <AddExpenseForm
-                  tabId={tabIdFromParams!}
-                  members={tab.members}
-                  currentUserId={currentUserId}
-                  onSuccess={handleExpenseSuccess}
-                />
-              )}
-            </>
-          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={aiDialogOpen}
+        onOpenChange={(next) => {
+          if (!next) setAiError(null);
+          setAiDialogOpen(next);
+        }}
+      >
+        <DialogContent className="max-w-[90vw] rounded-xl">
+          <DialogHeader>
+            <DialogTitle>AI Add expense</DialogTitle>
+            <DialogDescription>
+              Describe the expense in natural language. Include the amount,
+              description, and who it's with
+            </DialogDescription>
+          </DialogHeader>
+          <form
+            ref={aiFormRef}
+            className="space-y-4"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              const text = aiInputText.trim();
+              if (!text || aiLoading) return;
+              setAiLoading(true);
+              setAiError(null);
+              const result = await api.ai.addExpense({ text });
+              setAiLoading(false);
+              if (
+                result.success &&
+                result.expenseId &&
+                result.tabId &&
+                result.amount != null &&
+                result.description &&
+                result.tabName
+              ) {
+                const { expenseId, tabId } = result;
+                toast.info(
+                  <ExpenseAddedToast
+                    expenseId={expenseId}
+                    tabId={tabId}
+                    amount={result.amount}
+                    description={result.description}
+                    tabName={result.tabName}
+                    participants={result.participants ?? []}
+                    currentUserId={currentUserId}
+                  />,
+                  { duration: 10_000 },
+                );
+                queryClient.invalidateQueries({ queryKey: ["friends"] });
+                queryClient.invalidateQueries({ queryKey: ["tabs"] });
+                queryClient.invalidateQueries({
+                  predicate: (q) => q.queryKey[0] === "expenses",
+                });
+                queryClient.invalidateQueries({
+                  predicate: (q) => q.queryKey[0] === "balances",
+                });
+                queryClient.invalidateQueries({ queryKey: ["activity"] });
+                setAiDialogOpen(false);
+                setAiInputText("");
+              } else {
+                setAiError(result.error ?? "Failed to add expense");
+              }
+            }}
+          >
+            <textarea
+              value={aiInputText}
+              onChange={(e) => setAiInputText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  if (aiInputText.trim() && !aiLoading) {
+                    aiFormRef.current?.requestSubmit();
+                  }
+                }
+              }}
+              placeholder="Sam dinner olive garden 50"
+              className="flex min-h-[100px] w-full rounded-md border border-input bg-input-bg px-3 py-2 text-base shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-ring-offset disabled:cursor-not-allowed disabled:opacity-50 md:text-sm resize-none"
+              disabled={aiLoading}
+              autoFocus
+            />
+
+            {aiError && <p className="text-sm text-destructive">{aiError}</p>}
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAiDialogOpen(false)}
+                disabled={aiLoading}
+                className="sm:min-w-[100px]"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="default"
+                disabled={aiLoading || !aiInputText.trim()}
+                className="min-w-[140px]"
+              >
+                {aiLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 text-foreground animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  <>
+                    <CornerDownLeft className="h-4 w-4" />
+                    Add expense
+                  </>
+                )}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

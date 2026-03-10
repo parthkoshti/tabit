@@ -20,25 +20,19 @@ export default function AppMovedPage() {
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button asChild size="lg" className="rounded-full">
-            <a
-              href={pwaUrl}
-              className="inline-flex items-center gap-2"
-            >
+            <a href={pwaUrl} className="inline-flex items-center gap-2">
               Go to {appConfig.name}
               <ArrowRight className="h-4 w-4" />
             </a>
           </Button>
           <Button asChild variant="outline" size="lg" className="rounded-full">
-            <TransitionLink
-              href="/"
-              className="inline-flex items-center gap-2"
-            >
+            <TransitionLink href="/" className="inline-flex items-center gap-2">
               Back to home
             </TransitionLink>
           </Button>
         </div>
         <p className="mt-6 text-sm text-muted-foreground">
-          You&apos;ll need to reinstall the app for this to take effect.
+          You'll need to reinstall the app for this to take effect.
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
           New URL:{" "}

@@ -29,7 +29,8 @@ function MyQRCode() {
     queryKey: ["friendToken"],
     queryFn: async () => {
       const result = await api.friends.getToken();
-      if (!result.success || !result.url) throw new Error(result.error ?? "Failed to load");
+      if (!result.success || !result.url)
+        throw new Error(result.error ?? "Failed to load");
       return result.url;
     },
   });
@@ -276,8 +277,8 @@ export default function AddFriendPage() {
             <CardTitle>QR code</CardTitle>
             <CardDescription>
               Friends can scan your QR code to add you instantly. No approval
-              needed. If they don&apos;t have an account, they&apos;ll become
-              your friend when they sign up.
+              needed. If they don't have an account, they'll become your friend
+              when they sign up.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

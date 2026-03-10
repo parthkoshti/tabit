@@ -26,6 +26,7 @@ import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { ExpenseAddedToast } from "@/components/expense-added-toast";
 
 type Member = {
   userId: string;
@@ -135,7 +136,34 @@ export function AddExpenseForm({
       expenseDate: expenseDate.toISOString(),
     });
 
-    if (result.success) {
+    if (
+      result.success &&
+      result.expenseId &&
+      result.tabId &&
+      result.amount != null &&
+      result.description &&
+      result.tabName
+    ) {
+      setAmount("");
+      setDescription("");
+      setExpenseDate(new Date());
+      queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast.success(
+        <ExpenseAddedToast
+          expenseId={result.expenseId}
+          tabId={result.tabId}
+          amount={result.amount}
+          description={result.description}
+          tabName={result.tabName}
+          participants={result.participants ?? []}
+          currentUserId={currentUserId}
+        />,
+        { duration: 10_000 },
+      );
+      onSuccess?.();
+    } else if (result.success) {
       setAmount("");
       setDescription("");
       setExpenseDate(new Date());

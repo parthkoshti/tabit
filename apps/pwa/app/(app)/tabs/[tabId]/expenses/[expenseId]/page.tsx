@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchExpense,
@@ -31,6 +31,7 @@ import { UserAvatar } from "@/components/user-avatar";
 export default function ExpensePage() {
   const params = useParams<{ tabId: string; expenseId: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const tabId = params.tabId;
   const expenseId = params.expenseId;
   const { data: session } = authClient.useSession();
@@ -73,6 +74,13 @@ export default function ExpensePage() {
     return () => setNavTitle?.(null);
   }, [setNavTitle, expense, tabId]);
 
+  useEffect(() => {
+    if (expense && tab && searchParams.get("edit") === "1") {
+      setEditDialogOpen(true);
+      router.replace(`/tabs/${tabId}/expenses/${expenseId}`, { scroll: false });
+    }
+  }, [expense, tab, searchParams, router, tabId, expenseId]);
+
   if (!tabId || !expenseId) return null;
 
   if (expenseLoading) {
@@ -87,7 +95,7 @@ export default function ExpensePage() {
     return (
       <div className="flex min-h-[200px] flex-col items-center justify-center gap-4 p-4">
         <p className="text-muted-foreground">
-          Expense not found or you don&apos;t have access
+          Expense not found or you don't have access
         </p>
         <Button variant="outline" asChild>
           <Link href={`/tabs/${tabId}`}>

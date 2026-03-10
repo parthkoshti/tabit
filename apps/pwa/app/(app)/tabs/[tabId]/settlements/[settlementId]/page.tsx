@@ -89,7 +89,7 @@ export default function SettlementPage() {
     return (
       <div className="flex min-h-[200px] flex-col items-center justify-center gap-4 p-4">
         <p className="text-muted-foreground">
-          Settlement not found or you don&apos;t have access
+          Settlement not found or you don't have access
         </p>
         <Button variant="outline" asChild>
           <Link href={`/tabs/${tabId}`}>

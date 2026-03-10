@@ -8,7 +8,7 @@ import {
   tabMember,
   user,
 } from "db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray, ne } from "drizzle-orm";
 import {
   createExpenseSchema,
   createExpenseAddedNotificationPayload,
@@ -202,10 +202,60 @@ expensesRoutes.post("/", async (c) => {
   });
 
   const [tabRow] = await db
-    .select({ name: tab.name })
+    .select({ name: tab.name, isDirect: tab.isDirect })
     .from(tab)
     .where(eq(tab.id, parsed.data.tabId))
     .limit(1);
+
+  let tabDisplayName = tabRow?.name ?? "Tab";
+  if (tabRow?.isDirect) {
+    const [otherUser] = await db
+      .select({ name: user.name, username: user.username })
+      .from(tabMember)
+      .innerJoin(user, eq(tabMember.userId, user.id))
+      .where(
+        and(
+          eq(tabMember.tabId, parsed.data.tabId),
+          ne(tabMember.userId, userId),
+        ),
+      )
+      .limit(1);
+    if (otherUser) {
+      tabDisplayName =
+        otherUser.name ??
+        (otherUser.username ? `@${otherUser.username}` : null) ??
+        tabDisplayName;
+    }
+  }
+
+  const idsForParticipants = members.map((m) => m.userId);
+  const participantUserRows =
+    idsForParticipants.length > 0
+      ? await db
+          .select({ id: user.id, name: user.name, username: user.username })
+          .from(user)
+          .where(inArray(user.id, idsForParticipants))
+      : [];
+  const participantMap = new Map(
+    participantUserRows.map((r) => [
+      r.id,
+      { userId: r.id, name: r.name, username: r.username },
+    ]),
+  );
+  const splitByUser = new Map(splits.map((s) => [s.userId, s.amount]));
+  const participants = idsForParticipants
+    .map((id) => participantMap.get(id))
+    .filter(Boolean)
+    .map((p) => {
+      const share = splitByUser.get(p!.userId) ?? 0;
+      const isPayer = p!.userId === parsed.data.paidById;
+      return {
+        userId: p!.userId,
+        name: p!.name ?? (p!.username ? `@${p!.username}` : null),
+        paid: isPayer ? amount : undefined,
+        owes: !isPayer ? share : undefined,
+      };
+    });
 
   const [fromUser] = await db
     .select({ name: user.name })
@@ -230,7 +280,15 @@ expensesRoutes.post("/", async (c) => {
     }
   }
 
-  return c.json({ success: true, expenseId });
+  return c.json({
+    success: true,
+    expenseId,
+    tabId: parsed.data.tabId,
+    amount: parsed.data.amount,
+    description: parsed.data.description,
+    tabName: tabDisplayName,
+    participants,
+  });
 });
 
 expensesRoutes.post("/bulk", async (c) => {

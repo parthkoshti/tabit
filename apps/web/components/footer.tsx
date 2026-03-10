@@ -81,7 +81,7 @@ export function Footer() {
               />
             </TransitionLink>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-              Splitting bills shouldn&apos;t cost you. No limits, no paywalls.
+              Splitting bills shouldn't cost you. No limits, no paywalls.
             </p>
             <a
               href={`${appConfig.pwaUrl}/login`}

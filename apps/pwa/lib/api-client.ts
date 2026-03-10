@@ -168,10 +168,24 @@ export const api = {
         expenseDate?: string | Date;
       },
     ) =>
-      request<{ success: boolean; expenseId: string; error?: string }>(
-        `/tabs/${tabId}/expenses`,
-        { method: "POST", body: { ...body, tabId } },
-      ),
+      request<{
+        success: boolean;
+        expenseId?: string;
+        tabId?: string;
+        amount?: number;
+        description?: string;
+        tabName?: string;
+        participants?: Array<{
+          userId: string;
+          name: string | null;
+          paid?: number;
+          owes?: number;
+        }>;
+        error?: string;
+      }>(`/tabs/${tabId}/expenses`, {
+        method: "POST",
+        body: { ...body, tabId },
+      }),
     createBulk: (
       tabId: string,
       expenses: Array<{
@@ -297,6 +311,24 @@ export const api = {
   },
   notifications: {
     getToken: () => request<{ token: string }>("/notifications/token"),
+  },
+  ai: {
+    addExpense: (body: { text: string }) =>
+      request<{
+        success: boolean;
+        expenseId?: string;
+        amount?: number;
+        description?: string;
+        tabName?: string;
+        tabId?: string;
+        participants?: Array<{
+          userId: string;
+          name: string | null;
+          paid?: number;
+          owes?: number;
+        }>;
+        error?: string;
+      }>("/ai/add-expense", { method: "POST", body }),
   },
 };
 
