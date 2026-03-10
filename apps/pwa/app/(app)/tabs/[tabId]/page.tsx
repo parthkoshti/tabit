@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useInfiniteScroll from "react-infinite-scroll-hook";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchTab,
   fetchExpenses,
@@ -39,6 +39,7 @@ import { Spinner } from "@/components/ui/spinner";
 export default function TabPage() {
   const params = useParams<{ tabId: string }>();
   const tabId = params.tabId;
+  const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const setNavTitle = useNavTitle();
 
@@ -54,7 +55,6 @@ export default function TabPage() {
     data: expensesData,
     isLoading: expensesLoading,
     isError: expensesError,
-    refetch: refetchExpenses,
     fetchNextPage: fetchNextExpenses,
     hasNextPage: hasMoreExpenses,
     isFetchingNextPage: isLoadingMoreExpenses,
@@ -319,7 +319,12 @@ export default function TabPage() {
           {expensesError ? (
             <div className="rounded-lg border border-dashed border-border p-8 text-center">
               <p className="text-muted-foreground mb-4">Something went wrong</p>
-              <Button variant="outline" onClick={() => refetchExpenses()}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  queryClient.resetQueries({ queryKey: ["expenses", tabId] });
+                }}
+              >
                 Retry
               </Button>
             </div>

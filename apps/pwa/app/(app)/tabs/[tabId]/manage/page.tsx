@@ -134,6 +134,9 @@ export default function ManageTabPage() {
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
             queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+            queryClient.invalidateQueries({
+              queryKey: ["expenses", tabId, "all"],
+            });
             queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
             queryClient.invalidateQueries({ queryKey: ["activity"] });
             queryClient.invalidateQueries({ queryKey: ["tabs"] });
@@ -255,7 +258,7 @@ function ImportCsvForm({
   >("all");
 
   const { data: expensesResult } = useQuery({
-    queryKey: ["expenses", tabId],
+    queryKey: ["expenses", tabId, "all"],
     queryFn: () => fetchExpenses(tabId),
     enabled: step === "preview" && !!tabId,
     staleTime: 0,

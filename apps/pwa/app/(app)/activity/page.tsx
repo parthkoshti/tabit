@@ -1,6 +1,6 @@
 "use client";
 
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import useInfiniteScroll from "react-infinite-scroll-hook";
 import { fetchActivity } from "@/app/actions/queries";
 import type { ActivityItem } from "@/lib/data";
@@ -30,6 +30,7 @@ function formatAmount(n: number) {
 }
 
 export default function ActivityPage() {
+  const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
 
@@ -37,7 +38,6 @@ export default function ActivityPage() {
     data,
     isLoading,
     isError,
-    refetch,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -85,7 +85,12 @@ export default function ActivityPage() {
           {isError ? (
             <div className="rounded-lg border border-dashed border-border p-8 text-center">
               <p className="text-muted-foreground mb-4">Something went wrong</p>
-              <Button variant="outline" onClick={() => refetch()}>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  queryClient.resetQueries({ queryKey: ["activity"] });
+                }}
+              >
                 Retry
               </Button>
             </div>
