@@ -20,6 +20,8 @@ const idbStore =
     ? createStore("tabit-query-cache", "queries")
     : null;
 
+const CACHE_BUSTER = process.env.NEXT_PUBLIC_QUERY_CACHE_BUSTER ?? "v1";
+
 const persister = idbStore
   ? createAsyncStoragePersister({
       storage: {
@@ -39,7 +41,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <PersistQueryClientProvider
         client={queryClient}
-        persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}
+        persistOptions={{
+          persister,
+          maxAge: 1000 * 60 * 60 * 24,
+          buster: CACHE_BUSTER,
+        }}
       >
         {children}
       </PersistQueryClientProvider>
