@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import useInfiniteScroll from "react-infinite-scroll-hook";
@@ -14,8 +14,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
+import { useMemo } from "react";
 
-function formatDate(d: Date) {
+function formatDate(d) {
   const date = new Date(d);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -25,7 +26,7 @@ function formatDate(d: Date) {
   return date.toLocaleDateString();
 }
 
-function formatAmount(n: number) {
+function formatAmount(n) {
   return n.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -52,23 +53,25 @@ export default function ActivityPage() {
     enabled: !!session?.user,
     placeholderData: (prev) =>
       prev ?? { pages: [] as { items: ActivityItem[]; total: number }[], pageParams: [0] },
-      getNextPageParam: (lastPage, allPages) => {
-        if (!lastPage || !("total" in lastPage)) return undefined;
-        const pages = allPages ?? [];
-        const loaded = pages.reduce(
-          (sum, p) =>
-            sum + (p && "items" in p ? (p.items as ActivityItem[]).length : 0),
-          0,
-        );
-        return loaded < (lastPage as { total: number }).total
-          ? loaded
-          : undefined;
-      },
-    });
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage || !("total" in lastPage)) return undefined;
+      const pages = allPages ?? [];
+      const loaded = pages.reduce(
+        (sum, p) =>
+          sum + (p && "items" in p ? (p.items as ActivityItem[]).length : 0),
+        0,
+      );
+      return loaded < (lastPage as { total: number }).total
+        ? loaded
+        : undefined;
+    },
+  });
 
-  const items: ActivityItem[] = (data?.pages ?? []).flatMap((p) =>
-    p && "items" in p ? (p.items as ActivityItem[]) : [],
-  );
+  const items = useMemo(() => {
+    return (data?.pages ?? []).flatMap((p) =>
+      p && "items" in p ? (p.items as ActivityItem[]) : []
+    );
+  }, [data]);
 
   const [infiniteRef] = useInfiniteScroll({
     loading: isFetchingNextPage,
@@ -124,13 +127,14 @@ export default function ActivityPage() {
             <motion.div
               className="flex flex-col gap-3"
               variants={staggerContainer}
-              initial="initial"
+              initial={false}
               animate="animate"
             >
-              {items.map((item) =>
-                item.type === "expense" ? (
-                  <motion.div key={`exp-${item.id}`} variants={staggerItem}>
-                    <Link href={`/tabs/${item.tabId}/expenses/${item.id}`}>
+              {items.map((item, i) => {
+                const animate = i < 8;
+                return item.type === "expense" ? (
+                  <motion.div key={`exp-${item.id}`} variants={animate ? staggerItem : undefined}>
+                    <Link href={`/tabs/${item.tabId}/expenses/${item.id}`}> 
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
@@ -151,88 +155,5 @@ export default function ActivityPage() {
                             name: item.paidByName,
                             email: item.paidByEmail,
                           },
-                          currentUserId,
-                        )}{" "}
-                        paid in{" "}
-                        <span className="inline-flex items-center gap-1 text-foreground">
-                          <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
-                          {item.tabName}
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(item.expenseDate)}
-                      </p>
-                    </AnimatedCard>
-                  </Link>
-                </motion.div>
-                ) : (
-                  <motion.div key={`set-${item.id}`} variants={staggerItem}>
-                    <Link href={`/tabs/${item.tabId}/settlements/${item.id}`}>
-                      <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
-                      <div className="flex items-center gap-2">
-                        <UserAvatar userId={item.fromUserId} size="sm" />
-                        <span className="font-medium">
-                          {getDisplayName(
-                            {
-                              id: item.fromUserId,
-                              username: item.fromUserUsername,
-                              name: item.fromUserName,
-                              email: item.fromUserEmail,
-                            },
-                            currentUserId,
-                          )}{" "}
-                          paid{" "}
-                          {getDisplayName(
-                            {
-                              id: item.toUserId,
-                              username: item.toUserUsername,
-                              name: item.toUserName,
-                              email: item.toUserEmail,
-                            },
-                            currentUserId,
-                          )}{" "}
-                          ${formatAmount(item.amount)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                        Settlement in{" "}
-                        <span className="inline-flex items-center gap-1 text-foreground">
-                          <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
-                          {item.tabName}
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(item.createdAt)}
-                      </p>
-                    </AnimatedCard>
-                  </Link>
-                </motion.div>
-                ),
-              )}
-              {isFetchingNextPage && (
-                <div className="flex flex-col gap-3">
-                  {Array.from({ length: 2 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
-                          <Skeleton className="h-4 flex-1 max-w-40" />
-                        </div>
-                        <Skeleton className="h-4 w-16 shrink-0" />
-                      </div>
-                      <Skeleton className="h-3 w-48" />
-                    </div>
-                  ))}
-                </div>
-              )}
-              {hasNextPage && <div ref={infiniteRef} className="h-1" />}
-            </motion.div>
-          )}
-        </section>
-      </div>
-    </div>
-  );
-}
+                          currentUserId
+                        )}{
