@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import useInfiniteScroll from "react-infinite-scroll-hook";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import {
   fetchTab,
   fetchExpenses,
@@ -32,6 +33,7 @@ import {
   UserPlus,
   Wallet,
 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 
 export default function TabPage() {
@@ -48,13 +50,30 @@ export default function TabPage() {
     refetchOnWindowFocus: true,
   });
 
-  const { data: expenses, isLoading: expensesLoading } = useQuery({
+  const {
+    data: expensesData,
+    isLoading: expensesLoading,
+    fetchNextPage: fetchNextExpenses,
+    hasNextPage: hasMoreExpenses,
+    isFetchingNextPage: isLoadingMoreExpenses,
+  } = useInfiniteQuery({
     queryKey: ["expenses", tabId],
-    queryFn: () => fetchExpenses(tabId),
+    queryFn: ({ pageParam }) =>
+      fetchExpenses(tabId, { limit: 50, offset: pageParam }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage) return undefined;
+      const loaded = allPages.reduce(
+        (sum, p) => sum + (p?.expenses?.length ?? 0),
+        0,
+      );
+      return loaded < lastPage.total ? loaded : undefined;
+    },
     enabled: !!tabId,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+  const expenses = expensesData?.pages.flatMap((p) => p?.expenses ?? []) ?? [];
 
   const { data: settlements, isLoading: settlementsLoading } = useQuery({
     queryKey: ["settlements", tabId],
@@ -74,7 +93,38 @@ export default function TabPage() {
 
   const [settleUpOpen, setSettleUpOpen] = useState(false);
 
+  const [infiniteRef] = useInfiniteScroll({
+    loading: isLoadingMoreExpenses,
+    hasNextPage: hasMoreExpenses ?? false,
+    onLoadMore: fetchNextExpenses,
+    rootMargin: "0px 0px 200px 0px",
+  });
+
+  function formatAmount(n: number): string {
+    return n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
   const currentUserId = session?.user?.id ?? "";
+  const membersByUserId = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        id: string;
+        email: string | null;
+        name: string | null;
+        username: string | null;
+      }
+    >();
+    for (const m of tab?.members ?? []) {
+      map.set(m.userId, m.user);
+    }
+    return map;
+  }, [tab?.members]);
+  const getMemberUser = (userId: string) =>
+    membersByUserId.get(userId) ?? { id: userId };
   const otherMember = tab?.members?.find(
     (m) => m.userId !== currentUserId,
   )?.user;
@@ -147,8 +197,8 @@ export default function TabPage() {
   });
 
   return (
-    <div className="p-4 pb-20">
-      <div className="mx-auto max-w-3xl space-y-6">
+    <div className="p-4">
+      <div className="mx-auto max-w-3xl space-y-6 pb-26">
         <div className="flex gap-2 overflow-x-auto overflow-y-hidden -mx-1 px-1 app-scroll-hide">
           {!tab.isDirect && isAdmin && (
             <Button
@@ -230,12 +280,12 @@ export default function TabPage() {
                 <div className="space-y-2">
                   {youOwe.map((b) => (
                     <p key={b.userId} className="text-negative text-sm">
-                      You owe ${Math.abs(b.amount).toFixed(2)}
+                      You owe ${formatAmount(Math.abs(b.amount))}
                     </p>
                   ))}
                   {owedToYou.map((b) => (
                     <p key={b.userId} className="text-positive text-sm">
-                      You are owed ${b.amount.toFixed(2)}
+                      You are owed ${formatAmount(b.amount)}
                     </p>
                   ))}
                   {others.map((b) => (
@@ -246,8 +296,8 @@ export default function TabPage() {
                       <UserAvatar userId={b.userId} size="xs" />
                       <span>
                         {b.amount > 0
-                          ? `${getDisplayName(b.user, currentUserId)} is owed $${b.amount.toFixed(2)}`
-                          : `${getDisplayName(b.user, currentUserId)} owes $${Math.abs(b.amount).toFixed(2)}`}
+                          ? `${getDisplayName(b.user, currentUserId)} is owed $${formatAmount(b.amount)}`
+                          : `${getDisplayName(b.user, currentUserId)} owes $${formatAmount(Math.abs(b.amount))}`}
                       </span>
                     </div>
                   ))}
@@ -263,7 +313,29 @@ export default function TabPage() {
             All expenses and settlements in this tab
           </p>
           {expensesLoading || settlementsLoading ? (
-            <p className="text-muted-foreground text-sm">Loading...</p>
+            <div className="flex flex-col gap-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="flex flex-col gap-1 p-4">
+                    <div className="flex items-center justify-between gap-2">
+                      <Skeleton className="h-5 w-5 shrink-0 rounded" />
+                      <Skeleton className="h-4 flex-1 max-w-48" />
+                      <Skeleton className="h-4 w-16 shrink-0" />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Skeleton className="h-3 w-14" />
+                      <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
+                      <Skeleton className="h-3 w-20" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                    <div className="flex gap-4">
+                      <Skeleton className="h-3 w-28" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : expensesAndSettlements.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
               No expenses or settlements yet
@@ -283,15 +355,18 @@ export default function TabPage() {
                           <span className="min-w-0 flex-1 font-medium text-sm">
                             {item.description}
                           </span>
-                          <span className="text-foreground shrink-0 font-medium">
-                            ${item.amount.toFixed(2)}
+                          <span className="text-foreground text-sm shrink-0 font-medium">
+                            ${formatAmount(item.amount)}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
                           Paid by{" "}
                           <span className="inline-flex items-center gap-1.5">
                             <UserAvatar userId={item.paidById} size="xs" />
-                            {getDisplayName(item.paidBy, currentUserId)}
+                            {getDisplayName(
+                              getMemberUser(item.paidById),
+                              currentUserId,
+                            )}
                           </span>
                           <span>
                             ·{" "}
@@ -325,12 +400,16 @@ export default function TabPage() {
                                 >
                                   <UserAvatar userId={s.userId} size="xs" />
                                   {getDisplayName(
-                                    s.user,
+                                    getMemberUser(s.userId),
                                     currentUserId,
-                                  )} owes{" "}
-                                  {getDisplayName(item.paidBy, currentUserId)}{" "}
+                                  )}{" "}
+                                  owes{" "}
+                                  {getDisplayName(
+                                    getMemberUser(item.paidById),
+                                    currentUserId,
+                                  )}{" "}
                                   <span className={amountClass}>
-                                    ${s.amount.toFixed(2)}
+                                    ${formatAmount(s.amount)}
                                   </span>
                                 </span>
                               );
@@ -340,42 +419,71 @@ export default function TabPage() {
                     </Card>
                   </TransitionLink>
                 ) : (
-                  <Card key={`set-${item.id}`}>
-                    <CardContent className="flex flex-col gap-2 p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-                          <div className="flex items-center gap-2">
-                            <UserAvatar userId={item.fromUserId} size="sm" />
-                            <span className="font-medium text-sm truncate">
-                              {getDisplayName(item.fromUser, currentUserId)}
-                            </span>
-                          </div>
-                          <p className="flex items-center gap-2 pl-7 text-sm text-muted-foreground">
-                            paid{" "}
-                            <UserAvatar userId={item.toUserId} size="xs" />
-                            <span className="truncate">
-                              {getDisplayName(item.toUser, currentUserId)}
-                            </span>
-                          </p>
+                  <TransitionLink
+                    key={`set-${item.id}`}
+                    href={`/tabs/${tabId}/settlements/${item.id}`}
+                  >
+                    <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+                      <CardContent className="flex flex-col gap-1 p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <Wallet className="h-5 w-5 shrink-0 text-positive" />
+                          <span className="min-w-0 flex-1 font-medium text-sm">
+                            {getDisplayName(item.fromUser, currentUserId)} paid{" "}
+                            {getDisplayName(item.toUser, currentUserId)}
+                          </span>
+                          <span className="text-foreground text-sm shrink-0 font-medium">
+                            ${formatAmount(item.amount)}
+                          </span>
                         </div>
-                        <span className="shrink-0 font-semibold text-positive">
-                          ${item.amount.toFixed(2)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(item.createdAt).toLocaleDateString(
-                          undefined,
-                          {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          },
-                        )}
-                      </p>
-                    </CardContent>
-                  </Card>
+                        <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="inline-flex items-center gap-1.5">
+                            <UserAvatar userId={item.fromUserId} size="xs" />
+                            {getDisplayName(item.fromUser, currentUserId)}
+                          </span>
+                          <span>to</span>
+                          <span className="inline-flex items-center gap-1.5">
+                            <UserAvatar userId={item.toUserId} size="xs" />
+                            {getDisplayName(item.toUser, currentUserId)}
+                          </span>
+                          <span>
+                            ·{" "}
+                            {new Date(item.createdAt).toLocaleDateString(
+                              undefined,
+                              {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              },
+                            )}
+                          </span>
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </TransitionLink>
                 ),
               )}
+              {isLoadingMoreExpenses && (
+                <div className="flex flex-col gap-4">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <Card key={i}>
+                      <CardContent className="flex flex-col gap-1 p-4">
+                        <div className="flex items-center justify-between gap-2">
+                          <Skeleton className="h-5 w-5 shrink-0 rounded" />
+                          <Skeleton className="h-4 flex-1 max-w-48" />
+                          <Skeleton className="h-4 w-16 shrink-0" />
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Skeleton className="h-3 w-14" />
+                          <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
+                          <Skeleton className="h-3 w-20" />
+                          <Skeleton className="h-3 w-24" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+              {hasMoreExpenses && <div ref={infiniteRef} className="h-1" />}
             </div>
           )}
         </section>

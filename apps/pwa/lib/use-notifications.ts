@@ -77,7 +77,8 @@ export function useNotifications(enabled: boolean) {
               }
             } else if (
               payload.type === "expense_added" ||
-              payload.type === "expense_updated"
+              payload.type === "expense_updated" ||
+              payload.type === "expenses_bulk_imported"
             ) {
               if (payload.tabId) {
                 queryClient.invalidateQueries({

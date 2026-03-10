@@ -164,6 +164,7 @@ export const api = {
         paidById?: string;
         splitType?: string;
         participantIds?: string[];
+        splits?: { userId: string; amount: number }[];
         expenseDate?: string | Date;
       },
     ) =>
@@ -171,6 +172,28 @@ export const api = {
         `/tabs/${tabId}/expenses`,
         { method: "POST", body: { ...body, tabId } },
       ),
+    createBulk: (
+      tabId: string,
+      expenses: Array<{
+        amount: number;
+        description: string;
+        paidById: string;
+        splitType: "equal" | "custom";
+        splits: { userId: string; amount: number }[];
+        expenseDate: string;
+        participantIds?: string[];
+      }>,
+    ) =>
+      request<{
+        success: boolean;
+        imported?: number;
+        failed?: number;
+        errors?: string[];
+        error?: string;
+      }>(`/tabs/${tabId}/expenses/bulk`, {
+        method: "POST",
+        body: { expenses },
+      }),
     update: (
       tabId: string,
       expenseId: string,
@@ -199,6 +222,10 @@ export const api = {
       ),
   },
   settlements: {
+    get: (tabId: string, settlementId: string) =>
+      request<{ success: boolean; settlement: unknown; error?: string }>(
+        `/tabs/${tabId}/settlements/${settlementId}`,
+      ),
     record: (
       tabId: string,
       fromUserId: string,
@@ -211,6 +238,20 @@ export const api = {
           method: "POST",
           body: { tabId, fromUserId, toUserId, amount },
         },
+      ),
+    update: (
+      tabId: string,
+      settlementId: string,
+      body: { fromUserId: string; toUserId: string; amount: number },
+    ) =>
+      request<{ success: boolean; error?: string }>(
+        `/tabs/${tabId}/settlements/${settlementId}`,
+        { method: "PATCH", body },
+      ),
+    delete: (tabId: string, settlementId: string) =>
+      request<{ success: boolean; error?: string }>(
+        `/tabs/${tabId}/settlements/${settlementId}`,
+        { method: "DELETE" },
       ),
   },
   profile: {

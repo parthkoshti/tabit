@@ -79,6 +79,7 @@ function getPushTitle(payload: {
   tabName?: string;
   description?: string;
   amount?: string;
+  count?: number;
   forcePush?: boolean;
 }): string {
   if (payload.forcePush)
@@ -116,12 +117,21 @@ function getPushTitle(payload: {
   if (payload.type === "expense_updated" && payload.fromUserName && payload.tabName) {
     return `${payload.fromUserName} updated an expense in ${payload.tabName}`;
   }
+  if (
+    payload.type === "expenses_bulk_imported" &&
+    payload.tabName &&
+    typeof payload.count === "number"
+  ) {
+    const who = payload.fromUserName ?? "Someone";
+    return `${who} imported ${payload.count} expense${payload.count !== 1 ? "s" : ""} to ${payload.tabName}`;
+  }
   if (payload.type === "friend_request") return "New friend request";
   if (payload.type === "tab_invite") return "New tab invite";
   if (payload.type === "friend_request_accepted") return "Friend request accepted";
   if (payload.type === "tab_invite_accepted") return "Tab invite accepted";
   if (payload.type === "expense_added") return "New expense added";
   if (payload.type === "expense_updated") return "Expense updated";
+  if (payload.type === "expenses_bulk_imported") return "Expenses imported";
   return "New notification";
 }
 
@@ -129,6 +139,8 @@ function getPushBody(payload: {
   type: string;
   description?: string;
   amount?: string;
+  tabName?: string;
+  count?: number;
   forcePush?: boolean;
 }): string {
   if (payload.forcePush) return "This is a test notification";
@@ -147,6 +159,13 @@ function getPushBody(payload: {
   if (payload.type === "expense_updated") {
     if (payload.description) return payload.description;
     return "An expense was updated";
+  }
+  if (
+    payload.type === "expenses_bulk_imported" &&
+    typeof payload.count === "number" &&
+    payload.tabName
+  ) {
+    return `${payload.count} expense${payload.count !== 1 ? "s" : ""} imported to ${payload.tabName}`;
   }
   return "You have a new notification";
 }
@@ -171,6 +190,9 @@ function getNavigatePath(payload: {
     return payload.expenseId
       ? `/tabs/${payload.tabId}/expenses/${payload.expenseId}`
       : `/tabs/${payload.tabId}`;
+  }
+  if (payload.type === "expenses_bulk_imported" && payload.tabId) {
+    return `/tabs/${payload.tabId}`;
   }
   return "/friends";
 }

@@ -3,10 +3,10 @@ export function getDisplayName(
     id?: string;
     username?: string | null;
     name?: string | null;
-    email: string;
+    email?: string | null;
   },
   currentUserId?: string,
 ): string {
   if (currentUserId && user.id === currentUserId) return "You";
-  return user.name ?? (user.username ? `@${user.username}` : user.email);
+  return user.name ?? (user.username ? `@${user.username}` : user.email ?? "");
 }

@@ -30,6 +30,7 @@
   --color-destructive: var(--destructive);
   --color-positive: var(--positive);
   --color-negative: var(--negative);
+  --color-warning: var(--warning);
   --color-tab-icon: var(--tab-icon);
   --color-border: var(--border);
   --color-border-subtle: var(--border-subtle);
@@ -108,6 +109,7 @@ body {
   --destructive: #eb5757;
   --positive: #3a9a6a;
   --negative: #e67e22;
+  --warning: #d97706;
   --tab-icon: #5e6ad2;
   --border: #d1d3d8;
   --border-subtle: rgba(34, 35, 38, 0.12);
@@ -217,6 +219,7 @@ body {
   --destructive: #eb5757;
   --positive: #3a9a6a;
   --negative: #e67e22;
+  --warning: #d97706;
   --tab-icon: #5e6ad2;
   --border: #282a2f;
   --border-subtle: rgba(255, 255, 255, 0.08);

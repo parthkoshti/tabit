@@ -6,6 +6,7 @@ import {
   addMemberSchema,
   updateTabSchema,
   recordSettlementSchema,
+  updateSettlementSchema,
 } from "models";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
@@ -14,6 +15,7 @@ import {
   getTabWithMembers,
   getExpensesForTab,
   getSettlementsForTab,
+  getSettlementById,
   getBalancesForTab,
 } from "data";
 import { expensesRoutes } from "./expenses.js";
@@ -63,6 +65,152 @@ tabsRoutes.get("/:tabId/settlements", async (c) => {
   }
   const settlements = await getSettlementsForTab(tabId);
   return c.json({ success: true, settlements });
+});
+
+tabsRoutes.get("/:tabId/settlements/:settlementId", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId");
+  const settlementId = c.req.param("settlementId");
+  const tabData = await getTabWithMembers(tabId);
+  if (!tabData) {
+    return c.json({ success: false, error: "Tab not found" }, 404);
+  }
+  const isMember = tabData.members.some((m) => m.userId === userId);
+  if (!isMember) {
+    return c.json({ success: false, error: "Not a member" }, 403);
+  }
+  const s = await getSettlementById(settlementId);
+  if (!s || s.tabId !== tabId) {
+    return c.json({ success: false, error: "Settlement not found" }, 404);
+  }
+  return c.json({ success: true, settlement: s });
+});
+
+tabsRoutes.patch("/:tabId/settlements/:settlementId", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId");
+  const settlementId = c.req.param("settlementId");
+
+  const [existing] = await db
+    .select()
+    .from(settlement)
+    .where(eq(settlement.id, settlementId))
+    .limit(1);
+
+  if (!existing || existing.tabId !== tabId) {
+    return c.json({ success: false, error: "Settlement not found" }, 404);
+  }
+
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId)))
+    .limit(1);
+
+  if (!member) {
+    return c.json({ success: false, error: "Not a member" }, 403);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = updateSettlementSchema.safeParse(body);
+
+  if (!parsed.success) {
+    return c.json(
+      { success: false, error: parsed.error.flatten().formErrors[0] },
+      400
+    );
+  }
+
+  const [fromIsMember] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, tabId),
+        eq(tabMember.userId, parsed.data.fromUserId)
+      )
+    )
+    .limit(1);
+
+  const [toIsMember] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, tabId),
+        eq(tabMember.userId, parsed.data.toUserId)
+      )
+    )
+    .limit(1);
+
+  if (!fromIsMember || !toIsMember) {
+    return c.json(
+      { success: false, error: "Both payer and payee must be tab members" },
+      400
+    );
+  }
+
+  if (parsed.data.fromUserId === parsed.data.toUserId) {
+    return c.json(
+      { success: false, error: "Payer and payee must be different people" },
+      400
+    );
+  }
+
+  await db
+    .update(settlement)
+    .set({
+      fromUserId: parsed.data.fromUserId,
+      toUserId: parsed.data.toUserId,
+      amount: parsed.data.amount.toString(),
+    })
+    .where(eq(settlement.id, settlementId));
+
+  await db.insert(settlementAuditLog).values({
+    settlementId,
+    tabId,
+    action: "update",
+    performedById: userId,
+  });
+
+  return c.json({ success: true });
+});
+
+tabsRoutes.delete("/:tabId/settlements/:settlementId", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId");
+  const settlementId = c.req.param("settlementId");
+
+  const [s] = await db
+    .select()
+    .from(settlement)
+    .where(eq(settlement.id, settlementId))
+    .limit(1);
+
+  if (!s || s.tabId !== tabId) {
+    return c.json({ success: false, error: "Settlement not found" }, 404);
+  }
+
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId)))
+    .limit(1);
+
+  if (!member) {
+    return c.json({ success: false, error: "Not a member" }, 403);
+  }
+
+  await db.insert(settlementAuditLog).values({
+    settlementId,
+    tabId,
+    action: "delete",
+    performedById: userId,
+  });
+
+  await db.delete(settlement).where(eq(settlement.id, settlementId));
+
+  return c.json({ success: true });
 });
 
 tabsRoutes.get("/:tabId/balances", async (c) => {

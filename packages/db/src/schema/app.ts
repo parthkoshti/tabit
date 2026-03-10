@@ -6,6 +6,7 @@ import {
   boolean,
   primaryKey,
   jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 import { createId } from "shared";
 import { user } from "./auth.js";
@@ -59,22 +60,28 @@ export const tabMember = pgTable(
   (t) => [primaryKey({ columns: [t.tabId, t.userId] })],
 );
 
-export const expense = pgTable("expense", {
-  id: text("id")
-    .primaryKey()
-    .$defaultFn(() => createId()),
-  tabId: text("tabId")
-    .notNull()
-    .references(() => tab.id, { onDelete: "cascade" }),
-  paidById: text("paidById")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
-  description: text("description").notNull(),
-  splitType: text("splitType").notNull().default("equal"),
-  expenseDate: timestamp("expenseDate").notNull().defaultNow(),
-  createdAt: timestamp("createdAt").notNull().defaultNow(),
-});
+export const expense = pgTable(
+  "expense",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    tabId: text("tabId")
+      .notNull()
+      .references(() => tab.id, { onDelete: "cascade" }),
+    paidById: text("paidById")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    description: text("description").notNull(),
+    splitType: text("splitType").notNull().default("equal"),
+    expenseDate: timestamp("expenseDate").notNull().defaultNow(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (t) => [
+    index("expense_tabId_expenseDate_idx").on(t.tabId, t.expenseDate),
+  ],
+);
 
 export const expenseSplit = pgTable("expense_split", {
   id: text("id")

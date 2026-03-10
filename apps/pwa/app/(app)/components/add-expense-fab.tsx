@@ -17,7 +17,8 @@ import {
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { Link as TransitionLink } from "next-view-transitions";
-import { ArrowLeft, Plus } from "lucide-react";
+import { createStore, clear } from "idb-keyval";
+import { ArrowLeft, Plus, RefreshCw } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 
 type Member = {
@@ -136,11 +137,34 @@ export function AddExpenseFAB() {
         ? "tabs"
         : "tabDetail";
 
+  const bustCache = async () => {
+    queryClient.clear();
+    const idbStore = createStore("tabit-query-cache", "queries");
+    await clear(idbStore);
+    if ("caches" in window) {
+      const names = await caches.keys();
+      await Promise.all(names.map((name) => caches.delete(name)));
+    }
+    localStorage.clear();
+    window.location.reload();
+  };
+
   return (
     <div
-      className="fixed bottom-28 right-4 z-30"
+      className="fixed bottom-28 right-4 z-30 flex flex-col items-end gap-2"
       style={{ viewTransitionName: "add-expense-fab" }}
     >
+      {process.env.NODE_ENV === "development" && (
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 rounded-full text-muted-foreground"
+          onClick={bustCache}
+          title="Bust query cache"
+        >
+          <RefreshCw className="h-3.5 w-3.5" />
+        </Button>
+      )}
       <Button
         className="h-12 gap-2 rounded-full px-4 shadow-lg"
         onClick={() => setOpen(true)}
@@ -405,9 +429,7 @@ export function AddExpenseFAB() {
                         Add members to this tab to start splitting expenses.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <TransitionLink
-                          href={`/tabs/${selectedTabId}/members`}
-                        >
+                        <TransitionLink href={`/tabs/${selectedTabId}/members`}>
                           Invite members
                         </TransitionLink>
                       </Button>
@@ -450,9 +472,7 @@ export function AddExpenseFAB() {
                     Add members to this tab to start splitting expenses.
                   </p>
                   <Button asChild variant="outline" className="w-full">
-                    <TransitionLink
-                      href={`/tabs/${tabIdFromParams}/members`}
-                    >
+                    <TransitionLink href={`/tabs/${tabIdFromParams}/members`}>
                       Invite members
                     </TransitionLink>
                   </Button>

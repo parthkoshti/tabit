@@ -9,9 +9,13 @@ import {
   getExpenseById,
   getExpenseAuditLog,
   getSettlementsForTab,
+  getSettlementById,
+  getSettlementAuditLog,
   getBalancesForTab,
   getActivityForUser,
   getDirectTabsForUser,
+  type GetExpensesForTabResult,
+  type GetActivityForUserResult,
 } from "@/lib/data";
 import { db, tabMember } from "db";
 import { eq, and } from "drizzle-orm";
@@ -38,10 +42,13 @@ export async function fetchTab(tabId: string) {
   return tab;
 }
 
-export async function fetchExpenses(tabId: string) {
+export async function fetchExpenses(
+  tabId: string,
+  options?: { limit?: number; offset?: number },
+): Promise<GetExpensesForTabResult | null> {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
-  return getExpensesForTab(tabId);
+  return getExpensesForTab(tabId, options);
 }
 
 export async function fetchExpense(expenseId: string) {
@@ -55,8 +62,8 @@ export async function fetchExpense(expenseId: string) {
     .where(
       and(
         eq(tabMember.tabId, exp.tabId),
-        eq(tabMember.userId, session.user.id)
-      )
+        eq(tabMember.userId, session.user.id),
+      ),
     )
     .limit(1);
   if (!member) return null;
@@ -74,8 +81,8 @@ export async function fetchExpenseAuditLog(expenseId: string) {
     .where(
       and(
         eq(tabMember.tabId, exp.tabId),
-        eq(tabMember.userId, session.user.id)
-      )
+        eq(tabMember.userId, session.user.id),
+      ),
     )
     .limit(1);
   if (!member) return null;
@@ -88,16 +95,60 @@ export async function fetchSettlements(tabId: string) {
   return getSettlementsForTab(tabId);
 }
 
+export async function fetchSettlement(settlementId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return null;
+  const s = await getSettlementById(settlementId);
+  if (!s) return null;
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, s.tabId),
+        eq(tabMember.userId, session.user.id),
+      ),
+    )
+    .limit(1);
+  if (!member) return null;
+  return s;
+}
+
+export async function fetchSettlementAuditLog(settlementId: string) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return null;
+  const s = await getSettlementById(settlementId);
+  if (!s) return null;
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, s.tabId),
+        eq(tabMember.userId, session.user.id),
+      ),
+    )
+    .limit(1);
+  if (!member) return null;
+  return getSettlementAuditLog(settlementId);
+}
+
 export async function fetchBalances(tabId: string) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user) return null;
   return getBalancesForTab(tabId);
 }
 
-export async function fetchActivity() {
+export async function fetchActivity(options?: {
+  limit?: number;
+  offset?: number;
+}): Promise<GetActivityForUserResult> {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) return null;
-  return getActivityForUser(session.user.id);
+  if (!session?.user) return { items: [], total: 0 };
+  const result = await getActivityForUser(session.user.id, options);
+  return typeof result === "object" && result !== null && "items" in result
+    ? result
+    : { items: Array.isArray(result) ? result : [], total: Array.isArray(result) ? result.length : 0 };
 }
 
 export async function fetchFriends() {

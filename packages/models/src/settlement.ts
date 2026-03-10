@@ -9,6 +9,14 @@ export const recordSettlementSchema = z.object({
 
 export type RecordSettlementInput = z.infer<typeof recordSettlementSchema>;
 
+export const updateSettlementSchema = z.object({
+  fromUserId: z.string(),
+  toUserId: z.string(),
+  amount: z.number().positive(),
+});
+
+export type UpdateSettlementInput = z.infer<typeof updateSettlementSchema>;
+
 export const settlementSchema = z.object({
   id: z.string(),
   tabId: z.string(),

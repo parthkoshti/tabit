@@ -1,11 +1,15 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import useInfiniteScroll from "react-infinite-scroll-hook";
 import { fetchActivity } from "@/app/actions/queries";
+import type { ActivityItem } from "@/lib/data";
 import { authClient } from "@/lib/auth-client";
 import { Link as TransitionLink } from "next-view-transitions";
+import { ReceiptText } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function formatDate(d: Date) {
   const date = new Date(d);
@@ -17,12 +21,47 @@ function formatDate(d: Date) {
   return date.toLocaleDateString();
 }
 
+function formatAmount(n: number) {
+  return n.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
 export default function ActivityPage() {
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
-  const { data: items, isLoading } = useQuery({
-    queryKey: ["activity"],
-    queryFn: fetchActivity,
+
+  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
+    useInfiniteQuery({
+      queryKey: ["activity"],
+      queryFn: ({ pageParam }) =>
+        fetchActivity({ limit: 50, offset: pageParam }),
+      initialPageParam: 0,
+      enabled: !!session?.user,
+      getNextPageParam: (lastPage, allPages) => {
+        if (!lastPage || !("total" in lastPage)) return undefined;
+        const pages = allPages ?? [];
+        const loaded = pages.reduce(
+          (sum, p) =>
+            sum + (p && "items" in p ? (p.items as ActivityItem[]).length : 0),
+          0,
+        );
+        return loaded < (lastPage as { total: number }).total
+          ? loaded
+          : undefined;
+      },
+    });
+
+  const items: ActivityItem[] = (data?.pages ?? []).flatMap((p) =>
+    p && "items" in p ? (p.items as ActivityItem[]) : [],
+  );
+
+  const [infiniteRef] = useInfiniteScroll({
+    loading: isFetchingNextPage,
+    hasNextPage: hasNextPage ?? false,
+    onLoadMore: fetchNextPage,
+    rootMargin: "0px 0px 200px 0px",
   });
 
   return (
@@ -34,9 +73,24 @@ export default function ActivityPage() {
             Recent expenses and settlements across your tabs
           </p>
           {isLoading ? (
-            <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-              Loading...
-            </p>
+            <div className="flex flex-col gap-3">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                      <Skeleton className="h-4 flex-1 max-w-40" />
+                    </div>
+                    <Skeleton className="h-4 w-16 shrink-0" />
+                  </div>
+                  <Skeleton className="h-3 w-48" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              ))}
+            </div>
           ) : !items || items.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
               No activity yet
@@ -47,7 +101,7 @@ export default function ActivityPage() {
                 item.type === "expense" ? (
                   <TransitionLink
                     key={`exp-${item.id}`}
-                    href={`/tabs/${item.tabId}`}
+                    href={`/tabs/${item.tabId}/expenses/${item.id}`}
                   >
                     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-center justify-between gap-2">
@@ -58,10 +112,10 @@ export default function ActivityPage() {
                           </span>
                         </div>
                         <span className="text-sm font-medium shrink-0">
-                          ${item.amount.toFixed(2)}
+                          ${formatAmount(item.amount)}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                         {getDisplayName(
                           {
                             id: item.paidById,
@@ -71,7 +125,11 @@ export default function ActivityPage() {
                           },
                           currentUserId,
                         )}{" "}
-                        paid in {item.tabName}
+                        paid in{" "}
+                        <span className="inline-flex items-center gap-1 text-foreground">
+                          <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                          {item.tabName}
+                        </span>
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(item.expenseDate)}
@@ -81,7 +139,7 @@ export default function ActivityPage() {
                 ) : (
                   <TransitionLink
                     key={`set-${item.id}`}
-                    href={`/tabs/${item.tabId}`}
+                    href={`/tabs/${item.tabId}/settlements/${item.id}`}
                   >
                     <div className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 transition-colors hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-center gap-2">
@@ -106,11 +164,15 @@ export default function ActivityPage() {
                             },
                             currentUserId,
                           )}{" "}
-                          ${item.amount.toFixed(2)}
+                          ${formatAmount(item.amount)}
                         </span>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        Settlement in {item.tabName}
+                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        Settlement in{" "}
+                        <span className="inline-flex items-center gap-1 text-foreground">
+                          <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                          {item.tabName}
+                        </span>
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(item.createdAt)}
@@ -119,6 +181,26 @@ export default function ActivityPage() {
                   </TransitionLink>
                 ),
               )}
+              {isFetchingNextPage && (
+                <div className="flex flex-col gap-3">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                          <Skeleton className="h-4 flex-1 max-w-40" />
+                        </div>
+                        <Skeleton className="h-4 w-16 shrink-0" />
+                      </div>
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {hasNextPage && <div ref={infiniteRef} className="h-1" />}
             </div>
           )}
         </section>

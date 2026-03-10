@@ -71,6 +71,13 @@
       "when": 1772980573185,
       "tag": "0009_aspiring_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773100000000,
+      "tag": "0010_expense_tabId_expenseDate_idx",
+      "breakpoints": true
     }
   ]
 }
