@@ -29,6 +29,10 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  useNeedsPushResubscription,
+  useSetPushResubscriptionRequired,
+} from "@/app/(app)/context/push-resubscription-context";
 import { UserAvatar } from "@/components/user-avatar";
 import { Spinner } from "@/components/ui/spinner";
 import { useNavTitle } from "../context/nav-title-context";
@@ -349,24 +353,34 @@ export default function MePage() {
 }
 
 function PushNotificationsSection() {
-  const [status, setStatus] = useState<"idle" | "loading" | "enabled" | "unsupported" | "error">("idle");
+  const needsResubscription = useNeedsPushResubscription();
+  const setNeedsResubscription = useSetPushResubscriptionRequired();
+  const [status, setStatus] = useState<
+    "idle" | "loading" | "enabled" | "unsupported" | "error"
+  >("idle");
   const [testLoading, setTestLoading] = useState(false);
   const [testTabInviteLoading, setTestTabInviteLoading] = useState(false);
+  const [resubscribeLoading, setResubscribeLoading] = useState(false);
   const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
   useEffect(() => {
     if (!vapidKey || !("serviceWorker" in navigator)) return;
     let cancelled = false;
-    navigator.serviceWorker.ready.then((reg) => {
-      if (cancelled) return;
-      const hasPushSupport = "PushManager" in window || "pushManager" in reg;
-      if (!hasPushSupport) return;
-      return reg.pushManager.getSubscription();
-    }).then((sub) => {
-      if (cancelled || !sub) return;
-      setStatus("enabled");
-    }).catch(() => {});
-    return () => { cancelled = true; };
+    navigator.serviceWorker.ready
+      .then((reg) => {
+        if (cancelled) return;
+        const hasPushSupport = "PushManager" in window || "pushManager" in reg;
+        if (!hasPushSupport) return;
+        return reg.pushManager.getSubscription();
+      })
+      .then((sub) => {
+        if (cancelled || !sub) return;
+        setStatus("enabled");
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [vapidKey]);
 
   async function handleTest() {
@@ -376,7 +390,9 @@ function PushNotificationsSection() {
       if (result.success) {
         toast.success("Test notification sent");
       } else {
-        toast.error((result as { error?: string }).error ?? "Failed to send test");
+        toast.error(
+          (result as { error?: string }).error ?? "Failed to send test",
+        );
       }
     } catch {
       toast.error("Failed to send test notification");
@@ -392,7 +408,9 @@ function PushNotificationsSection() {
       if (result.success) {
         toast.success("Test tab invite notification sent");
       } else {
-        toast.error((result as { error?: string }).error ?? "Failed to send test");
+        toast.error(
+          (result as { error?: string }).error ?? "Failed to send test",
+        );
       }
     } catch {
       toast.error("Failed to send test tab invite notification");
@@ -401,12 +419,16 @@ function PushNotificationsSection() {
     }
   }
 
-  async function handleEnable() {
+  async function handleEnable(forceResubscribe = false) {
     if (!vapidKey || !("serviceWorker" in navigator)) {
       setStatus("unsupported");
       return;
     }
-    setStatus("loading");
+    if (forceResubscribe) {
+      setResubscribeLoading(true);
+    } else {
+      setStatus("loading");
+    }
     try {
       const reg = await navigator.serviceWorker.ready;
       const hasPushSupport = "PushManager" in window || "pushManager" in reg;
@@ -415,13 +437,19 @@ function PushNotificationsSection() {
         return;
       }
       const sub = await reg.pushManager.getSubscription();
-      if (sub) {
+      if (sub && !forceResubscribe) {
         setStatus("enabled");
         return;
       }
-      const permission = await Notification.requestPermission();
+      if (sub && forceResubscribe) {
+        await sub.unsubscribe();
+      }
+      const permission = forceResubscribe
+        ? "granted"
+        : await Notification.requestPermission();
       if (permission !== "granted") {
-        setStatus("idle");
+        if (forceResubscribe) setResubscribeLoading(false);
+        else setStatus("idle");
         return;
       }
       const newSub = await reg.pushManager.subscribe({
@@ -429,9 +457,12 @@ function PushNotificationsSection() {
         applicationServerKey: vapidKey,
       });
       await api.push.subscribe(newSub.toJSON());
+      setNeedsResubscription?.(false);
       setStatus("enabled");
     } catch {
       setStatus("error");
+    } finally {
+      setResubscribeLoading(false);
     }
   }
 
@@ -446,8 +477,26 @@ function PushNotificationsSection() {
         </p>
         {status === "enabled" ? (
           <div className="flex flex-col gap-2">
-            <p className="text-sm text-muted-foreground">Push notifications are enabled</p>
+            {needsResubscription ? (
+              <p className="text-sm text-muted-foreground">
+                Your push subscription needs to be updated. Re-enable to fix.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Push notifications are enabled
+              </p>
+            )}
             <div className="flex flex-wrap gap-2">
+              {needsResubscription && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => handleEnable(true)}
+                  disabled={resubscribeLoading}
+                >
+                  {resubscribeLoading ? "Re-enabling..." : "Re-enable push"}
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -467,11 +516,20 @@ function PushNotificationsSection() {
             </div>
           </div>
         ) : status === "unsupported" ? (
-          <p className="text-sm text-muted-foreground">Push notifications are not supported in this browser</p>
+          <p className="text-sm text-muted-foreground">
+            Push notifications are not supported in this browser
+          </p>
         ) : status === "error" ? (
-          <p className="text-sm text-destructive">Failed to enable. Try again later.</p>
+          <p className="text-sm text-destructive">
+            Failed to enable. Try again later.
+          </p>
         ) : (
-          <Button variant="outline" size="sm" onClick={handleEnable} disabled={status === "loading"}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEnable}
+            disabled={status === "loading"}
+          >
             {status === "loading" ? "Enabling..." : "Enable push notifications"}
           </Button>
         )}

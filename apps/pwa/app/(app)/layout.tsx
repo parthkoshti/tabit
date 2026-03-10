@@ -6,6 +6,7 @@ import { authClient } from "@/lib/auth-client";
 import { needsProfileSetup } from "@/lib/profile";
 import { useNotifications } from "@/lib/use-notifications";
 import { NavTitleProvider } from "./context/nav-title-context";
+import { PushResubscriptionProvider } from "./context/push-resubscription-context";
 import { TopNavbar } from "./components/top-navbar";
 import { BottomNavbar } from "./components/bottom-navbar";
 import { AddExpenseFAB } from "./components/add-expense-fab";
@@ -71,8 +72,10 @@ function AppLayoutContent({ children }: { children: React.ReactNode }) {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <Suspense fallback={<LoadingScreen />}>
-      <AppLayoutContent>{children}</AppLayoutContent>
-    </Suspense>
+    <PushResubscriptionProvider>
+      <Suspense fallback={<LoadingScreen />}>
+        <AppLayoutContent>{children}</AppLayoutContent>
+      </Suspense>
+    </PushResubscriptionProvider>
   );
 }

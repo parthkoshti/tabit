@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "dotenv -e ../../.env -e ../../.env.local -- next dev --turbopack -p 3003 --experimental-https --experimental-https-key ./certificates/localhost-key.pem --experimental-https-cert ./certificates/localhost.pem",
-    "dev:http": "dotenv -e ../../.env -e ../../.env.local -- next dev --turbopack -p 3003",
+    "dev": "dotenv -e ../../.env -e ../../.env.local -- sh -c 'node scripts/generate-sw.js && next dev --turbopack -p 3003 --experimental-https --experimental-https-key ./certificates/localhost-key.pem --experimental-https-cert ./certificates/localhost.pem'",
+    "dev:http": "dotenv -e ../../.env -e ../../.env.local -- sh -c 'node scripts/generate-sw.js && next dev --turbopack -p 3003'",
     "generate-https-certs": "node ../../scripts/generate-https-certs.js",
-    "build": "dotenv -e ../../.env -e ../../.env.local -- next build",
+    "build": "dotenv -e ../../.env -e ../../.env.local -- sh -c 'node scripts/generate-sw.js && next build'",
     "start": "dotenv -e ../../.env -e ../../.env.local -- next start -p 3003",
     "start:prod": "next start -p 3003",
     "check": "tsc --noEmit && eslint .",

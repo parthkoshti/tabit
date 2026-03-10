@@ -132,7 +132,7 @@ export function AddExpenseForm({
       paidById,
       splitType: "equal",
       participantIds: selectedParticipants.map((p) => p.userId),
-      expenseDate: expenseDate.toISOString().slice(0, 10),
+      expenseDate: expenseDate.toISOString(),
     });
 
     if (result.success) {

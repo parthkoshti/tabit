@@ -96,10 +96,7 @@ function getPushTitle(payload: {
   ) {
     return `${payload.fromUserName} invited you to ${payload.tabName}`;
   }
-  if (
-    payload.type === "friend_request_accepted" &&
-    payload.fromUserName
-  ) {
+  if (payload.type === "friend_request_accepted" && payload.fromUserName) {
     return `${payload.fromUserName} accepted your friend request`;
   }
   if (
@@ -109,12 +106,20 @@ function getPushTitle(payload: {
   ) {
     return `${payload.fromUserName} joined ${payload.tabName}`;
   }
-  if (payload.type === "expense_added" && payload.fromUserName && payload.tabName) {
+  if (
+    payload.type === "expense_added" &&
+    payload.fromUserName &&
+    payload.tabName
+  ) {
     const desc = payload.description ? ` for ${payload.description}` : "";
     const amt = payload.amount ? ` $${payload.amount}` : "";
     return `${payload.fromUserName} added${amt}${desc} to ${payload.tabName}`;
   }
-  if (payload.type === "expense_updated" && payload.fromUserName && payload.tabName) {
+  if (
+    payload.type === "expense_updated" &&
+    payload.fromUserName &&
+    payload.tabName
+  ) {
     return `${payload.fromUserName} updated an expense in ${payload.tabName}`;
   }
   if (
@@ -127,7 +132,8 @@ function getPushTitle(payload: {
   }
   if (payload.type === "friend_request") return "New friend request";
   if (payload.type === "tab_invite") return "New tab invite";
-  if (payload.type === "friend_request_accepted") return "Friend request accepted";
+  if (payload.type === "friend_request_accepted")
+    return "Friend request accepted";
   if (payload.type === "tab_invite_accepted") return "Tab invite accepted";
   if (payload.type === "expense_added") return "New expense added";
   if (payload.type === "expense_updated") return "Expense updated";
@@ -146,7 +152,8 @@ function getPushBody(payload: {
   if (payload.forcePush) return "This is a test notification";
   if (payload.type === "friend_request") return "New friend request";
   if (payload.type === "tab_invite") return "New tab invite";
-  if (payload.type === "friend_request_accepted") return "Accepted your friend request";
+  if (payload.type === "friend_request_accepted")
+    return "Accepted your friend request";
   if (payload.type === "tab_invite_accepted") return "Joined your tab";
   if (payload.type === "expense_added") {
     if (payload.description && payload.amount) {
@@ -200,8 +207,9 @@ function getNavigatePath(payload: {
 async function sendPushNotifications(
   userId: string,
   payload: unknown,
-): Promise<void> {
-  if (!vapidPublicKey || !vapidPrivateKey) return;
+): Promise<{ removedInvalidSubscriptions: boolean }> {
+  if (!vapidPublicKey || !vapidPrivateKey)
+    return { removedInvalidSubscriptions: false };
 
   const subs = await db
     .select()
@@ -209,7 +217,7 @@ async function sendPushNotifications(
     .where(eq(pushSubscription.userId, userId))
     .limit(10);
 
-  if (subs.length === 0) return;
+  if (subs.length === 0) return { removedInvalidSubscriptions: false };
 
   const payloadObj =
     typeof payload === "string" ? JSON.parse(payload) : payload;
@@ -217,6 +225,7 @@ async function sendPushNotifications(
     userId,
     subscriptionCount: subs.length,
     type: payloadObj?.type,
+    vapidPublicKey,
   });
   const title = getPushTitle(payloadObj);
   const body = getPushBody(payloadObj);
@@ -251,6 +260,7 @@ async function sendPushNotifications(
   );
   const fulfilled = results.filter((r) => r.status === "fulfilled").length;
   const rejected = results.filter((r) => r.status === "rejected").length;
+  let removedInvalidSubscriptions = false;
   if (rejected > 0) {
     for (let i = 0; i < results.length; i++) {
       const r = results[i];
@@ -265,8 +275,16 @@ async function sendPushNotifications(
           statusCode,
           body: body?.slice?.(0, 200),
           endpoint: sub.endpoint.slice(0, 60),
+          vapidPublicKey,
         });
-        if (statusCode === 404 || statusCode === 410) {
+        const bodyStr = typeof body === "string" ? body : "";
+        const isExpired = statusCode === 404 || statusCode === 410;
+        const isVapidMismatch =
+          (statusCode === 400 && bodyStr.includes("VapidPkHashMismatch")) ||
+          (statusCode === 403 &&
+            bodyStr.includes("VAPID credentials") &&
+            bodyStr.includes("do not correspond"));
+        if (isExpired || isVapidMismatch) {
           await db
             .delete(pushSubscription)
             .where(
@@ -275,15 +293,19 @@ async function sendPushNotifications(
                 eq(pushSubscription.endpoint, sub.endpoint),
               ),
             );
-          log("info", "Removed expired push subscription", {
+          removedInvalidSubscriptions = true;
+          log("info", "Removed invalid push subscription", {
             userId,
             endpoint: sub.endpoint.slice(0, 60),
+            reason: isVapidMismatch ? "VAPID mismatch" : "expired",
+            vapidPublicKey,
           });
         }
       }
     }
   }
   log("info", "Push notifications sent", { userId, fulfilled, rejected });
+  return { removedInvalidSubscriptions };
 }
 
 redis.on("message", (channel, message) => {
@@ -307,9 +329,26 @@ redis.on("message", (channel, message) => {
         }
       });
     }
-    sendPushNotifications(userId, message).catch((err) =>
-      log("error", "Push notification error", { userId, error: String(err) }),
-    );
+    sendPushNotifications(userId, message)
+      .then(({ removedInvalidSubscriptions }) => {
+        if (removedInvalidSubscriptions && hasConnections) {
+          const resubscribeMsg = JSON.stringify({
+            type: "push_resubscription_required",
+          });
+          connections!.forEach((conn) => {
+            if (conn.readyState === 1) {
+              conn.send(resubscribeMsg);
+            }
+          });
+        }
+      })
+      .catch((err) =>
+        log("error", "Push notification error", {
+          userId,
+          error: String(err),
+          vapidPublicKey,
+        }),
+      );
   }
 });
 

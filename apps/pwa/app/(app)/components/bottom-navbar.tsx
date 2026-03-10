@@ -4,6 +4,7 @@ import { Link as TransitionLink } from "next-view-transitions";
 import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Users, Activity, User, ReceiptText } from "lucide-react";
+import { useNeedsPushResubscription } from "@/app/(app)/context/push-resubscription-context";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ export function BottomNavbar() {
   });
   const friendInviteCount = friendRequestsData?.length ?? 0;
   const tabInviteCount = tabInvitesData?.length ?? 0;
+  const needsPushResubscription = useNeedsPushResubscription();
 
   return (
     <nav
@@ -52,9 +54,10 @@ export function BottomNavbar() {
             (href === "/tabs" && pathname.startsWith("/tabs/"));
           const showBadge =
             (href === "/friends" && friendInviteCount > 0) ||
-            (href === "/tabs" && tabInviteCount > 0);
+            (href === "/tabs" && tabInviteCount > 0) ||
+            (href === "/me" && needsPushResubscription);
           const badgeCount =
-            href === "/friends" ? friendInviteCount : tabInviteCount;
+            href === "/friends" ? friendInviteCount : href === "/tabs" ? tabInviteCount : 0;
           const isMeTab = href === "/me";
           const showAvatar = isMeTab && session?.user?.id;
 
@@ -82,8 +85,18 @@ export function BottomNavbar() {
                     <Icon className="h-5 w-5" />
                   )}
                   {showBadge && (
-                    <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-medium text-foreground">
-                      {badgeCount > 9 ? "9+" : badgeCount}
+                    <span
+                      className={`absolute -right-2 -top-2 flex items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-foreground ${
+                        href === "/me" && needsPushResubscription
+                          ? "h-2 w-2 min-w-2"
+                          : "h-4 min-w-4 px-1"
+                      }`}
+                    >
+                      {href === "/me" && needsPushResubscription
+                        ? null
+                        : badgeCount > 9
+                          ? "9+"
+                          : badgeCount}
                     </span>
                   )}
                 </span>
