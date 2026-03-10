@@ -61,6 +61,7 @@ export default function TabPage() {
     queryFn: ({ pageParam }) =>
       fetchExpenses(tabId, { limit: 50, offset: pageParam }),
     initialPageParam: 0,
+    placeholderData: (prev) => prev ?? { pages: [], pageParams: [0] },
     getNextPageParam: (lastPage, allPages) => {
       if (!lastPage) return undefined;
       const loaded = allPages.reduce(

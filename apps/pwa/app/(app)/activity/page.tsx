@@ -39,6 +39,8 @@ export default function ActivityPage() {
         fetchActivity({ limit: 50, offset: pageParam }),
       initialPageParam: 0,
       enabled: !!session?.user,
+      placeholderData: (prev) =>
+        prev ?? { pages: [] as { items: ActivityItem[]; total: number }[], pageParams: [0] },
       getNextPageParam: (lastPage, allPages) => {
         if (!lastPage || !("total" in lastPage)) return undefined;
         const pages = allPages ?? [];

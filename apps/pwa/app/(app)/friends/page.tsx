@@ -69,6 +69,13 @@ export default function FriendsPage() {
     ? pendingRequests.find((r) => r.id === rejectRequestId)
     : null;
 
+  function formatAmount(n: number) {
+    return n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
   return (
     <div className="p-4">
       <div className="mx-auto max-w-2xl space-y-6">
@@ -222,9 +229,9 @@ export default function FriendsPage() {
                         }
                       >
                         {f.balance > 0
-                          ? `They owe you $${f.balance.toFixed(2)}`
+                          ? `They owe you $${formatAmount(f.balance)}`
                           : f.balance < 0
-                            ? `You owe $${Math.abs(f.balance).toFixed(2)}`
+                            ? `You owe $${formatAmount(Math.abs(f.balance))}`
                             : "Settled up"}
                       </span>
                     </div>

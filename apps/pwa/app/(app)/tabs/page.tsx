@@ -38,6 +38,13 @@ export default function TabsPage() {
   });
   const pendingTabInvites = tabInvitesData ?? [];
 
+  function formatAmount(n: number) {
+    return n.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
   async function handleAcceptTabInvite(requestId: string) {
     const result = await api.tabInvites.acceptRequest(requestId);
     if (result.success && result.tabId) {
@@ -155,9 +162,9 @@ export default function TabsPage() {
                           }
                         >
                           {(t.balance ?? 0) > 0
-                            ? `+$${(t.balance ?? 0).toFixed(2)}`
+                            ? `+$${formatAmount(t.balance ?? 0)}`
                             : (t.balance ?? 0) < 0
-                              ? `-$${Math.abs(t.balance ?? 0).toFixed(2)}`
+                              ? `-$${formatAmount(Math.abs(t.balance ?? 0))}`
                               : "Settled"}
                         </span>
                       </div>
