@@ -1,3 +1,4 @@
+// __CACHE_BUSTER__ is replaced at build time with NEXT_PUBLIC_QUERY_CACHE_BUSTER (default: v1)
 self.addEventListener("install", function (event) {
   console.log("[SW] Installing new service worker");
   event.waitUntil(
