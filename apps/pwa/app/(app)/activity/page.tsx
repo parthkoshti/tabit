@@ -156,4 +156,90 @@ export default function ActivityPage() {
                             email: item.paidByEmail,
                           },
                           currentUserId
-                        )}{
+                        )}{" "}
+                        paid in{" "}
+                        <span className="inline-flex items-center gap-1 text-foreground">
+                          <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                          {item.tabName}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(item.expenseDate)}
+                      </p>
+                    </AnimatedCard>
+                  </Link>
+                </motion.div>
+                ) : (
+                  <motion.div
+                    key={`set-${item.id}`}
+                    variants={animate ? staggerItem : undefined}
+                  >
+                    <Link href={`/tabs/${item.tabId}/settlements/${item.id}`}>
+                      <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
+                      <div className="flex items-center gap-2">
+                        <UserAvatar userId={item.fromUserId} size="sm" />
+                        <span className="font-medium">
+                          {getDisplayName(
+                            {
+                              id: item.fromUserId,
+                              username: item.fromUserUsername,
+                              name: item.fromUserName,
+                              email: item.fromUserEmail,
+                            },
+                            currentUserId,
+                          )}{" "}
+                          paid{" "}
+                          {getDisplayName(
+                            {
+                              id: item.toUserId,
+                              username: item.toUserUsername,
+                              name: item.toUserName,
+                              email: item.toUserEmail,
+                            },
+                            currentUserId,
+                          )}{" "}
+                          ${formatAmount(item.amount)}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        Settlement in{" "}
+                        <span className="inline-flex items-center gap-1 text-foreground">
+                          <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                          {item.tabName}
+                        </span>
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(item.createdAt)}
+                      </p>
+                    </AnimatedCard>
+                  </Link>
+                </motion.div>
+                ),
+              })}
+              {isFetchingNextPage && (
+                <div className="flex flex-col gap-3">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+                          <Skeleton className="h-4 flex-1 max-w-40" />
+                        </div>
+                        <Skeleton className="h-4 w-16 shrink-0" />
+                      </div>
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                  ))}
+                </div>
+              )}
+              {hasNextPage && <div ref={infiniteRef} className="h-1" />}
+            </motion.div>
+          )}
+        </section>
+      </div>
+    </div>
+  );
+}
