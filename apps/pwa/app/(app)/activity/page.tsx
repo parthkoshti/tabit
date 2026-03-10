@@ -9,6 +9,7 @@ import { Link as TransitionLink } from "next-view-transitions";
 import { ReceiptText } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function formatDate(d: Date) {
@@ -32,15 +33,22 @@ export default function ActivityPage() {
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
 
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery({
-      queryKey: ["activity"],
-      queryFn: ({ pageParam }) =>
-        fetchActivity({ limit: 50, offset: pageParam }),
-      initialPageParam: 0,
-      enabled: !!session?.user,
-      placeholderData: (prev) =>
-        prev ?? { pages: [] as { items: ActivityItem[]; total: number }[], pageParams: [0] },
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["activity"],
+    queryFn: ({ pageParam }) =>
+      fetchActivity({ limit: 50, offset: pageParam }),
+    initialPageParam: 0,
+    enabled: !!session?.user,
+    placeholderData: (prev) =>
+      prev ?? { pages: [] as { items: ActivityItem[]; total: number }[], pageParams: [0] },
       getNextPageParam: (lastPage, allPages) => {
         if (!lastPage || !("total" in lastPage)) return undefined;
         const pages = allPages ?? [];
@@ -74,7 +82,14 @@ export default function ActivityPage() {
           <p className="text-xs text-muted-foreground mb-4">
             Recent expenses and settlements across your tabs
           </p>
-          {isLoading ? (
+          {isError ? (
+            <div className="rounded-lg border border-dashed border-border p-8 text-center">
+              <p className="text-muted-foreground mb-4">Something went wrong</p>
+              <Button variant="outline" onClick={() => refetch()}>
+                Retry
+              </Button>
+            </div>
+          ) : isLoading ? (
             <div className="flex flex-col gap-3">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div

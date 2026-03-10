@@ -45,9 +45,9 @@ export async function fetchTab(tabId: string) {
 export async function fetchExpenses(
   tabId: string,
   options?: { limit?: number; offset?: number },
-): Promise<GetExpensesForTabResult | null> {
+): Promise<GetExpensesForTabResult> {
   const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) return null;
+  if (!session?.user) return { expenses: [], total: 0 };
   return getExpensesForTab(tabId, options);
 }
 

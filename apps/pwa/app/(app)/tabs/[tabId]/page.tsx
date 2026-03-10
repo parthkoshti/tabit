@@ -53,6 +53,8 @@ export default function TabPage() {
   const {
     data: expensesData,
     isLoading: expensesLoading,
+    isError: expensesError,
+    refetch: refetchExpenses,
     fetchNextPage: fetchNextExpenses,
     hasNextPage: hasMoreExpenses,
     isFetchingNextPage: isLoadingMoreExpenses,
@@ -63,14 +65,15 @@ export default function TabPage() {
     initialPageParam: 0,
     placeholderData: (prev) => prev ?? { pages: [], pageParams: [0] },
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage) return undefined;
-      const loaded = allPages.reduce(
-        (sum, p) => sum + (p?.expenses?.length ?? 0),
+      if (!lastPage || !("total" in lastPage)) return undefined;
+      const pages = allPages ?? [];
+      const loaded = pages.reduce(
+        (sum, p) => sum + (p && "expenses" in p ? (p.expenses?.length ?? 0) : 0),
         0,
       );
-      return loaded < lastPage.total ? loaded : undefined;
+      return loaded < (lastPage as { total: number }).total ? loaded : undefined;
     },
-    enabled: !!tabId,
+    enabled: !!tabId && !!session?.user,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -313,7 +316,14 @@ export default function TabPage() {
           <p className="text-xs text-muted-foreground mb-4">
             All expenses and settlements in this tab
           </p>
-          {expensesLoading || settlementsLoading ? (
+          {expensesError ? (
+            <div className="rounded-lg border border-dashed border-border p-8 text-center">
+              <p className="text-muted-foreground mb-4">Something went wrong</p>
+              <Button variant="outline" onClick={() => refetchExpenses()}>
+                Retry
+              </Button>
+            </div>
+          ) : expensesLoading || settlementsLoading ? (
             <div className="flex flex-col gap-4">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Card key={i}>
