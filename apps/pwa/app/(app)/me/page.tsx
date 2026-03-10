@@ -527,7 +527,7 @@ function PushNotificationsSection() {
           <Button
             variant="outline"
             size="sm"
-            onClick={handleEnable}
+            onClick={() => handleEnable()}
             disabled={status === "loading"}
           >
             {status === "loading" ? "Enabling..." : "Enable push notifications"}
