@@ -4,6 +4,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
 import PlunkModule from "@plunk/node";
 import { db, user, session, account, verification } from "db";
+import { sendDiscordWebhook } from "shared";
 
 const appName = process.env.APP_NAME ?? "Tab It";
 const plunkSecret = process.env.PLUNK_SECRET_KEY;
@@ -63,6 +64,21 @@ export const auth = betterAuth({
       verification,
     },
   }),
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          const content = [
+            "**New user signup**",
+            `**Name:** ${user.name ?? "N/A"}`,
+            `**Username:** ${user.username ?? "N/A"}`,
+            `**Email:** ${user.email}`,
+          ].join("\n");
+          sendDiscordWebhook(content);
+        },
+      },
+    },
+  },
   advanced: {
     database: {
       generateId: () => createFullId(),
