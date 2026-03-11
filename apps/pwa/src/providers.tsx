@@ -1,5 +1,3 @@
-"use client";
-
 import "ios-vibrator-pro-max";
 import { ThemeProvider } from "next-themes";
 import { QueryClient } from "@tanstack/react-query";
@@ -21,7 +19,7 @@ const idbStore =
     ? createStore("tabit-query-cache", "queries")
     : null;
 
-const CACHE_BUSTER = process.env.NEXT_PUBLIC_QUERY_CACHE_BUSTER ?? "v1";
+const CACHE_BUSTER = import.meta.env.VITE_QUERY_CACHE_BUSTER ?? "v1";
 
 const persister = idbStore
   ? createAsyncStoragePersister({

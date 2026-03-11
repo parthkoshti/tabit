@@ -1,8 +1,5 @@
-"use client";
-
 import { useEffect, useState, useRef, useMemo, use, Suspense } from "react";
 import { useQuery } from "@tanstack/react-query";
-import Image from "next/image";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -36,7 +33,7 @@ import {
 import { UserAvatar } from "@/components/user-avatar";
 import { Spinner } from "@/components/ui/spinner";
 import { useNavTitle } from "../context/nav-title-context";
-import { appConfig } from "@/app/config";
+import { appConfig } from "@/src/config";
 import {
   Accordion,
   AccordionContent,
@@ -54,18 +51,17 @@ function InviteQRCodeDisplay({ value, size }: { value: string; size: number }) {
   );
   const dataUrl = use(promise);
   return (
-    <Image
+    <img
       src={dataUrl}
       alt="QR code"
       width={size}
       height={size}
       className="rounded"
-      unoptimized
     />
   );
 }
 
-export default function MePage() {
+export function MePage() {
   const { data: session, refetch } = authClient.useSession();
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
@@ -361,7 +357,7 @@ function PushNotificationsSection() {
   const [testLoading, setTestLoading] = useState(false);
   const [testTabInviteLoading, setTestTabInviteLoading] = useState(false);
   const [resubscribeLoading, setResubscribeLoading] = useState(false);
-  const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
 
   useEffect(() => {
     if (!vapidKey || !("serviceWorker" in navigator)) return;

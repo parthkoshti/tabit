@@ -3,7 +3,7 @@ import { inferAdditionalFields } from "better-auth/client/plugins";
 import { emailOTPClient } from "better-auth/client/plugins";
 
 export const authClient = createAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_PWA_URL ?? "https://localhost:3003",
+  baseURL: import.meta.env.VITE_PWA_URL ?? "http://localhost:3003",
   plugins: [
     emailOTPClient(),
     inferAdditionalFields({

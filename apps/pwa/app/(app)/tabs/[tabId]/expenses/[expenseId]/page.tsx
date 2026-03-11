@@ -1,6 +1,4 @@
-"use client";
-
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { useNavTitle } from "../../../../context/nav-title-context";
@@ -8,7 +6,6 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api-client";
 import { EditExpenseForm } from "../../edit-expense-form";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -23,12 +20,12 @@ import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 
-export default function ExpensePage() {
-  const params = useParams<{ tabId: string; expenseId: string }>();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const tabId = params.tabId;
-  const expenseId = params.expenseId;
+export function ExpensePage() {
+  const { tabId, expenseId } = useParams<{ tabId: string; expenseId: string }>();
+  const tabIdOrEmpty = tabId ?? "";
+  const expenseIdOrEmpty = expenseId ?? "";
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { data: session } = authClient.useSession();
   const setNavTitle = useNavTitle();
   const queryClient = useQueryClient();
@@ -37,34 +34,34 @@ export default function ExpensePage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { data: expense, isLoading: expenseLoading } = useQuery({
-    queryKey: ["expense", tabId, expenseId],
+    queryKey: ["expense", tabIdOrEmpty, expenseIdOrEmpty],
     queryFn: async () => {
-      const r = await api.expenses.get(tabId!, expenseId);
+      const r = await api.expenses.get(tabIdOrEmpty, expenseIdOrEmpty);
       return r.success && r.expense ? r.expense : null;
     },
-    enabled: !!tabId && !!expenseId,
+    enabled: !!tabIdOrEmpty && !!expenseIdOrEmpty,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   const { data: tab } = useQuery({
-    queryKey: ["tab", tabId],
+    queryKey: ["tab", tabIdOrEmpty],
     queryFn: async () => {
-      const r = await api.tabs.get(tabId!);
+      const r = await api.tabs.get(tabIdOrEmpty);
       return r.success && r.tab ? r.tab : null;
     },
-    enabled: !!tabId,
+    enabled: !!tabIdOrEmpty,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   const { data: auditLog } = useQuery({
-    queryKey: ["expenseAuditLog", tabId, expenseId],
+    queryKey: ["expenseAuditLog", tabIdOrEmpty, expenseIdOrEmpty],
     queryFn: async () => {
-      const r = await api.expenses.getAuditLog(tabId!, expenseId);
+      const r = await api.expenses.getAuditLog(tabIdOrEmpty, expenseIdOrEmpty);
       return r.success ? (r.auditLog ?? []) : [];
     },
-    enabled: !!tabId && !!expenseId && !!expense,
+    enabled: !!tabIdOrEmpty && !!expenseIdOrEmpty && !!expense,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -72,20 +69,20 @@ export default function ExpensePage() {
   useEffect(() => {
     setNavTitle?.({
       title: expense ? expense.description : "Expense",
-      backHref: `/tabs/${tabId}`,
+      backHref: `/tabs/${tabIdOrEmpty}`,
       icon: <BanknoteArrowUp className="h-5 w-5 shrink-0 text-negative" />,
     });
     return () => setNavTitle?.(null);
-  }, [setNavTitle, expense, tabId]);
+  }, [setNavTitle, expense, tabIdOrEmpty]);
 
   useEffect(() => {
     if (expense && tab && searchParams.get("edit") === "1") {
       setEditDialogOpen(true);
-      router.replace(`/tabs/${tabId}/expenses/${expenseId}`, { scroll: false });
+      navigate(`/tabs/${tabId}/expenses/${expenseId}`, { replace: true });
     }
-  }, [expense, tab, searchParams, router, tabId, expenseId]);
+  }, [expense, tab, searchParams, navigate, tabIdOrEmpty, expenseIdOrEmpty]);
 
-  if (!tabId || !expenseId) return null;
+  if (!tabIdOrEmpty || !expenseIdOrEmpty) return null;
 
   if (expenseLoading) {
     return (
@@ -102,7 +99,7 @@ export default function ExpensePage() {
           Expense not found or you don't have access
         </p>
         <Button variant="outline" asChild>
-          <Link href={`/tabs/${tabId}`}>
+          <Link to={`/tabs/${tabIdOrEmpty}`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to tab
           </Link>
@@ -175,13 +172,13 @@ export default function ExpensePage() {
   async function handleDelete() {
     setDeleteDialogOpen(false);
     setDeleteLoading(true);
-    const result = await api.expenses.delete(tabId, expenseId);
+    const result = await api.expenses.delete(tabIdOrEmpty, expenseIdOrEmpty);
     if (result.success) {
-      queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["expenses", tabIdOrEmpty] });
+      queryClient.invalidateQueries({ queryKey: ["balances", tabIdOrEmpty] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       toast.success("Expense deleted");
-      router.push(`/tabs/${tabId}`);
+      navigate(`/tabs/${tabIdOrEmpty}`);
     } else {
       toast.error(result.error ?? "Failed to delete expense");
     }
@@ -389,21 +386,21 @@ export default function ExpensePage() {
               <DialogDescription>Update the expense details</DialogDescription>
             </DialogHeader>
             <EditExpenseForm
-              expenseId={expenseId}
-              tabId={tabId}
+              expenseId={expenseIdOrEmpty}
+              tabId={tabIdOrEmpty}
               expense={expense}
               members={tab?.members ?? []}
               currentUserId={currentUserId}
               onSuccess={() => {
                 setEditDialogOpen(false);
                 queryClient.invalidateQueries({
-                  queryKey: ["expenseAuditLog", expenseId],
+                  queryKey: ["expenseAuditLog", expenseIdOrEmpty],
                 });
                 queryClient.invalidateQueries({
-                  queryKey: ["expense", expenseId],
+                  queryKey: ["expense", expenseIdOrEmpty],
                 });
               }}
-              onDeleteSuccess={() => router.push(`/tabs/${tabId}`)}
+              onDeleteSuccess={() => navigate(`/tabs/${tabIdOrEmpty}`)}
             />
           </DialogContent>
         </Dialog>

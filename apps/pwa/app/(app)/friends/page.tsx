@@ -1,10 +1,8 @@
-"use client";
-
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,9 +19,9 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 
-export default function FriendsPage() {
+export function FriendsPage() {
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null);
-  const router = useRouter();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: friendsData, isLoading } = useQuery({
     queryKey: ["friends"],
@@ -58,7 +56,7 @@ export default function FriendsPage() {
       queryClient.invalidateQueries({ queryKey: ["friends"] });
       queryClient.invalidateQueries({ queryKey: ["tabs"] });
       queryClient.invalidateQueries({ queryKey: ["pendingFriendRequests"] });
-      router.push(`/tabs/${result.friendTabId}`);
+      navigate(`/tabs/${result.friendTabId}`);
     }
   }
 
@@ -208,7 +206,7 @@ export default function FriendsPage() {
             >
               {friends.map((f) => (
                 <motion.div key={f.id} variants={staggerItem}>
-                  <Link href={`/tabs/${f.id}`}>
+                  <Link to={`/tabs/${f.id}`}>
                     <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex min-w-0 items-start gap-3">

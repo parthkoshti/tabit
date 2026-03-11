@@ -4,7 +4,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const configuredWsUrl =
-  process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_URL ?? "ws://localhost:3002";
+  process.env.VITE_NOTIFICATIONS_WS_URL ?? "ws://localhost:3002";
 const apiUrl = "/api-backend";
 
 function getWebSocketUrl(): string {

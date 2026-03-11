@@ -1,14 +1,12 @@
-"use client";
-
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 
-export default function AppPage() {
-  const router = useRouter();
+export function AppPage() {
+  const navigate = useNavigate();
 
   useEffect(() => {
-    router.replace("/tabs");
-  }, [router]);
+    navigate("/tabs", { replace: true });
+  }, [navigate]);
 
   return null;
 }

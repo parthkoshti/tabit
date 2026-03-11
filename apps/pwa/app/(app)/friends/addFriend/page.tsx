@@ -1,5 +1,3 @@
-"use client";
-
 import { use, useMemo, useEffect, useState, Suspense } from "react";
 import { useNavTitle } from "../../context/nav-title-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,8 +15,7 @@ import {
 import { Copy, Share2 } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
 import { Spinner } from "@/components/ui/spinner";
-import { appConfig } from "@/app/config";
-import Image from "next/image";
+import { appConfig } from "@/src/config";
 import QRCode from "qrcode";
 
 function MyQRCode() {
@@ -145,18 +142,17 @@ function QRCodeDisplay({ value, size }: { value: string; size: number }) {
   );
   const dataUrl = use(promise);
   return (
-    <Image
+    <img
       src={dataUrl}
       alt="QR code"
       width={size}
       height={size}
       className="rounded"
-      unoptimized
     />
   );
 }
 
-export default function AddFriendPage() {
+export function AddFriendPage() {
   const [username, setUsername] = useState("");
   const [searchResults, setSearchResults] = useState<
     { id: string; username: string | null; name: string | null }[]

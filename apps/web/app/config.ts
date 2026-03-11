@@ -7,10 +7,10 @@ export const appConfig = {
     description:
       "Splitwise alternative free. Split bills with friends—no limits, no paywall, no wait timer. Free forever. Create tabs, add expenses, settle up.",
   },
-  appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "https://tabit.in",
-  githubUrl: process.env.NEXT_PUBLIC_GITHUB_URL ?? "",
-  donateUrl: process.env.NEXT_PUBLIC_DONATE_URL ?? "",
-  pwaUrl: process.env.NEXT_PUBLIC_PWA_URL ?? "https://localhost:3003",
+  appUrl: process.env.VITE_APP_URL ?? "https://tabit.in",
+  githubUrl: process.env.VITE_GITHUB_URL ?? "",
+  donateUrl: process.env.VITE_DONATE_URL ?? "",
+  pwaUrl: process.env.VITE_PWA_URL ?? "https://localhost:3003",
   creator: {
     name: "Parth Koshti",
     github: "https://github.com/parthkoshti",

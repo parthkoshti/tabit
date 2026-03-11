@@ -1,7 +1,5 @@
-"use client";
-
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -12,7 +10,7 @@ export function CreateTabForm() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -27,7 +25,7 @@ export function CreateTabForm() {
 
     if (result.success && result.tabId) {
       queryClient.invalidateQueries({ queryKey: ["tabs"] });
-      router.push(`/tabs/${result.tabId}`);
+      navigate(`/tabs/${result.tabId}`);
     } else {
       setError(result.error ?? "Failed to create tab");
     }

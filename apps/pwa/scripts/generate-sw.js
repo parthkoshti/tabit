@@ -2,7 +2,7 @@
 const { readFileSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 
-const cacheBuster = process.env.NEXT_PUBLIC_QUERY_CACHE_BUSTER ?? "v1";
+const cacheBuster = process.env.VITE_QUERY_CACHE_BUSTER ?? "v1";
 
 const templatePath = join(__dirname, "../public/sw.template.js");
 const outputPath = join(__dirname, "../public/sw.js");

@@ -1,8 +1,5 @@
-"use client";
-
 import { use, useMemo, useEffect, useState, Suspense } from "react";
-import { useParams } from "next/navigation";
-import Link from "next/link";
+import { useParams, Link } from "react-router-dom";
 import { useNavTitle } from "../../../context/nav-title-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
@@ -29,8 +26,7 @@ import {
 import { Copy, Settings, Share2 } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
 import { Spinner } from "@/components/ui/spinner";
-import { appConfig } from "@/app/config";
-import Image from "next/image";
+import { appConfig } from "@/src/config";
 import QRCode from "qrcode";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
@@ -160,18 +156,17 @@ function QRCodeDisplay({ value, size }: { value: string; size: number }) {
   );
   const dataUrl = use(promise);
   return (
-    <Image
+    <img
       src={dataUrl}
       alt="QR code"
       width={size}
       height={size}
       className="rounded"
-      unoptimized
     />
   );
 }
 
-export default function ManageMembersPage() {
+export function TabMembersPage() {
   const params = useParams<{ tabId: string }>();
   const tabId = params.tabId as string;
   const [username, setUsername] = useState("");
@@ -313,7 +308,7 @@ export default function ManageMembersPage() {
               className="w-full justify-center gap-2"
               asChild
             >
-              <Link href={`/tabs/${tabId}/manage`}>
+              <Link to={`/tabs/${tabId}/manage`}>
                 <Settings className="h-4 w-4" />
                 Rename tab
               </Link>

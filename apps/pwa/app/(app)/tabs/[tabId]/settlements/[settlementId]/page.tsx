@@ -1,6 +1,4 @@
-"use client";
-
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { useNavTitle } from "../../../../context/nav-title-context";
@@ -8,7 +6,6 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api-client";
 import { EditSettlementForm } from "../../edit-settlement-form";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -23,11 +20,14 @@ import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 
-export default function SettlementPage() {
-  const params = useParams<{ tabId: string; settlementId: string }>();
-  const router = useRouter();
-  const tabId = params.tabId;
-  const settlementId = params.settlementId;
+export function SettlementPage() {
+  const { tabId, settlementId } = useParams<{
+    tabId: string;
+    settlementId: string;
+  }>();
+  const tabIdOrEmpty = tabId ?? "";
+  const settlementIdOrEmpty = settlementId ?? "";
+  const navigate = useNavigate();
   const { data: session } = authClient.useSession();
   const setNavTitle = useNavTitle();
   const queryClient = useQueryClient();
@@ -36,34 +36,34 @@ export default function SettlementPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { data: settlement, isLoading: settlementLoading } = useQuery({
-    queryKey: ["settlement", tabId, settlementId],
+    queryKey: ["settlement", tabIdOrEmpty, settlementIdOrEmpty],
     queryFn: async () => {
-      const r = await api.settlements.get(tabId!, settlementId);
+      const r = await api.settlements.get(tabIdOrEmpty, settlementIdOrEmpty);
       return r.success && r.settlement ? r.settlement : null;
     },
-    enabled: !!tabId && !!settlementId,
+    enabled: !!tabIdOrEmpty && !!settlementIdOrEmpty,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   const { data: tab } = useQuery({
-    queryKey: ["tab", tabId],
+    queryKey: ["tab", tabIdOrEmpty],
     queryFn: async () => {
-      const r = await api.tabs.get(tabId!);
+      const r = await api.tabs.get(tabIdOrEmpty);
       return r.success && r.tab ? r.tab : null;
     },
-    enabled: !!tabId,
+    enabled: !!tabIdOrEmpty,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   const { data: auditLog } = useQuery({
-    queryKey: ["settlementAuditLog", tabId, settlementId],
+    queryKey: ["settlementAuditLog", tabIdOrEmpty, settlementIdOrEmpty],
     queryFn: async () => {
-      const r = await api.settlements.getAuditLog(tabId!, settlementId);
+      const r = await api.settlements.getAuditLog(tabIdOrEmpty, settlementIdOrEmpty);
       return r.success ? (r.auditLog ?? []) : [];
     },
-    enabled: !!tabId && !!settlementId && !!settlement,
+    enabled: !!tabIdOrEmpty && !!settlementIdOrEmpty && !!settlement,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -73,13 +73,13 @@ export default function SettlementPage() {
       title: settlement
         ? `${getDisplayName(settlement.fromUser, session?.user?.id ?? "")} paid ${getDisplayName(settlement.toUser, session?.user?.id ?? "")}`
         : "Settlement",
-      backHref: `/tabs/${tabId}`,
+      backHref: `/tabs/${tabIdOrEmpty}`,
       icon: <Wallet className="h-5 w-5 shrink-0 text-positive" />,
     });
     return () => setNavTitle?.(null);
-  }, [setNavTitle, settlement, tabId, session?.user?.id]);
+  }, [setNavTitle, settlement, tabIdOrEmpty, session?.user?.id]);
 
-  if (!tabId || !settlementId) return null;
+  if (!tabIdOrEmpty || !settlementIdOrEmpty) return null;
 
   if (settlementLoading) {
     return (
@@ -96,7 +96,7 @@ export default function SettlementPage() {
           Settlement not found or you don't have access
         </p>
         <Button variant="outline" asChild>
-          <Link href={`/tabs/${tabId}`}>
+          <Link to={`/tabs/${tabIdOrEmpty}`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to tab
           </Link>
@@ -120,14 +120,14 @@ export default function SettlementPage() {
   async function handleDelete() {
     setDeleteDialogOpen(false);
     setDeleteLoading(true);
-    const result = await api.settlements.delete(tabId, settlementId);
+    const result = await api.settlements.delete(tabIdOrEmpty, settlementIdOrEmpty);
     if (result.success) {
-      queryClient.invalidateQueries({ queryKey: ["settlements", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["settlements", tabIdOrEmpty] });
+      queryClient.invalidateQueries({ queryKey: ["expenses", tabIdOrEmpty] });
+      queryClient.invalidateQueries({ queryKey: ["balances", tabIdOrEmpty] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       toast.success("Settlement deleted");
-      router.push(`/tabs/${tabId}`);
+      navigate(`/tabs/${tabIdOrEmpty}`);
     } else {
       toast.error(result.error ?? "Failed to delete settlement");
     }
@@ -255,21 +255,21 @@ export default function SettlementPage() {
               </DialogDescription>
             </DialogHeader>
             <EditSettlementForm
-              settlementId={settlementId}
-              tabId={tabId}
+              settlementId={settlementIdOrEmpty}
+              tabId={tabIdOrEmpty}
               settlement={settlement}
               members={tab?.members ?? []}
               currentUserId={currentUserId}
               onSuccess={() => {
                 setEditDialogOpen(false);
                 queryClient.invalidateQueries({
-                  queryKey: ["settlementAuditLog", settlementId],
+                  queryKey: ["settlementAuditLog", settlementIdOrEmpty],
                 });
                 queryClient.invalidateQueries({
-                  queryKey: ["settlement", settlementId],
+                  queryKey: ["settlement", settlementIdOrEmpty],
                 });
               }}
-              onDeleteSuccess={() => router.push(`/tabs/${tabId}`)}
+              onDeleteSuccess={() => navigate(`/tabs/${tabIdOrEmpty}`)}
             />
           </DialogContent>
         </Dialog>

@@ -1,5 +1,12 @@
 import { Hono } from "hono";
-import { db, tab as tabTable, tabMember, user, friendRequest, pendingFriend } from "db";
+import {
+  db,
+  tab as tabTable,
+  tabMember,
+  user,
+  friendRequest,
+  pendingFriend,
+} from "db";
 import { eq, and, ne, desc, ilike, inArray, sql } from "drizzle-orm";
 import { createShortId } from "shared";
 import { authMiddleware, type AuthContext } from "../auth.js";
@@ -270,8 +277,8 @@ friendsRoutes.get("/token", async (c) => {
   }
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_PWA_URL ??
-    process.env.NEXT_PUBLIC_APP_URL ??
+    process.env.VITE_PWA_URL ??
+    process.env.VITE_APP_URL ??
     process.env.APP_URL ??
     "http://localhost:3003";
   const url = `${baseUrl}/invite?user=${encodeURIComponent(username)}&qr=${encodeURIComponent(token)}`;

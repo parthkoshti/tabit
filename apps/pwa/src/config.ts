@@ -2,8 +2,8 @@ export const appConfig = {
   name: "Tab",
   fullName: "Tab - Split expenses with friends",
   description: "A simple way to split expenses with friends and tabs",
-  githubUrl: process.env.NEXT_PUBLIC_GITHUB_URL ?? "",
-  donateUrl: process.env.NEXT_PUBLIC_DONATE_URL ?? "",
+  githubUrl: import.meta.env.VITE_GITHUB_URL ?? "",
+  donateUrl: import.meta.env.VITE_DONATE_URL ?? "",
   icons: {
     sm: { src: "/icon-192x192.png", sizes: "192x192" },
     md: { src: "/icon-512x512.png", sizes: "512x512" },

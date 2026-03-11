@@ -1,11 +1,8 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,20 +45,20 @@ import { format } from "date-fns";
 import { Upload, FileSpreadsheet } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
 
-export default function ManageTabPage() {
-  const params = useParams<{ tabId: string }>();
-  const tabId = params.tabId;
+export function TabManagePage() {
+  const { tabId } = useParams<{ tabId: string }>();
+  const tabIdOrEmpty = tabId ?? "";
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const setNavTitle = useNavTitle();
 
   const { data: tab, isLoading: tabLoading } = useQuery({
-    queryKey: ["tab", tabId],
+    queryKey: ["tab", tabIdOrEmpty],
     queryFn: async () => {
-      const r = await api.tabs.get(tabId);
+      const r = await api.tabs.get(tabIdOrEmpty);
       return r.success && r.tab ? r.tab : null;
     },
-    enabled: !!tabId,
+    enabled: !!tabIdOrEmpty,
   });
 
   const currentUserId = session?.user?.id ?? "";
@@ -71,12 +68,12 @@ export default function ManageTabPage() {
   useEffect(() => {
     setNavTitle?.({
       title: "Manage tab",
-      backHref: `/tabs/${tabId}`,
+      backHref: `/tabs/${tabIdOrEmpty}`,
     });
     return () => setNavTitle?.(null);
-  }, [setNavTitle, tabId]);
+  }, [setNavTitle, tabIdOrEmpty]);
 
-  if (!tabId) return null;
+  if (!tabIdOrEmpty) return null;
 
   if (tabLoading || !tab) {
     return (
@@ -96,7 +93,7 @@ export default function ManageTabPage() {
             </AlertDescription>
           </Alert>
           <Button variant="outline" className="mt-4" asChild>
-            <Link href={`/tabs/${tabId}`}>Back to tab</Link>
+            <Link to={`/tabs/${tabIdOrEmpty}`}>Back to tab</Link>
           </Button>
         </div>
       </div>
@@ -111,7 +108,7 @@ export default function ManageTabPage() {
             <AlertDescription>Direct tabs cannot be renamed.</AlertDescription>
           </Alert>
           <Button variant="outline" className="mt-4" asChild>
-            <Link href={`/tabs/${tabId}`}>Back to tab</Link>
+            <Link to={`/tabs/${tabIdOrEmpty}`}>Back to tab</Link>
           </Button>
         </div>
       </div>
@@ -122,24 +119,24 @@ export default function ManageTabPage() {
     <div className="p-4">
       <div className="mx-auto max-w-md space-y-6 pb-26">
         <RenameTabForm
-          tabId={tabId}
+          tabIdOrEmpty={tabIdOrEmpty}
           currentName={tab.name}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
+            queryClient.invalidateQueries({ queryKey: ["tab", tabIdOrEmpty] });
             queryClient.invalidateQueries({ queryKey: ["tabs"] });
           }}
         />
         <ImportCsvForm
-          tabId={tabId}
+          tabIdOrEmpty={tabIdOrEmpty}
           members={tab.members}
           currentUserId={currentUserId}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
-            queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+            queryClient.invalidateQueries({ queryKey: ["tab", tabIdOrEmpty] });
+            queryClient.invalidateQueries({ queryKey: ["expenses", tabIdOrEmpty] });
             queryClient.invalidateQueries({
-              queryKey: ["expenses", tabId, "all"],
+              queryKey: ["expenses", tabIdOrEmpty, "all"],
             });
-            queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+            queryClient.invalidateQueries({ queryKey: ["balances", tabIdOrEmpty] });
             queryClient.invalidateQueries({ queryKey: ["activity"] });
             queryClient.invalidateQueries({ queryKey: ["tabs"] });
           }}
@@ -150,11 +147,11 @@ export default function ManageTabPage() {
 }
 
 function RenameTabForm({
-  tabId,
+  tabIdOrEmpty,
   currentName,
   onSuccess,
 }: {
-  tabId: string;
+  tabIdOrEmpty: string;
   currentName: string;
   onSuccess?: () => void;
 }) {
@@ -171,7 +168,7 @@ function RenameTabForm({
     setLoading(true);
     setError(null);
 
-    const result = await api.tabs.update(tabId, name.trim());
+    const result = await api.tabs.update(tabIdOrEmpty, name.trim());
 
     if (result.success) {
       toast.success("Tab renamed");
@@ -235,12 +232,12 @@ type TabMember = {
 };
 
 function ImportCsvForm({
-  tabId,
+  tabIdOrEmpty,
   members,
   currentUserId,
   onSuccess,
 }: {
-  tabId: string;
+  tabIdOrEmpty: string;
   members: TabMember[];
   currentUserId: string;
   onSuccess?: () => void;
@@ -260,14 +257,14 @@ function ImportCsvForm({
   >("all");
 
   const { data: expensesResult } = useQuery({
-    queryKey: ["expenses", tabId, "all"],
+    queryKey: ["expenses", tabIdOrEmpty, "all"],
     queryFn: async () => {
-      const r = await api.expenses.list(tabId);
+      const r = await api.expenses.list(tabIdOrEmpty);
       return r.success
         ? { expenses: r.expenses ?? [], total: r.total ?? 0 }
         : { expenses: [], total: 0 };
     },
-    enabled: step === "preview" && !!tabId,
+    enabled: step === "preview" && !!tabIdOrEmpty,
     staleTime: 0,
     refetchOnMount: "always",
   });
@@ -330,7 +327,7 @@ function ImportCsvForm({
   }
 
   async function handlePreviewClick() {
-    await queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+    await queryClient.invalidateQueries({ queryKey: ["expenses", tabIdOrEmpty] });
     setStep("preview");
   }
 
@@ -430,7 +427,7 @@ function ImportCsvForm({
         };
       });
 
-    const result = await api.expenses.createBulk(tabId, expenses);
+    const result = await api.expenses.createBulk(tabIdOrEmpty, expenses);
 
     setLoading(false);
     if (!result.success) {

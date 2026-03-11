@@ -1,7 +1,5 @@
-"use client";
-
 import { useDeferredValue, useRef, useState } from "react";
-import { usePathname, useParams } from "next/navigation";
+import { useLocation, useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { AddExpenseForm } from "../tabs/[tabId]/add-expense-form";
@@ -16,7 +14,6 @@ import {
 } from "@/components/ui/dialog";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
-import Link from "next/link";
 import { createStore, clear } from "idb-keyval";
 import {
   ArrowLeft,
@@ -94,7 +91,7 @@ function isFabVisible(pathname: string): boolean {
 }
 
 export function AddExpenseFAB() {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   const deferredPathname = useDeferredValue(pathname);
   const params = useParams<{ tabId?: string }>();
   const tabIdFromParams = params?.tabId;
@@ -194,7 +191,7 @@ export function AddExpenseFAB() {
 
   return (
     <div className="fixed bottom-28 right-4 z-30 flex flex-col items-end gap-2">
-      {process.env.NODE_ENV === "development" && (
+      {import.meta.env.DEV && (
         <Button
           variant="outline"
           size="icon"
@@ -313,7 +310,7 @@ export function AddExpenseFAB() {
                         No friends yet. Add a friend first.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <Link href="/friends/addFriend">Add friend</Link>
+                        <Link to="/friends/addFriend">Add friend</Link>
                       </Button>
                     </div>
                   ) : (
@@ -431,7 +428,7 @@ export function AddExpenseFAB() {
                         No tabs yet. Create a tab first.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <Link href="/tabs/create">Create tab</Link>
+                        <Link to="/tabs/create">Create tab</Link>
                       </Button>
                     </div>
                   ) : (
@@ -544,7 +541,7 @@ export function AddExpenseFAB() {
                         Add members to this tab to start splitting expenses.
                       </p>
                       <Button asChild variant="outline" className="w-full">
-                        <Link href={`/tabs/${effectiveTabId}/members`}>
+                        <Link to={`/tabs/${effectiveTabId}/members`}>
                           Invite members
                         </Link>
                       </Button>

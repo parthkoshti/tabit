@@ -1,10 +1,8 @@
-"use client";
-
 import { useEffect } from "react";
 import { useNavTitle } from "../../context/nav-title-context";
 import { CreateTabForm } from "../create-tab-form";
 
-export default function CreateTabPage() {
+export function CreateTabPage() {
   const setNavTitle = useNavTitle();
 
   useEffect(() => {

@@ -1,7 +1,5 @@
-"use client";
-
 import { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useNavTitle } from "../../context/nav-title-context";
@@ -9,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 
 function AddByQRContent() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const setNavTitle = useNavTitle();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
@@ -28,11 +26,11 @@ function AddByQRContent() {
 
   useEffect(() => {
     if (!code) {
-      router.replace("/friends/addFriend");
+      navigate("/friends/addFriend", { replace: true });
       return;
     }
     if (token && !qr) {
-      router.replace(`/invite?user=${encodeURIComponent(userParam ?? "")}&qr=${encodeURIComponent(token)}`);
+      navigate(`/invite?user=${encodeURIComponent(userParam ?? "")}&qr=${encodeURIComponent(token)}`, { replace: true });
       return;
     }
 
@@ -42,13 +40,13 @@ function AddByQRContent() {
         queryClient.invalidateQueries({ queryKey: ["friends"] });
         queryClient.invalidateQueries({ queryKey: ["tabs"] });
         queryClient.invalidateQueries({ queryKey: ["activity"] });
-        router.replace(`/tabs/${result.friendTabId}`);
+        navigate(`/tabs/${result.friendTabId}`, { replace: true });
       } else {
         setStatus("error");
         setError(result.error ?? "Failed to add friend");
       }
     });
-  }, [code, token, qr, userParam, router, queryClient]);
+  }, [code, token, qr, userParam, navigate, queryClient]);
 
   if (status === "loading") {
     return (
@@ -64,7 +62,7 @@ function AddByQRContent() {
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
           {error}
         </div>
-        <Button variant="link" onClick={() => router.push("/friends")} className="mt-4">
+        <Button variant="link" onClick={() => navigate("/friends")} className="mt-4">
           Back to friends
         </Button>
       </div>
@@ -74,7 +72,7 @@ function AddByQRContent() {
   return null;
 }
 
-export default function AddByQRPage() {
+export function AddByQrPage() {
   return (
     <Suspense
       fallback={

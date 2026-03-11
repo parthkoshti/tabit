@@ -1,25 +1,45 @@
-"use client";
-
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { usePathname } from "next/navigation";
+import { useLocation, Routes } from "react-router-dom";
 import { pageTransition, transitionSpring } from "@/lib/animations";
+import { appLayoutRoutes } from "@/src/routes/app-layout-routes";
+import { useDisplayPathnameSetter } from "@/app/(app)/context/display-pathname-context";
 
-export function PageTransition({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+function createLocation(pathname: string) {
+  return { pathname, search: "", hash: "", key: "", state: null };
+}
+
+export function PageTransition() {
+  const { pathname } = useLocation();
+  const setDisplayPathname = useDisplayPathnameSetter();
+
+  useEffect(() => {
+    if (setDisplayPathname) setDisplayPathname(pathname);
+  }, []);
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={pathname}
-        variants={pageTransition}
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        transition={transitionSpring.transition}
-        className="h-full w-full"
+    <div className="relative h-full w-full overflow-hidden">
+      <AnimatePresence
+        mode="wait"
+        initial={false}
+        onExitComplete={() =>
+          setDisplayPathname && setDisplayPathname(pathname)
+        }
       >
-        {children}
-      </motion.div>
-    </AnimatePresence>
+        <motion.div
+          key={pathname}
+          variants={pageTransition}
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={transitionSpring.transition}
+          className="absolute inset-0 overflow-auto opacity-0"
+        >
+          <Routes location={createLocation(pathname)}>
+            {appLayoutRoutes}
+          </Routes>
+        </motion.div>
+      </AnimatePresence>
+    </div>
   );
 }

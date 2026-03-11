@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 
 export function RegisterSW() {
@@ -12,7 +10,7 @@ export function RegisterSW() {
         })
         .then((reg) => {
           reg.update();
-          if (process.env.NODE_ENV === "development") {
+          if (import.meta.env.DEV) {
             console.log("[SW] Checking for service worker update");
           }
         });

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import useInfiniteScroll from "react-infinite-scroll-hook";
 import {
@@ -9,8 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
-import { useParams } from "next/navigation";
-import Link from "next/link";
+import { useParams, Link } from "react-router-dom";
 import { useNavTitle } from "../../context/nav-title-context";
 import { SettleUpForm } from "./settle-up-form";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,20 +34,20 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 
-export default function TabPage() {
-  const params = useParams<{ tabId: string }>();
-  const tabId = params.tabId;
+export function TabPage() {
+  const { tabId } = useParams<{ tabId: string }>();
+  const tabIdOrEmpty = tabId ?? "";
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const setNavTitle = useNavTitle();
 
   const { data: tab, isLoading: tabLoading } = useQuery({
-    queryKey: ["tab", tabId],
+    queryKey: ["tab", tabIdOrEmpty],
     queryFn: async () => {
-      const r = await api.tabs.get(tabId);
+      const r = await api.tabs.get(tabIdOrEmpty);
       return r.success && r.tab ? r.tab : null;
     },
-    enabled: !!tabId,
+    enabled: !!tabIdOrEmpty,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -63,9 +60,9 @@ export default function TabPage() {
     hasNextPage: hasMoreExpenses,
     isFetchingNextPage: isLoadingMoreExpenses,
   } = useInfiniteQuery({
-    queryKey: ["expenses", tabId],
+    queryKey: ["expenses", tabIdOrEmpty],
     queryFn: async ({ pageParam }) => {
-      const r = await api.expenses.list(tabId, {
+      const r = await api.expenses.list(tabIdOrEmpty, {
         limit: 50,
         offset: pageParam,
       });
@@ -87,7 +84,7 @@ export default function TabPage() {
         ? loaded
         : undefined;
     },
-    enabled: !!tabId && !!session?.user,
+    enabled: !!tabIdOrEmpty && !!session?.user,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -98,23 +95,23 @@ export default function TabPage() {
   );
 
   const { data: settlements, isLoading: settlementsLoading } = useQuery({
-    queryKey: ["settlements", tabId],
+    queryKey: ["settlements", tabIdOrEmpty],
     queryFn: async () => {
-      const r = await api.settlements.list(tabId);
+      const r = await api.settlements.list(tabIdOrEmpty);
       return r.success ? (r.settlements ?? []) : [];
     },
-    enabled: !!tabId,
+    enabled: !!tabIdOrEmpty,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   const { data: balances } = useQuery({
-    queryKey: ["balances", tabId],
+    queryKey: ["balances", tabIdOrEmpty],
     queryFn: async () => {
-      const r = await api.tabs.getBalances(tabId);
+      const r = await api.tabs.getBalances(tabIdOrEmpty);
       return r.success ? (r.balances ?? []) : [];
     },
-    enabled: !!tabId,
+    enabled: !!tabIdOrEmpty,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -197,7 +194,7 @@ export default function TabPage() {
     return () => setNavTitle?.(null);
   }, [setNavTitle, navTitle, tab, avatarUserIds, avatarDisplayName]);
 
-  if (!tabId) return null;
+  if (!tabIdOrEmpty) return null;
 
   if (tabLoading) {
     return (
@@ -214,7 +211,7 @@ export default function TabPage() {
           Tab not found or you don't have access
         </p>
         <Button variant="outline" asChild>
-          <Link href="/tabs">Go back</Link>
+          <Link to="/tabs">Go back</Link>
         </Button>
       </div>
     );
@@ -236,7 +233,7 @@ export default function TabPage() {
               className="shrink-0 justify-center gap-2 min-w-28"
               asChild
             >
-              <Link href={`/tabs/${tabId}/manage`}>
+              <Link to={`/tabs/${tabIdOrEmpty}/manage`}>
                 <Settings className="h-4 w-4" />
                 Manage
               </Link>
@@ -248,7 +245,7 @@ export default function TabPage() {
               className="shrink-0 justify-center gap-2 min-w-28"
               asChild
             >
-              <Link href={`/tabs/${tabId}/members`}>
+              <Link to={`/tabs/${tabIdOrEmpty}/members`}>
                 <UserPlus className="h-4 w-4" />
                 Members
               </Link>
@@ -272,7 +269,7 @@ export default function TabPage() {
                 </DialogDescription>
               </DialogHeader>
               <SettleUpForm
-                tabId={tabId}
+                tabId={tabIdOrEmpty}
                 currentUserId={currentUserId}
                 members={tab.members}
                 balances={balances ?? []}
@@ -293,7 +290,7 @@ export default function TabPage() {
               className="w-full justify-center gap-2"
               asChild
             >
-              <Link href={`/tabs/${tabId}/members`}>
+              <Link to={`/tabs/${tabIdOrEmpty}/members`}>
                 <UserPlus className="h-4 w-4" />
                 Invite members
               </Link>
@@ -348,7 +345,7 @@ export default function TabPage() {
               <Button
                 variant="outline"
                 onClick={() => {
-                  queryClient.resetQueries({ queryKey: ["expenses", tabId] });
+                  queryClient.resetQueries({ queryKey: ["expenses", tabIdOrEmpty] });
                 }}
               >
                 Retry
@@ -396,7 +393,7 @@ export default function TabPage() {
                     key={`exp-${item.id}`}
                     variants={shouldAnimate ? staggerItem : undefined}
                   >
-                    <Link href={`/tabs/${tabId}/expenses/${item.id}`}>
+                    <Link to={`/tabs/${tabIdOrEmpty}/expenses/${item.id}`}>
                       <AnimatedCard>
                         <Card className="cursor-pointer hover:bg-muted/50">
                           <CardContent className="flex flex-col gap-1 p-4">
@@ -475,7 +472,7 @@ export default function TabPage() {
                     key={`set-${item.id}`}
                     variants={shouldAnimate ? staggerItem : undefined}
                   >
-                    <Link href={`/tabs/${tabId}/settlements/${item.id}`}>
+                    <Link to={`/tabs/${tabIdOrEmpty}/settlements/${item.id}`}>
                       <AnimatedCard>
                         <Card className="cursor-pointer hover:bg-muted/50">
                           <CardContent className="flex flex-col gap-1 p-4">

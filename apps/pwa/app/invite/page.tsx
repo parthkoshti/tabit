@@ -1,8 +1,5 @@
-"use client";
-
 import { useEffect, useState, Suspense } from "react";
-import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { needsProfileSetup } from "@/lib/profile";
@@ -12,9 +9,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 
 function InviteContent() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const navigate = useNavigate();
+  const { pathname } = useLocation();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   const { data: session, isPending } = authClient.useSession();
   const [status, setStatus] = useState<
@@ -42,16 +39,18 @@ function InviteContent() {
       const returnTo =
         pathname +
         (searchParams.toString() ? `?${searchParams.toString()}` : "");
-      router.replace(
-        `/onboarding?returnTo=${encodeURIComponent(returnTo)}`,
-      );
+      navigate(`/onboarding?returnTo=${encodeURIComponent(returnTo)}`, {
+        replace: true,
+      });
       return;
     }
 
     if (isTabInvite) {
       if (!session?.user) {
         const returnTo = `/invite?type=tab&token=${encodeURIComponent(tokenParam!)}`;
-        router.replace(`/login?callbackURL=${encodeURIComponent(returnTo)}`);
+        navigate(`/login?callbackURL=${encodeURIComponent(returnTo)}`, {
+          replace: true,
+        });
         return;
       }
       api.tabInvites.getByToken(tokenParam!).then((result) => {
@@ -73,7 +72,9 @@ function InviteContent() {
     if (qrParam) {
       if (!session?.user) {
         const returnTo = `/invite?user=${encodeURIComponent(userParam ?? "")}&qr=${encodeURIComponent(qrParam)}`;
-        router.replace(`/login?callbackURL=${encodeURIComponent(returnTo)}`);
+        navigate(`/login?callbackURL=${encodeURIComponent(returnTo)}`, {
+          replace: true,
+        });
         return;
       }
       api.friends.addByToken(qrParam).then((result) => {
@@ -81,7 +82,7 @@ function InviteContent() {
           queryClient.invalidateQueries({ queryKey: ["friends"] });
           queryClient.invalidateQueries({ queryKey: ["tabs"] });
           queryClient.invalidateQueries({ queryKey: ["activity"] });
-          router.replace(`/tabs/${result.friendTabId}`);
+          navigate(`/tabs/${result.friendTabId}`, { replace: true });
         } else {
           setStatus("error");
           setError(result.error ?? "Failed to add friend");
@@ -99,7 +100,7 @@ function InviteContent() {
     searchParams,
     qrParam,
     userParam,
-    router,
+    navigate,
     queryClient,
     isTabInvite,
     tokenParam,
@@ -115,11 +116,11 @@ function InviteContent() {
       queryClient.invalidateQueries({ queryKey: ["tabs"] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       if (result.alreadyMember) {
-        router.replace(`/tabs/${result.tabId}`);
+        navigate(`/tabs/${result.tabId}`, { replace: true });
       } else {
         setStatus("tab-success");
         setTimeout(() => {
-          router.replace(`/tabs/${result.tabId}`);
+          navigate(`/tabs/${result.tabId}`, { replace: true });
         }, 500);
       }
     } else {
@@ -141,7 +142,7 @@ function InviteContent() {
             <Button
               variant="outline"
               className="flex-1"
-              onClick={() => router.push("/tabs")}
+              onClick={() => navigate("/tabs")}
               disabled={accepting}
             >
               Decline
@@ -176,7 +177,7 @@ function InviteContent() {
           {error}
         </div>
         <Button variant="link" asChild className="mt-4">
-          <Link href="/login">Sign in</Link>
+          <Link to="/login">Sign in</Link>
         </Button>
       </main>
     );
@@ -189,7 +190,7 @@ function InviteContent() {
   );
 }
 
-export default function InvitePage() {
+export function InvitePage() {
   return (
     <Suspense
       fallback={

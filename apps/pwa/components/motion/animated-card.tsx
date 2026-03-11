@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { cardHover } from "@/lib/animations";
+import { cardHover, quickTransition } from "@/lib/animations";
 
 interface AnimatedCardProps {
   children: React.ReactNode;
@@ -14,7 +14,7 @@ export function AnimatedCard({ children, className }: AnimatedCardProps) {
     <motion.div
       whileHover={cardHover}
       whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.2 }}
+      transition={quickTransition}
       className={cn(className)}
     >
       {children}

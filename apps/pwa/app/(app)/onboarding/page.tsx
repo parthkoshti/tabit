@@ -1,7 +1,5 @@
-"use client";
-
 import { useState, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api-client";
 import { needsProfileSetup } from "@/lib/profile";
@@ -38,9 +36,9 @@ function isStandalone(): boolean {
   );
 }
 
-export default function OnboardingPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+export function OnboardingPage() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const {
     data: session,
     isPending: sessionPending,
@@ -100,16 +98,16 @@ export default function OnboardingPage() {
   useEffect(() => {
     if (sessionPending) return;
     if (!session?.user) {
-      router.replace("/login");
+      navigate("/login", { replace: true });
       return;
     }
     if (!DISABLE_REDIRECT && !needsProfileSetup(session.user) && step !== 2) {
       const returnTo = searchParams.get("returnTo");
       const safeReturn =
         returnTo && returnTo !== "/onboarding" ? returnTo : "/tabs";
-      router.replace(safeReturn);
+      navigate(safeReturn, { replace: true });
     }
-  }, [session, sessionPending, router, searchParams, step]);
+  }, [session, sessionPending, navigate, searchParams, step]);
 
   useEffect(() => {
     if (!username.trim() || !USERNAME_REGEX.test(username.trim())) {
@@ -158,7 +156,7 @@ export default function OnboardingPage() {
     const returnTo = searchParams.get("returnTo");
     const safeReturn =
       returnTo && returnTo !== "/onboarding" ? returnTo : "/tabs";
-    router.replace(safeReturn);
+    navigate(safeReturn, { replace: true });
   }
 
   async function handleInstall() {

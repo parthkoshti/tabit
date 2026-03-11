@@ -1,9 +1,7 @@
-"use client";
-
 import { useState, useMemo, useRef, useEffect } from "react";
 import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,7 +87,7 @@ export function EditExpenseForm({
   onDeleteSuccess?: () => void;
   onCancel?: () => void;
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [amount, setAmount] = useState(expense.amount.toFixed(2));
   const [description, setDescription] = useState(expense.description);
   const [expenseDate, setExpenseDate] = useState<Date>(
@@ -185,7 +183,7 @@ export function EditExpenseForm({
       queryClient.invalidateQueries({ queryKey: ["expense", expenseId] });
       toast.success("Expense updated");
       if (onSuccess) onSuccess();
-      else router.push(`/tabs/${tabId}`);
+      else navigate(`/tabs/${tabId}`);
     } else {
       setError(result.error ?? "Failed to update expense");
     }
@@ -203,7 +201,7 @@ export function EditExpenseForm({
       toast.success("Expense deleted");
       const cb = onDeleteSuccess ?? onSuccess;
       if (cb) cb();
-      else router.push(`/tabs/${tabId}`);
+      else navigate(`/tabs/${tabId}`);
     } else {
       setError(result.error ?? "Failed to delete expense");
     }

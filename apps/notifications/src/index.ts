@@ -68,8 +68,8 @@ function unsubscribeFromUser(userId: string) {
 }
 
 const appBaseUrl =
-  process.env.NEXT_PUBLIC_PWA_URL ??
-  process.env.NEXT_PUBLIC_APP_URL ??
+  process.env.VITE_PWA_URL ??
+  process.env.VITE_APP_URL ??
   process.env.APP_URL ??
   "https://localhost:3003";
 

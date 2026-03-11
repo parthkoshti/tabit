@@ -1,7 +1,5 @@
-"use client";
-
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { Pencil, ReceiptText } from "lucide-react";
@@ -30,7 +28,7 @@ export function ExpenseAddedToast({
   participants: Participant[];
   currentUserId: string;
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
 
   const sortedParticipants = useMemo(
     () =>
@@ -92,7 +90,7 @@ export function ExpenseAddedToast({
           size="sm"
           className="h-7 shrink-0 px-2.5"
           onClick={() => {
-            router.push(`/tabs/${tabId}/expenses/${expenseId}?edit=1`);
+            navigate(`/tabs/${tabId}/expenses/${expenseId}?edit=1`);
           }}
         >
         <Pencil className="h-3.5 w-3.5" />

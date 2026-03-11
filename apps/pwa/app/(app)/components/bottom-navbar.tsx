@@ -1,7 +1,4 @@
-"use client";
-
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Users, Activity, User, ReceiptText } from "lucide-react";
 import { useNeedsPushResubscription } from "@/app/(app)/context/push-resubscription-context";
@@ -18,7 +15,7 @@ const tabs = [
 ] as const;
 
 export function BottomNavbar() {
-  const pathname = usePathname();
+  const { pathname } = useLocation();
   const { data: session } = authClient.useSession();
   const { data: friendRequestsData } = useQuery({
     queryKey: ["pendingFriendRequests"],
@@ -74,7 +71,7 @@ export function BottomNavbar() {
               }`}
               asChild
             >
-              <Link href={href} prefetch>
+              <Link to={href}>
                 <span className="relative inline-block">
                   {showAvatar ? (
                     <UserAvatar

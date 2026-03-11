@@ -1,9 +1,7 @@
-"use client";
-
 import { useState } from "react";
 import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -81,7 +79,7 @@ export function EditSettlementForm({
   onDeleteSuccess?: () => void;
   onCancel?: () => void;
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [fromUserId, setFromUserId] = useState(settlement.fromUserId);
   const [toUserId, setToUserId] = useState(settlement.toUserId);
   const [amount, setAmount] = useState(settlement.amount.toFixed(2));
@@ -128,7 +126,7 @@ export function EditSettlementForm({
       queryClient.invalidateQueries({ queryKey: ["settlement", settlementId] });
       toast.success("Settlement updated");
       if (onSuccess) onSuccess();
-      else router.push(`/tabs/${tabId}`);
+      else navigate(`/tabs/${tabId}`);
     } else {
       setError(result.error ?? "Failed to update settlement");
     }
@@ -147,7 +145,7 @@ export function EditSettlementForm({
       toast.success("Settlement deleted");
       const cb = onDeleteSuccess ?? onSuccess;
       if (cb) cb();
-      else router.push(`/tabs/${tabId}`);
+      else navigate(`/tabs/${tabId}`);
     } else {
       setError(result.error ?? "Failed to delete settlement");
     }

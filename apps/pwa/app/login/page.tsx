@@ -1,10 +1,8 @@
-"use client";
-
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { appConfig } from "@/app/config";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { appConfig } from "@/src/config";
 import { authClient } from "@/lib/auth-client";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,17 +17,17 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Spinner } from "@/components/ui/spinner";
 
 function LoginForm() {
-  const searchParams = useSearchParams();
+  const [searchParams] = useSearchParams();
   const callbackURL = searchParams.get("callbackURL") ?? "/tabs";
-  const router = useRouter();
+  const navigate = useNavigate();
   const { data: session, isPending } = authClient.useSession();
   const [email, setEmail] = useState("");
 
   useEffect(() => {
     if (!isPending && session?.user) {
-      router.replace("/");
+      navigate("/", { replace: true });
     }
-  }, [session, isPending, router]);
+  }, [session, isPending, navigate]);
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"email" | "otp">("email");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -73,7 +71,7 @@ function LoginForm() {
       return;
     }
 
-    router.push(callbackURL);
+    navigate(callbackURL);
   }
 
   function handleBackToEmail() {
@@ -175,7 +173,7 @@ function LoginForm() {
           )}
 
           <Button variant="link" asChild className="w-full">
-            <Link href="/">Back to home</Link>
+            <Link to="/">Back to home</Link>
           </Button>
         </CardContent>
       </Card>
@@ -183,7 +181,7 @@ function LoginForm() {
   );
 }
 
-export default function LoginPage() {
+export function LoginPage() {
   return (
     <Suspense
       fallback={

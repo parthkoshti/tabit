@@ -1,6 +1,7 @@
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { auth } from "auth";
 import type { AuthContext } from "./auth.js";
 import { log } from "./lib/logger.js";
 import { friendsRoutes } from "./routes/friends.js";
@@ -44,6 +45,8 @@ app.use("*", async (c, next) => {
 });
 
 app.get("/health", (c) => c.json({ status: "ok" }));
+
+app.on(["GET", "POST"], "/api/auth/*", async (c) => auth.handler(c.req.raw));
 
 app.get("/notifications/token", authMiddleware, async (c) => {
   const { userId } = c.get("auth");

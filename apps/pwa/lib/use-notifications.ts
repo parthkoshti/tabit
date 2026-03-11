@@ -1,13 +1,11 @@
-"use client";
-
 import { useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useSetPushResubscriptionRequired } from "@/app/(app)/context/push-resubscription-context";
 
 const configuredWsUrl =
-  process.env.NEXT_PUBLIC_NOTIFICATIONS_WS_URL ?? "ws://localhost:3002";
+  import.meta.env.VITE_NOTIFICATIONS_WS_URL ?? "ws://localhost:3002";
 const apiUrl = "/api-backend";
 
 function getWebSocketUrl(): string {
@@ -27,7 +25,7 @@ function getWebSocketUrl(): string {
 }
 
 export function useNotifications(enabled: boolean) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const setNeedsResubscription = useSetPushResubscriptionRequired();
   const wsRef = useRef<WebSocket | null>(null);
@@ -104,7 +102,7 @@ export function useNotifications(enabled: boolean) {
                 description: "Your push subscription is no longer valid.",
                 action: {
                   label: "Settings",
-                  onClick: () => router.push("/me"),
+                  onClick: () => navigate("/me"),
                 },
               });
             }
@@ -147,7 +145,7 @@ export function useNotifications(enabled: boolean) {
         wsRef.current = null;
       }
     };
-  }, [enabled, queryClient, router, setNeedsResubscription]);
+  }, [enabled, queryClient, navigate, setNeedsResubscription]);
 
   useEffect(() => {
     const cleanup = connect();

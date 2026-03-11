@@ -1,11 +1,9 @@
-'use client';
-
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import useInfiniteScroll from "react-infinite-scroll-hook";
 import { api } from "@/lib/api-client";
 import type { ActivityItem } from "data";
 import { authClient } from "@/lib/auth-client";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { ReceiptText } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
@@ -33,7 +31,7 @@ function formatAmount(n: number): string {
   });
 }
 
-export default function ActivityPage() {
+export function ActivityPage() {
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
@@ -139,7 +137,7 @@ export default function ActivityPage() {
                 const shouldAnimate = i < 8;
                 return item.type === "expense" ? (
                   <motion.div key={`exp-${item.id}`} variants={shouldAnimate ? staggerItem : undefined}>
-                    <Link href={`/tabs/${item.tabId}/expenses/${item.id}`}>
+                    <Link to={`/tabs/${item.tabId}/expenses/${item.id}`}>
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
@@ -179,7 +177,7 @@ export default function ActivityPage() {
                     key={`set-${item.id}`}
                     variants={shouldAnimate ? staggerItem : undefined}
                   >
-                    <Link href={`/tabs/${item.tabId}/settlements/${item.id}`}>
+                    <Link to={`/tabs/${item.tabId}/settlements/${item.id}`}>
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-center gap-2">
                         <UserAvatar userId={item.fromUserId} size="sm" />

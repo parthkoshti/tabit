@@ -1,9 +1,7 @@
-"use client";
-
-import { useRouter } from "next/navigation";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import Link from "next/link";
+import { Link } from "react-router-dom";
 import { ReceiptText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
@@ -12,8 +10,8 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 
-export default function TabsPage() {
-  const router = useRouter();
+export function TabsPage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
@@ -54,7 +52,7 @@ export default function TabsPage() {
       queryClient.invalidateQueries({ queryKey: ["friends"] });
       queryClient.invalidateQueries({ queryKey: ["tabs"] });
       queryClient.invalidateQueries({ queryKey: ["pendingTabInviteRequests"] });
-      router.push(`/tabs/${result.tabId}`);
+      navigate(`/tabs/${result.tabId}`);
     }
   }
 
@@ -162,7 +160,7 @@ export default function TabsPage() {
                 const extraCount = hasExtra ? otherMemberIds.length - 2 : 0;
                 return (
                   <motion.div key={t.id} variants={staggerItem}>
-                    <Link href={`/tabs/${t.id}`}>
+                    <Link to={`/tabs/${t.id}`}>
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-medium">{t.name}</span>

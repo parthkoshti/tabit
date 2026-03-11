@@ -1,12 +1,10 @@
-"use client";
-
-import Image from "next/image";
-import { usePathname, useRouter } from "next/navigation";
-import Link from "next/link";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { ArrowLeft, Plus, ReceiptText } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
-import { appConfig } from "@/app/config";
+import { appConfig } from "@/src/config";
 import { useNavTitleConfig } from "../context/nav-title-context";
+import { useDisplayPathname } from "../context/display-pathname-context";
 import { SignOutButton } from "./sign-out-button";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
@@ -25,15 +23,16 @@ const navContentVariants = {
 };
 
 export function TopNavbar() {
-  const pathname = usePathname();
-  const router = useRouter();
+  const { pathname } = useLocation();
+  const displayPathname = useDisplayPathname() || pathname;
+  const navigate = useNavigate();
   const navPage = useNavTitleConfig();
-  const isMePage = pathname === "/me";
+  const isMePage = displayPathname === "/me";
   const isFriendsListPage =
-    pathname === "/friends" || pathname === "/friends/";
-  const isTabsListPage = pathname === "/tabs" || pathname === "/tabs/";
+    displayPathname === "/friends" || displayPathname === "/friends/";
+  const isTabsListPage = displayPathname === "/tabs" || displayPathname === "/tabs/";
   const isTabPage =
-    pathname.startsWith("/tabs/") && !pathname.match(/^\/tabs\/?$/);
+    displayPathname.startsWith("/tabs/") && !displayPathname.match(/^\/tabs\/?$/);
 
   return (
     <header className="top-nav-safe fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]">
@@ -53,7 +52,7 @@ export function TopNavbar() {
               size="icon"
               className="relative z-10 shrink-0"
               aria-label="Go back"
-              onClick={() => router.back()}
+              onClick={() => navigate(-1)}
             >
               <ArrowLeft className="h-5 w-5" />
             </Button>
@@ -110,13 +109,12 @@ export function TopNavbar() {
             exit="exit"
             transition={transitionSpring.transition}
           >
-            <Link href="/tabs" className="flex items-center gap-2">
-              <Image
+            <Link to="/tabs" className="flex items-center gap-2">
+              <img
                 src={appConfig.icons.sm.src}
                 alt="Tab It Logo"
                 width={52}
                 height={52}
-                className=""
               />
             </Link>
           </motion.div>
@@ -146,7 +144,7 @@ export function TopNavbar() {
             transition={transitionSpring.transition}
           >
             <Button variant="default" size="sm" asChild aria-label="Add friend">
-              <Link href="/friends/addFriend" className="">
+              <Link to="/friends/addFriend" className="">
                 <Plus className="h-5 w-5" />
                 <span>Friend</span>
               </Link>
@@ -163,7 +161,7 @@ export function TopNavbar() {
             transition={transitionSpring.transition}
           >
             <Button variant="default" size="sm" asChild aria-label="New tab">
-              <Link href="/tabs/create" className="">
+              <Link to="/tabs/create" className="">
                 <Plus className="h-5 w-5" />
                 <span>Tab</span>
               </Link>
