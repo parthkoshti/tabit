@@ -32,7 +32,6 @@ import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import {
   BanknoteArrowUp,
-  CircleCheck,
   Settings,
   UserPlus,
   Wallet,
@@ -87,7 +86,11 @@ export default function TabPage() {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
-  const expenses = expensesData?.pages.flatMap((p) => p?.expenses ?? []) ?? [];
+  const expenses = useMemo(
+    () =>
+      expensesData?.pages.flatMap((p) => p?.expenses ?? []) ?? [],
+    [expensesData],
+  );
 
   const { data: settlements, isLoading: settlementsLoading } = useQuery({
     queryKey: ["settlements", tabId],
@@ -201,14 +204,16 @@ export default function TabPage() {
     balances?.filter((b) => b.userId === currentUserId && b.amount > 0) ?? [];
   const others = balances?.filter((b) => b.userId !== currentUserId) ?? [];
 
-  const expensesAndSettlements = [
-    ...(expenses ?? []).map((e) => ({ ...e, type: "expense" as const })),
-    ...(settlements ?? []).map((s) => ({ ...s, type: "settlement" as const })),
-  ].sort((a, b) => {
-    const dateA = a.type === "expense" ? a.expenseDate : a.createdAt;
-    const dateB = b.type === "expense" ? b.expenseDate : b.createdAt;
-    return new Date(dateB).getTime() - new Date(dateA).getTime();
-  });
+  const expensesAndSettlements = useMemo(() => {
+    return [
+      ...(expenses ?? []).map((e) => ({ ...e, type: "expense" as const })),
+      ...(settlements ?? []).map((s) => ({ ...s, type: "settlement" as const })),
+    ].sort((a, b) => {
+      const dateA = a.type === "expense" ? a.expenseDate : a.createdAt;
+      const dateB = b.type === "expense" ? b.expenseDate : b.createdAt;
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
+  }, [expenses, settlements]);
 
   return (
     <div className="p-4">
@@ -370,12 +375,16 @@ export default function TabPage() {
             <motion.div
               className="flex flex-col gap-4"
               variants={staggerContainer}
-              initial="initial"
+              initial={false}
               animate="animate"
             >
-              {expensesAndSettlements.map((item) =>
-                item.type === "expense" ? (
-                  <motion.div key={`exp-${item.id}`} variants={staggerItem}>
+              {expensesAndSettlements.map((item, i) => {
+                const shouldAnimate = i < 8;
+                return item.type === "expense" ? (
+                  <motion.div
+                    key={`exp-${item.id}`}
+                    variants={shouldAnimate ? staggerItem : undefined}
+                  >
                     <Link href={`/tabs/${tabId}/expenses/${item.id}`}>
                       <AnimatedCard>
                         <Card className="cursor-pointer hover:bg-muted/50">
@@ -451,7 +460,10 @@ export default function TabPage() {
                     </Link>
                   </motion.div>
                 ) : (
-                  <motion.div key={`set-${item.id}`} variants={staggerItem}>
+                  <motion.div
+                    key={`set-${item.id}`}
+                    variants={shouldAnimate ? staggerItem : undefined}
+                  >
                     <Link href={`/tabs/${tabId}/settlements/${item.id}`}>
                       <AnimatedCard>
                         <Card className="cursor-pointer hover:bg-muted/50">
@@ -497,8 +509,8 @@ export default function TabPage() {
                       </AnimatedCard>
                     </Link>
                   </motion.div>
-                ),
-              )}
+                );
+              })}
               {isLoadingMoreExpenses && (
                 <div className="flex flex-col gap-4">
                   {Array.from({ length: 2 }).map((_, i) => (

@@ -16,7 +16,7 @@ import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { useMemo } from "react";
 
-function formatDate(d) {
+function formatDate(d: Date | string): string {
   const date = new Date(d);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
@@ -26,7 +26,7 @@ function formatDate(d) {
   return date.toLocaleDateString();
 }
 
-function formatAmount(n) {
+function formatAmount(n: number): string {
   return n.toLocaleString(undefined, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -131,10 +131,10 @@ export default function ActivityPage() {
               animate="animate"
             >
               {items.map((item, i) => {
-                const animate = i < 8;
+                const shouldAnimate = i < 8;
                 return item.type === "expense" ? (
-                  <motion.div key={`exp-${item.id}`} variants={animate ? staggerItem : undefined}>
-                    <Link href={`/tabs/${item.tabId}/expenses/${item.id}`}> 
+                  <motion.div key={`exp-${item.id}`} variants={shouldAnimate ? staggerItem : undefined}>
+                    <Link href={`/tabs/${item.tabId}/expenses/${item.id}`}>
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
@@ -172,7 +172,7 @@ export default function ActivityPage() {
                 ) : (
                   <motion.div
                     key={`set-${item.id}`}
-                    variants={animate ? staggerItem : undefined}
+                    variants={shouldAnimate ? staggerItem : undefined}
                   >
                     <Link href={`/tabs/${item.tabId}/settlements/${item.id}`}>
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
@@ -214,7 +214,7 @@ export default function ActivityPage() {
                     </AnimatedCard>
                   </Link>
                 </motion.div>
-                ),
+                );
               })}
               {isFetchingNextPage && (
                 <div className="flex flex-col gap-3">
