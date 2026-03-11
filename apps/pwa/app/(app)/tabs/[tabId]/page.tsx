@@ -164,6 +164,17 @@ export default function TabPage() {
   const isAdmin =
     tab?.members?.find((m) => m.userId === currentUserId)?.role === "owner";
 
+  const expensesAndSettlements = useMemo(() => {
+    return [
+      ...(expenses ?? []).map((e) => ({ ...e, type: "expense" as const })),
+      ...(settlements ?? []).map((s) => ({ ...s, type: "settlement" as const })),
+    ].sort((a, b) => {
+      const dateA = a.type === "expense" ? a.expenseDate : a.createdAt;
+      const dateB = b.type === "expense" ? b.expenseDate : b.createdAt;
+      return new Date(dateB).getTime() - new Date(dateA).getTime();
+    });
+  }, [expenses, settlements]);
+
   useEffect(() => {
     if (!tab) return;
     setNavTitle?.({
@@ -203,17 +214,6 @@ export default function TabPage() {
   const owedToYou =
     balances?.filter((b) => b.userId === currentUserId && b.amount > 0) ?? [];
   const others = balances?.filter((b) => b.userId !== currentUserId) ?? [];
-
-  const expensesAndSettlements = useMemo(() => {
-    return [
-      ...(expenses ?? []).map((e) => ({ ...e, type: "expense" as const })),
-      ...(settlements ?? []).map((s) => ({ ...s, type: "settlement" as const })),
-    ].sort((a, b) => {
-      const dateA = a.type === "expense" ? a.expenseDate : a.createdAt;
-      const dateB = b.type === "expense" ? b.expenseDate : b.createdAt;
-      return new Date(dateB).getTime() - new Date(dateA).getTime();
-    });
-  }, [expenses, settlements]);
 
   return (
     <div className="p-4">
