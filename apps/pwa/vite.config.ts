@@ -13,6 +13,8 @@ const https =
       }
     : undefined;
 
+const isProd = process.env.NODE_ENV === "production";
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -21,7 +23,7 @@ export default defineConfig({
     },
   },
   server: {
-    https,
+    https: isProd ? undefined : https,
     proxy: {
       "/api-backend": {
         target: "http://localhost:3001",
