@@ -265,7 +265,7 @@ export function AddExpenseFAB() {
           }}
         >
           <Sparkles className="h-4 w-4" />
-          AI Add expense
+          Add Expense
         </Button>
       </motion.div>
       <motion.div {...fabSpring} whileTap={{ scale: 0.95 }}>
