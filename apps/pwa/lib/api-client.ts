@@ -1,3 +1,15 @@
+import type {
+  TabWithMembers,
+  TabWithBalance,
+  FriendTab,
+  Balance,
+  Expense,
+  Settlement,
+  ActivityItem,
+  ExpenseAuditLogEntry,
+  SettlementAuditLogEntry,
+} from "data";
+
 function getApiUrl(): string {
   return "/api-backend";
 }
@@ -78,7 +90,8 @@ export const api = {
       }>(
         `/friends/search?q=${encodeURIComponent(q)}${options?.includeFriends ? "&includeFriends=true" : ""}`,
       ),
-    list: () => request<{ success: boolean; friends: unknown[] }>("/friends"),
+    list: () =>
+      request<{ success: boolean; friends: FriendTab[] }>("/friends"),
   },
   tabInvites: {
     getByToken: (token: string) =>
@@ -125,10 +138,15 @@ export const api = {
       ),
   },
   tabs: {
-    list: () => request<{ success: boolean; tabs: unknown[] }>("/tabs"),
+    list: () =>
+      request<{ success: boolean; tabs: TabWithBalance[] }>("/tabs"),
     get: (tabId: string) =>
-      request<{ success: boolean; tab: unknown; error?: string }>(
+      request<{ success: boolean; tab: TabWithMembers | null; error?: string }>(
         `/tabs/${tabId}`,
+      ),
+    getBalances: (tabId: string) =>
+      request<{ success: boolean; balances: Balance[]; error?: string }>(
+        `/tabs/${tabId}/balances`,
       ),
     create: (name: string) =>
       request<{ success: boolean; tabId: string; error?: string }>("/tabs", {
@@ -152,9 +170,30 @@ export const api = {
       }),
   },
   expenses: {
-    list: (tabId: string) =>
-      request<{ success: boolean; expenses: unknown[] }>(
-        `/tabs/${tabId}/expenses`,
+    list: (
+      tabId: string,
+      options?: { limit?: number; offset?: number },
+    ) => {
+      const params = new URLSearchParams();
+      if (options?.limit != null) params.set("limit", String(options.limit));
+      if (options?.offset != null) params.set("offset", String(options.offset));
+      const qs = params.toString();
+      return request<{
+        success: boolean;
+        expenses: Expense[];
+        total?: number;
+        error?: string;
+      }>(
+        `/tabs/${tabId}/expenses${qs ? `?${qs}` : ""}`,
+      );
+    },
+    get: (tabId: string, expenseId: string) =>
+      request<{ success: boolean; expense: Expense | null; error?: string }>(
+        `/tabs/${tabId}/expenses/${expenseId}`,
+      ),
+    getAuditLog: (tabId: string, expenseId: string) =>
+      request<{ success: boolean; auditLog: ExpenseAuditLogEntry[]; error?: string }>(
+        `/tabs/${tabId}/expenses/${expenseId}/audit-log`,
       ),
     create: (
       tabId: string,
@@ -236,8 +275,12 @@ export const api = {
       ),
   },
   settlements: {
+    list: (tabId: string) =>
+      request<{ success: boolean; settlements: Settlement[]; error?: string }>(
+        `/tabs/${tabId}/settlements`,
+      ),
     get: (tabId: string, settlementId: string) =>
-      request<{ success: boolean; settlement: unknown; error?: string }>(
+      request<{ success: boolean; settlement: Settlement | null; error?: string }>(
         `/tabs/${tabId}/settlements/${settlementId}`,
       ),
     record: (
@@ -267,6 +310,24 @@ export const api = {
         `/tabs/${tabId}/settlements/${settlementId}`,
         { method: "DELETE" },
       ),
+    getAuditLog: (tabId: string, settlementId: string) =>
+      request<{ success: boolean; auditLog: SettlementAuditLogEntry[]; error?: string }>(
+        `/tabs/${tabId}/settlements/${settlementId}/audit-log`,
+      ),
+  },
+  activity: {
+    list: (options?: { limit?: number; offset?: number }) => {
+      const params = new URLSearchParams();
+      if (options?.limit != null) params.set("limit", String(options.limit));
+      if (options?.offset != null) params.set("offset", String(options.offset));
+      const qs = params.toString();
+      return request<{
+        success: boolean;
+        items: ActivityItem[];
+        total?: number;
+        error?: string;
+      }>(`/activity${qs ? `?${qs}` : ""}`);
+    },
   },
   profile: {
     update: (name: string) =>

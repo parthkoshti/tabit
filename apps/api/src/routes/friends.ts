@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { db, tab, tabMember, user, friendRequest, pendingFriend } from "db";
+import { db, tab as tabTable, tabMember, user, friendRequest, pendingFriend } from "db";
 import { eq, and, ne, desc, ilike, inArray, sql } from "drizzle-orm";
 import { createShortId } from "shared";
 import { authMiddleware, type AuthContext } from "../auth.js";
@@ -8,26 +8,10 @@ import {
   createFriendRequestNotificationPayload,
   createFriendRequestAcceptedNotificationPayload,
 } from "models";
-import { getDirectTabsForUser } from "data";
+import { tab } from "data";
 
 function secureToken(): string {
   return createShortId();
-}
-
-async function createDirectTab(
-  userId1: string,
-  userId2: string,
-): Promise<string> {
-  const [inserted] = await db
-    .insert(tab)
-    .values({ name: "Direct", isDirect: true })
-    .returning({ id: tab.id });
-  const id = inserted!.id;
-  await db.insert(tabMember).values([
-    { tabId: id, userId: userId1, role: "member" },
-    { tabId: id, userId: userId2, role: "member" },
-  ]);
-  return id;
 }
 
 export const friendsRoutes = new Hono<{ Variables: { auth: AuthContext } }>();
@@ -94,10 +78,10 @@ friendsRoutes.post("/requests", async (c) => {
   }
 
   const directTabs = await db
-    .select({ id: tab.id })
-    .from(tab)
-    .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
-    .where(and(eq(tab.isDirect, true), eq(tabMember.userId, userId)));
+    .select({ id: tabTable.id })
+    .from(tabTable)
+    .innerJoin(tabMember, eq(tabTable.id, tabMember.tabId))
+    .where(and(eq(tabTable.isDirect, true), eq(tabMember.userId, userId)));
 
   for (const t of directTabs) {
     const [otherMember] = await db
@@ -194,7 +178,7 @@ friendsRoutes.post("/requests/:id/accept", async (c) => {
     .set({ status: "accepted" })
     .where(eq(friendRequest.id, requestId));
 
-  const friendTabId = await createDirectTab(userId, req.fromUserId);
+  const friendTabId = await tab.createDirect(userId, req.fromUserId);
 
   const [accepter] = await db
     .select({ name: user.name, username: user.username })
@@ -325,10 +309,10 @@ friendsRoutes.post("/add-by-token", async (c) => {
   }
 
   const directTabs = await db
-    .select({ id: tab.id })
-    .from(tab)
-    .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
-    .where(and(eq(tab.isDirect, true), eq(tabMember.userId, userId)));
+    .select({ id: tabTable.id })
+    .from(tabTable)
+    .innerJoin(tabMember, eq(tabTable.id, tabMember.tabId))
+    .where(and(eq(tabTable.isDirect, true), eq(tabMember.userId, userId)));
 
   for (const t of directTabs) {
     const [otherMember] = await db
@@ -344,7 +328,7 @@ friendsRoutes.post("/add-by-token", async (c) => {
     }
   }
 
-  const friendTabId = await createDirectTab(userId, pending.userId);
+  const friendTabId = await tab.createDirect(userId, pending.userId);
   await db.delete(pendingFriend).where(eq(pendingFriend.id, pending.id));
 
   return c.json({ success: true, friendTabId });
@@ -364,9 +348,9 @@ friendsRoutes.get("/search", async (c) => {
   if (!includeFriends) {
     const directTabIds = await db
       .select({ tabId: tabMember.tabId })
-      .from(tab)
-      .innerJoin(tabMember, eq(tab.id, tabMember.tabId))
-      .where(and(eq(tab.isDirect, true), eq(tabMember.userId, userId)));
+      .from(tabTable)
+      .innerJoin(tabMember, eq(tabTable.id, tabMember.tabId))
+      .where(and(eq(tabTable.isDirect, true), eq(tabMember.userId, userId)));
 
     if (directTabIds.length > 0) {
       const tabIds = directTabIds.map((d) => d.tabId);
@@ -398,6 +382,6 @@ friendsRoutes.get("/search", async (c) => {
 
 friendsRoutes.get("/", async (c) => {
   const { userId } = c.get("auth");
-  const friends = await getDirectTabsForUser(userId);
+  const friends = await tab.getDirectTabsForUser(userId);
   return c.json({ success: true, friends });
 });

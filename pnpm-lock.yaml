@@ -232,9 +232,6 @@ importers:
       react-infinite-scroll-hook:
         specifier: ^6.0.1
         version: 6.0.1(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      server-only:
-        specifier: ^0.0.1
-        version: 0.0.1
       shared:
         specifier: workspace:*
         version: link:../../packages/shared

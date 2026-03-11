@@ -2,11 +2,6 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  fetchSettlement,
-  fetchSettlementAuditLog,
-  fetchTab,
-} from "@/app/actions/queries";
 import { authClient } from "@/lib/auth-client";
 import { useNavTitle } from "../../../../context/nav-title-context";
 import { useEffect, useState } from "react";
@@ -41,25 +36,34 @@ export default function SettlementPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { data: settlement, isLoading: settlementLoading } = useQuery({
-    queryKey: ["settlement", settlementId],
-    queryFn: () => fetchSettlement(settlementId),
-    enabled: !!settlementId,
+    queryKey: ["settlement", tabId, settlementId],
+    queryFn: async () => {
+      const r = await api.settlements.get(tabId!, settlementId);
+      return r.success && r.settlement ? r.settlement : null;
+    },
+    enabled: !!tabId && !!settlementId,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   const { data: tab } = useQuery({
     queryKey: ["tab", tabId],
-    queryFn: () => fetchTab(tabId),
+    queryFn: async () => {
+      const r = await api.tabs.get(tabId!);
+      return r.success && r.tab ? r.tab : null;
+    },
     enabled: !!tabId,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   const { data: auditLog } = useQuery({
-    queryKey: ["settlementAuditLog", settlementId],
-    queryFn: () => fetchSettlementAuditLog(settlementId),
-    enabled: !!settlementId && !!settlement,
+    queryKey: ["settlementAuditLog", tabId, settlementId],
+    queryFn: async () => {
+      const r = await api.settlements.getAuditLog(tabId!, settlementId);
+      return r.success ? (r.auditLog ?? []) : [];
+    },
+    enabled: !!tabId && !!settlementId && !!settlement,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -103,7 +107,7 @@ export default function SettlementPage() {
 
   const currentUserId = session?.user?.id ?? "";
 
-  function formatAuditDate(date: Date) {
+  function formatAuditDate(date: Date | string) {
     return new Date(date).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",

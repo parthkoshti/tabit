@@ -3,7 +3,6 @@
 import { useDeferredValue, useRef, useState } from "react";
 import { usePathname, useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchFriends, fetchTabs, fetchTab } from "@/app/actions/queries";
 import { authClient } from "@/lib/auth-client";
 import { AddExpenseForm } from "../tabs/[tabId]/add-expense-form";
 import { api } from "@/lib/api-client";
@@ -117,14 +116,20 @@ export function AddExpenseFAB() {
 
   const { data: friends, isLoading: friendsLoading } = useQuery({
     queryKey: ["friends"],
-    queryFn: fetchFriends,
+    queryFn: async () => {
+      const r = await api.friends.list();
+      return r.success ? (r.friends ?? []) : [];
+    },
     enabled: open,
     staleTime: 0,
   });
 
   const { data: tabs, isLoading: tabsLoading } = useQuery({
     queryKey: ["tabs"],
-    queryFn: fetchTabs,
+    queryFn: async () => {
+      const r = await api.tabs.list();
+      return r.success ? (r.tabs ?? []) : [];
+    },
     enabled: open,
     staleTime: 0,
   });
@@ -139,8 +144,11 @@ export function AddExpenseFAB() {
 
   const { data: tab, isLoading: tabLoading } = useQuery({
     queryKey: ["tab", effectiveTabId],
-    queryFn: () => fetchTab(effectiveTabId!),
-    enabled: open && addExpenseMode === "tab" && !!effectiveTabId,
+    queryFn: async () => {
+      const r = await api.tabs.get(effectiveTabId!);
+      return r.success && r.tab ? r.tab : null;
+    },
+    enabled: open && !!effectiveTabId,
     staleTime: 0,
   });
 

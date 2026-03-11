@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchTab, fetchExpenses } from "@/app/actions/queries";
 import { api } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
 import Link from "next/link";
@@ -58,7 +57,10 @@ export default function ManageTabPage() {
 
   const { data: tab, isLoading: tabLoading } = useQuery({
     queryKey: ["tab", tabId],
-    queryFn: () => fetchTab(tabId),
+    queryFn: async () => {
+      const r = await api.tabs.get(tabId);
+      return r.success && r.tab ? r.tab : null;
+    },
     enabled: !!tabId,
   });
 
@@ -259,7 +261,12 @@ function ImportCsvForm({
 
   const { data: expensesResult } = useQuery({
     queryKey: ["expenses", tabId, "all"],
-    queryFn: () => fetchExpenses(tabId),
+    queryFn: async () => {
+      const r = await api.expenses.list(tabId);
+      return r.success
+        ? { expenses: r.expenses ?? [], total: r.total ?? 0 }
+        : { expenses: [], total: 0 };
+    },
     enabled: step === "preview" && !!tabId,
     staleTime: 0,
     refetchOnMount: "always",

@@ -7,12 +7,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
-import {
-  fetchTab,
-  fetchExpenses,
-  fetchSettlements,
-  fetchBalances,
-} from "@/app/actions/queries";
+import { api } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
 import { useParams } from "next/navigation";
 import Link from "next/link";
@@ -51,7 +46,10 @@ export default function TabPage() {
 
   const { data: tab, isLoading: tabLoading } = useQuery({
     queryKey: ["tab", tabId],
-    queryFn: () => fetchTab(tabId),
+    queryFn: async () => {
+      const r = await api.tabs.get(tabId);
+      return r.success && r.tab ? r.tab : null;
+    },
     enabled: !!tabId,
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -66,8 +64,15 @@ export default function TabPage() {
     isFetchingNextPage: isLoadingMoreExpenses,
   } = useInfiniteQuery({
     queryKey: ["expenses", tabId],
-    queryFn: ({ pageParam }) =>
-      fetchExpenses(tabId, { limit: 50, offset: pageParam }),
+    queryFn: async ({ pageParam }) => {
+      const r = await api.expenses.list(tabId, {
+        limit: 50,
+        offset: pageParam,
+      });
+      return r.success
+        ? { expenses: r.expenses ?? [], total: r.total ?? 0 }
+        : { expenses: [], total: 0 };
+    },
     initialPageParam: 0,
     placeholderData: (prev) => prev ?? { pages: [], pageParams: [0] },
     getNextPageParam: (lastPage, allPages) => {
@@ -94,7 +99,10 @@ export default function TabPage() {
 
   const { data: settlements, isLoading: settlementsLoading } = useQuery({
     queryKey: ["settlements", tabId],
-    queryFn: () => fetchSettlements(tabId),
+    queryFn: async () => {
+      const r = await api.settlements.list(tabId);
+      return r.success ? (r.settlements ?? []) : [];
+    },
     enabled: !!tabId,
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -102,7 +110,10 @@ export default function TabPage() {
 
   const { data: balances } = useQuery({
     queryKey: ["balances", tabId],
-    queryFn: () => fetchBalances(tabId),
+    queryFn: async () => {
+      const r = await api.tabs.getBalances(tabId);
+      return r.success ? (r.balances ?? []) : [];
+    },
     enabled: !!tabId,
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -130,9 +141,9 @@ export default function TabPage() {
       string,
       {
         id: string;
-        email: string | null;
+        email: string;
         name: string | null;
-        username: string | null;
+        username?: string | null;
       }
     >();
     for (const m of tab?.members ?? []) {

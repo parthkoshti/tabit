@@ -2,11 +2,6 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  fetchExpense,
-  fetchExpenseAuditLog,
-  fetchTab,
-} from "@/app/actions/queries";
 import { authClient } from "@/lib/auth-client";
 import { useNavTitle } from "../../../../context/nav-title-context";
 import { useEffect, useState } from "react";
@@ -42,25 +37,34 @@ export default function ExpensePage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   const { data: expense, isLoading: expenseLoading } = useQuery({
-    queryKey: ["expense", expenseId],
-    queryFn: () => fetchExpense(expenseId),
-    enabled: !!expenseId,
+    queryKey: ["expense", tabId, expenseId],
+    queryFn: async () => {
+      const r = await api.expenses.get(tabId!, expenseId);
+      return r.success && r.expense ? r.expense : null;
+    },
+    enabled: !!tabId && !!expenseId,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   const { data: tab } = useQuery({
     queryKey: ["tab", tabId],
-    queryFn: () => fetchTab(tabId),
+    queryFn: async () => {
+      const r = await api.tabs.get(tabId!);
+      return r.success && r.tab ? r.tab : null;
+    },
     enabled: !!tabId,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
 
   const { data: auditLog } = useQuery({
-    queryKey: ["expenseAuditLog", expenseId],
-    queryFn: () => fetchExpenseAuditLog(expenseId),
-    enabled: !!expenseId && !!expense,
+    queryKey: ["expenseAuditLog", tabId, expenseId],
+    queryFn: async () => {
+      const r = await api.expenses.getAuditLog(tabId!, expenseId);
+      return r.success ? (r.auditLog ?? []) : [];
+    },
+    enabled: !!tabId && !!expenseId && !!expense,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
@@ -109,7 +113,7 @@ export default function ExpensePage() {
 
   const currentUserId = session?.user?.id ?? "";
 
-  function formatAuditDate(date: Date) {
+  function formatAuditDate(date: Date | string) {
     return new Date(date).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",

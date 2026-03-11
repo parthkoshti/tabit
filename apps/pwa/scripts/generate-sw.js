@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { readFileSync, writeFileSync } = require("node:fs");
 const { join } = require("node:path");
 

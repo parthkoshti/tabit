@@ -1,13 +1,5 @@
 import { Hono } from "hono";
-import {
-  db,
-  expense,
-  expenseAuditLog,
-  expenseSplit,
-  tab,
-  tabMember,
-  user,
-} from "db";
+import { db, tab, tabMember, user } from "db";
 import { eq, and, inArray, ne } from "drizzle-orm";
 import {
   createExpenseSchema,
@@ -17,7 +9,7 @@ import {
 } from "models";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
-import { getExpenseById, getExpensesForTab } from "data";
+import { expense } from "data";
 import { publishNotification } from "../lib/redis.js";
 import { log } from "../lib/logger.js";
 
@@ -49,7 +41,7 @@ expensesRoutes.get("/", async (c) => {
     limit !== undefined
       ? { limit: parseInt(limit, 10) || 50, offset: parseInt(offset ?? "0", 10) || 0 }
       : undefined;
-  const { expenses, total } = await getExpensesForTab(tabId, options);
+  const { expenses, total } = await expense.getForTab(tabId, options);
   return c.json({ success: true, expenses, total });
 });
 
@@ -68,12 +60,36 @@ expensesRoutes.get("/:expenseId", async (c) => {
     return c.json({ success: false, error: "Not a member" }, 403);
   }
 
-  const exp = await getExpenseById(expenseId);
+  const exp = await expense.getById(expenseId);
   if (!exp || exp.tabId !== tabId) {
     return c.json({ success: false, error: "Expense not found" }, 404);
   }
 
   return c.json({ success: true, expense: exp });
+});
+
+expensesRoutes.get("/:expenseId/audit-log", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId")!;
+  const expenseId = c.req.param("expenseId")!;
+
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId)))
+    .limit(1);
+
+  if (!member) {
+    return c.json({ success: false, error: "Not a member" }, 403);
+  }
+
+  const exp = await expense.getById(expenseId);
+  if (!exp || exp.tabId !== tabId) {
+    return c.json({ success: false, error: "Expense not found" }, 404);
+  }
+
+  const auditLog = await expense.getAuditLog(expenseId);
+  return c.json({ success: true, auditLog });
 });
 
 expensesRoutes.post("/", async (c) => {
@@ -172,33 +188,15 @@ expensesRoutes.post("/", async (c) => {
     );
   }
 
-  const [inserted] = await db
-    .insert(expense)
-    .values({
-      tabId: parsed.data.tabId,
-      paidById: parsed.data.paidById,
-      amount: parsed.data.amount.toString(),
-      description: parsed.data.description,
-      splitType: parsed.data.splitType,
-      expenseDate: parsed.data.expenseDate,
-    })
-    .returning({ id: expense.id });
-  const expenseId = inserted!.id;
-
-  for (const s of splits) {
-    await db.insert(expenseSplit).values({
-      expenseId,
-      userId: s.userId,
-      amount: s.amount.toString(),
-    });
-  }
-
-  await db.insert(expenseAuditLog).values({
-    expenseId,
+  const expenseId = await expense.create({
     tabId: parsed.data.tabId,
-    action: "create",
+    paidById: parsed.data.paidById,
+    amount: parsed.data.amount,
+    description: parsed.data.description,
+    splitType: parsed.data.splitType,
+    expenseDate: parsed.data.expenseDate,
+    splits,
     performedById: userId,
-    changes: null,
   });
 
   const [tabRow] = await db
@@ -438,43 +436,17 @@ expensesRoutes.post("/bulk", async (c) => {
     });
 
     try {
-      await db.transaction(async (tx) => {
-        const inserted = await tx
-          .insert(expense)
-          .values(
-            batch.map((v) => ({
-              tabId: v.expenseRow.tabId,
-              paidById: v.expenseRow.paidById,
-              amount: v.expenseRow.amount,
-              description: v.expenseRow.description,
-              splitType: v.expenseRow.splitType,
-              expenseDate: v.expenseRow.expenseDate,
-            })),
-          )
-          .returning({ id: expense.id });
-
-        const splitRows: { expenseId: string; userId: string; amount: string }[] = [];
-        for (let i = 0; i < batch.length; i++) {
-          const expenseId = inserted[i]!.id;
-          for (const s of batch[i]!.splits) {
-            splitRows.push({ expenseId, userId: s.userId, amount: s.amount });
-          }
-        }
-        if (splitRows.length > 0) {
-          await tx.insert(expenseSplit).values(splitRows);
-        }
-
-        const auditRows = batch.map((v, i) => ({
-          expenseId: inserted[i]!.id,
-          tabId: v.expenseRow.tabId,
-          action: "create" as const,
-          performedById: userId,
-          changes: null,
-        }));
-        await tx.insert(expenseAuditLog).values(auditRows);
-
-        imported += batch.length;
-      });
+      const items = batch.map((v) => ({
+        tabId: v.expenseRow.tabId,
+        paidById: v.expenseRow.paidById,
+        amount: v.expenseRow.amount,
+        description: v.expenseRow.description,
+        splitType: v.expenseRow.splitType,
+        expenseDate: v.expenseRow.expenseDate,
+        splits: v.splits,
+      }));
+      await expense.createBulk(items, userId);
+      imported += batch.length;
 
       log("info", "Bulk import batch complete", {
         tabId,
@@ -533,13 +505,8 @@ expensesRoutes.patch("/:expenseId", async (c) => {
   const tabId = c.req.param("tabId")!;
   const expenseId = c.req.param("expenseId")!;
 
-  const [existing] = await db
-    .select()
-    .from(expense)
-    .where(eq(expense.id, expenseId))
-    .limit(1);
-
-  if (!existing || existing.tabId !== tabId) {
+  const existingExp = await expense.getById(expenseId);
+  if (!existingExp || existingExp.tabId !== tabId) {
     return c.json({ success: false, error: "Expense not found" }, 404);
   }
 
@@ -633,34 +600,30 @@ expensesRoutes.patch("/:expenseId", async (c) => {
     );
   }
 
-  await db
-    .update(expense)
-    .set({
+  const existingSplits = existingExp.splits.map((s) => ({
+    userId: s.userId,
+    amount: String(s.amount),
+  }));
+  await expense.update(
+    expenseId,
+    tabId,
+    {
       paidById: parsed.data.paidById,
-      amount: parsed.data.amount.toString(),
+      amount: parsed.data.amount,
       description: parsed.data.description,
       splitType: parsed.data.splitType,
       expenseDate: parsed.data.expenseDate,
-    })
-    .where(eq(expense.id, expenseId));
-
-  await db.delete(expenseSplit).where(eq(expenseSplit.expenseId, expenseId));
-
-  for (const s of splits) {
-    await db.insert(expenseSplit).values({
-      expenseId,
-      userId: s.userId,
-      amount: s.amount.toString(),
-    });
-  }
-
-  await db.insert(expenseAuditLog).values({
-    expenseId,
-    tabId,
-    action: "update",
-    performedById: userId,
-    changes: null,
-  });
+      splits,
+      performedById: userId,
+    },
+    {
+      amount: existingExp.amount.toString(),
+      description: existingExp.description,
+      paidById: existingExp.paidById,
+      expenseDate: existingExp.expenseDate,
+    },
+    existingSplits,
+  );
 
   const [tabRow] = await db
     .select({ name: tab.name })
@@ -699,12 +662,7 @@ expensesRoutes.delete("/:expenseId", async (c) => {
   const tabId = c.req.param("tabId")!;
   const expenseId = c.req.param("expenseId")!;
 
-  const [exp] = await db
-    .select()
-    .from(expense)
-    .where(eq(expense.id, expenseId))
-    .limit(1);
-
+  const exp = await expense.getById(expenseId);
   if (!exp || exp.tabId !== tabId) {
     return c.json({ success: false, error: "Expense not found" }, 404);
   }
@@ -721,16 +679,7 @@ expensesRoutes.delete("/:expenseId", async (c) => {
     return c.json({ success: false, error: "Not a member" }, 403);
   }
 
-  await db.insert(expenseAuditLog).values({
-    expenseId,
-    tabId,
-    action: "delete",
-    performedById: userId,
-    changes: null,
-  });
-
-  await db.delete(expenseSplit).where(eq(expenseSplit.expenseId, expenseId));
-  await db.delete(expense).where(eq(expense.id, expenseId));
+  await expense.delete(expenseId, tabId, userId);
 
   return c.json({ success: true });
 });

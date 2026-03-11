@@ -2,8 +2,8 @@
 
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import useInfiniteScroll from "react-infinite-scroll-hook";
-import { fetchActivity } from "@/app/actions/queries";
-import type { ActivityItem } from "@/lib/data";
+import { api } from "@/lib/api-client";
+import type { ActivityItem } from "data";
 import { authClient } from "@/lib/auth-client";
 import Link from "next/link";
 import { ReceiptText } from "lucide-react";
@@ -47,18 +47,23 @@ export default function ActivityPage() {
     isFetchingNextPage,
   } = useInfiniteQuery({
     queryKey: ["activity"],
-    queryFn: ({ pageParam }) =>
-      fetchActivity({ limit: 50, offset: pageParam }),
+    queryFn: async ({ pageParam }) => {
+      const r = await api.activity.list({ limit: 50, offset: pageParam });
+      return r.success
+        ? { items: r.items ?? [], total: r.total ?? 0 }
+        : { items: [], total: 0 };
+    },
     initialPageParam: 0,
     enabled: !!session?.user,
     placeholderData: (prev) =>
       prev ?? { pages: [] as { items: ActivityItem[]; total: number }[], pageParams: [0] },
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage || !("total" in lastPage)) return undefined;
+      if (!lastPage || typeof lastPage !== "object" || !("total" in lastPage))
+        return undefined;
       const pages = allPages ?? [];
       const loaded = pages.reduce(
         (sum, p) =>
-          sum + (p && "items" in p ? (p.items as ActivityItem[]).length : 0),
+          sum + (p && typeof p === "object" && "items" in p ? (p.items as ActivityItem[]).length : 0),
         0,
       );
       return loaded < (lastPage as { total: number }).total
@@ -67,9 +72,9 @@ export default function ActivityPage() {
     },
   });
 
-  const items = useMemo(() => {
+  const items = useMemo((): ActivityItem[] => {
     return (data?.pages ?? []).flatMap((p) =>
-      p && "items" in p ? (p.items as ActivityItem[]) : []
+      p && typeof p === "object" && "items" in p ? (p.items as ActivityItem[]) : []
     );
   }, [data]);
 

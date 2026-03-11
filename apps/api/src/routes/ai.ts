@@ -2,20 +2,12 @@ import { Hono } from "hono";
 import { generateText, Output } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
-import {
-  db,
-  expense,
-  expenseAuditLog,
-  expenseSplit,
-  tab,
-  tabMember,
-  user,
-} from "db";
+import { db, tab, tabMember, user } from "db";
 import { eq, and, ne, inArray } from "drizzle-orm";
 import { createExpenseAddedNotificationPayload } from "models";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
-import { getDirectTabsForUser, getTabsForUser, getTabWithMembers } from "data";
+import { expense, tab as tabData } from "data";
 import { publishNotification } from "../lib/redis.js";
 import { log } from "../lib/logger.js";
 
@@ -69,8 +61,8 @@ aiRoutes.post("/add-expense", async (c) => {
   const { text } = parsed.data;
 
   const [friends, tabs, currentUserRow] = await Promise.all([
-    getDirectTabsForUser(userId),
-    getTabsForUser(userId, {
+    tabData.getDirectTabsForUser(userId),
+    tabData.getTabsForUser(userId, {
       includeDirect: false,
       includeMemberIds: true,
     }),
@@ -114,7 +106,7 @@ aiRoutes.post("/add-expense", async (c) => {
   }
 
   for (const t of tabs ?? []) {
-    const tabWithMembers = await getTabWithMembers(t.id);
+    const tabWithMembers = await tabData.getWithMembers(t.id);
     if (tabWithMembers && tabWithMembers.members.length > 0) {
       tabContexts.push({
         tabId: t.id,
@@ -279,33 +271,15 @@ CRITICAL - Confidence and ambiguity:
       amount: i === members.length - 1 ? remainder : perPerson,
     }));
 
-    const [inserted] = await db
-      .insert(expense)
-      .values({
-        tabId: parsedExpense.tabId,
-        paidById: parsedExpense.paidById,
-        amount: parsedExpense.amount.toString(),
-        description: parsedExpense.description,
-        splitType: "equal",
-        expenseDate: new Date(),
-      })
-      .returning({ id: expense.id });
-    const expenseId = inserted!.id;
-
-    for (const s of splits) {
-      await db.insert(expenseSplit).values({
-        expenseId,
-        userId: s.userId,
-        amount: s.amount.toString(),
-      });
-    }
-
-    await db.insert(expenseAuditLog).values({
-      expenseId,
+    const expenseId = await expense.create({
       tabId: parsedExpense.tabId,
-      action: "create",
+      paidById: parsedExpense.paidById,
+      amount: parsedExpense.amount,
+      description: parsedExpense.description,
+      splitType: "equal",
+      expenseDate: new Date(),
+      splits,
       performedById: userId,
-      changes: null,
     });
 
     const [tabRow] = await db

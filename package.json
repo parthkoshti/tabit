@@ -3,6 +3,7 @@
   "private": true,
   "scripts": {
     "build": "turbo build",
+    "build:data": "turbo build --filter=data",
     "generate-icons": "node scripts/generate-icons.js",
     "generate-https-certs": "node scripts/generate-https-certs.js",
     "dev": "turbo dev",

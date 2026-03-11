@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useNavTitle } from "../../../context/nav-title-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchTab } from "@/app/actions/queries";
 import { api } from "@/lib/api-client";
 import {
   AlertDialog,
@@ -190,7 +189,10 @@ export default function ManageMembersPage() {
   const { data: session } = authClient.useSession();
   const { data: tab, isLoading: tabLoading } = useQuery({
     queryKey: ["tab", tabId],
-    queryFn: () => fetchTab(tabId),
+    queryFn: async () => {
+      const r = await api.tabs.get(tabId);
+      return r.success && r.tab ? r.tab : null;
+    },
     enabled: !!tabId,
   });
   const currentUserId = session?.user?.id ?? "";
