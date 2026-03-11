@@ -88,7 +88,6 @@ export function MePage() {
 
   useEffect(() => {
     setNavTitle?.({ title: "Profile", backHref: "/tabs" });
-    return () => setNavTitle?.(null);
   }, [setNavTitle]);
 
   useEffect(() => {

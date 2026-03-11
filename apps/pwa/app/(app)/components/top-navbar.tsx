@@ -4,7 +4,7 @@ import { ArrowLeft, Plus, ReceiptText } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { appConfig } from "@/src/config";
 import { useNavTitleConfig } from "../context/nav-title-context";
-import { useDisplayPathname } from "../context/display-pathname-context";
+import { useNavStore } from "@/lib/stores/nav-store";
 import { SignOutButton } from "./sign-out-button";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
@@ -16,37 +16,24 @@ const navTitleVariants = {
   exit: { opacity: 0, y: 6 },
 };
 
-const navContentVariants = {
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  exit: { opacity: 0 },
-};
-
 export function TopNavbar() {
   const { pathname } = useLocation();
-  const displayPathname = useDisplayPathname() || pathname;
+  const displayPathname = useNavStore((s) => s.displayPathname) || pathname;
   const navigate = useNavigate();
   const navPage = useNavTitleConfig();
   const isMePage = displayPathname === "/me";
   const isFriendsListPage =
     displayPathname === "/friends" || displayPathname === "/friends/";
-  const isTabsListPage = displayPathname === "/tabs" || displayPathname === "/tabs/";
+  const isTabsListPage =
+    displayPathname === "/tabs" || displayPathname === "/tabs/";
   const isTabPage =
-    displayPathname.startsWith("/tabs/") && !displayPathname.match(/^\/tabs\/?$/);
+    displayPathname.startsWith("/tabs/") &&
+    !displayPathname.match(/^\/tabs\/?$/);
 
   return (
     <header className="top-nav-safe fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]">
-      <AnimatePresence mode="wait" initial={false}>
-        {navPage ? (
-          <motion.div
-            key="navPage"
-            className="absolute inset-0 flex items-center justify-between px-4"
-            variants={navContentVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={transitionSpring.transition}
-          >
+      {navPage ? (
+        <div className="absolute inset-0 flex items-center justify-between px-4">
             <Button
               variant="ghost"
               size="icon"
@@ -98,93 +85,52 @@ export function TopNavbar() {
               </div>
             </div>
             <div className="relative z-10 flex shrink-0 justify-end w-20" />
-          </motion.div>
-        ) : (
-          <motion.div
-            key="default"
-            className="flex flex-1 items-center justify-between w-full"
-            variants={navContentVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={transitionSpring.transition}
-          >
-            <Link to="/tabs" className="flex items-center gap-2">
-              <img
-                src={appConfig.icons.sm.src}
-                alt="Tab It Logo"
-                width={52}
-                height={52}
-              />
-            </Link>
-          </motion.div>
-        )}
-      </AnimatePresence>
-      <AnimatePresence mode="wait" initial={false}>
-        {!navPage && (isMePage ? (
-          <motion.div
-            key="signout"
-            className="relative z-10 flex shrink-0 justify-end"
-            variants={navTitleVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={transitionSpring.transition}
-          >
+        </div>
+      ) : (
+        <div className="flex flex-1 items-center justify-between w-full">
+          <Link to="/tabs" className="flex items-center gap-2">
+            <img
+              src={appConfig.icons.sm.src}
+              alt="Tab It Logo"
+              width={52}
+              height={52}
+            />
+          </Link>
+        </div>
+      )}
+      {!navPage &&
+        (isMePage ? (
+          <div className="relative z-10 flex shrink-0 justify-end">
             <SignOutButton />
-          </motion.div>
+          </div>
         ) : isFriendsListPage ? (
-          <motion.div
-            key="addFriend"
-            className="relative z-10 flex shrink-0 justify-end"
-            variants={navTitleVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={transitionSpring.transition}
-          >
-            <Button variant="default" size="sm" asChild aria-label="Add friend">
+          <div className="relative z-10 flex shrink-0 justify-end">
+            <Button
+              variant="default"
+              size="sm"
+              asChild
+              aria-label="Add friend"
+            >
               <Link to="/friends/addFriend" className="">
                 <Plus className="h-5 w-5" />
                 <span>Friend</span>
               </Link>
             </Button>
-          </motion.div>
+          </div>
         ) : isTabsListPage ? (
-          <motion.div
-            key="newTab"
-            className="relative z-10 flex shrink-0 justify-end"
-            variants={navTitleVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={transitionSpring.transition}
-          >
+          <div className="relative z-10 flex shrink-0 justify-end">
             <Button variant="default" size="sm" asChild aria-label="New tab">
               <Link to="/tabs/create" className="">
                 <Plus className="h-5 w-5" />
                 <span>Tab</span>
               </Link>
             </Button>
-          </motion.div>
+          </div>
         ) : null)}
-      </AnimatePresence>
-      {navPage && (
-        <AnimatePresence mode="wait" initial={false}>
-          {isMePage && (
-            <motion.div
-              key="navSignout"
-              className="relative z-10 ml-auto flex shrink-0 justify-end"
-              variants={navTitleVariants}
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              transition={transitionSpring.transition}
-            >
-              <SignOutButton />
-            </motion.div>
-          )}
-        </AnimatePresence>
+      {navPage && isMePage && (
+        <div className="relative z-10 ml-auto flex shrink-0 justify-end">
+          <SignOutButton />
+        </div>
       )}
     </header>
   );

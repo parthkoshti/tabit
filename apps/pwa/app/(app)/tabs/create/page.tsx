@@ -7,7 +7,6 @@ export function CreateTabPage() {
 
   useEffect(() => {
     setNavTitle?.({ title: "New tab", backHref: "/tabs" });
-    return () => setNavTitle?.(null);
   }, [setNavTitle]);
 
   return (

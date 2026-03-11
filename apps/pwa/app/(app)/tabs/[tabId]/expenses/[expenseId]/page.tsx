@@ -72,7 +72,6 @@ export function ExpensePage() {
       backHref: `/tabs/${tabIdOrEmpty}`,
       icon: <BanknoteArrowUp className="h-5 w-5 shrink-0 text-negative" />,
     });
-    return () => setNavTitle?.(null);
   }, [setNavTitle, expense, tabIdOrEmpty]);
 
   useEffect(() => {

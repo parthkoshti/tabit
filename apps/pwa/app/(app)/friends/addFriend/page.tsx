@@ -166,7 +166,6 @@ export function AddFriendPage() {
 
   useEffect(() => {
     setNavTitle?.({ title: "Add friend", backHref: "/friends" });
-    return () => setNavTitle?.(null);
   }, [setNavTitle]);
 
   useEffect(() => {

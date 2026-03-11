@@ -76,7 +76,6 @@ export function SettlementPage() {
       backHref: `/tabs/${tabIdOrEmpty}`,
       icon: <Wallet className="h-5 w-5 shrink-0 text-positive" />,
     });
-    return () => setNavTitle?.(null);
   }, [setNavTitle, settlement, tabIdOrEmpty, session?.user?.id]);
 
   if (!tabIdOrEmpty || !settlementIdOrEmpty) return null;

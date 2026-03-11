@@ -3,8 +3,6 @@ import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { authClient } from "@/lib/auth-client";
 import { needsProfileSetup } from "@/lib/profile";
 import { useNotifications } from "@/lib/use-notifications";
-import { NavTitleProvider } from "@/app/(app)/context/nav-title-context";
-import { DisplayPathnameProvider } from "@/app/(app)/context/display-pathname-context";
 import { PushResubscriptionProvider } from "@/app/(app)/context/push-resubscription-context";
 import { TopNavbar } from "@/app/(app)/components/top-navbar";
 import { BottomNavbar } from "@/app/(app)/components/bottom-navbar";
@@ -55,20 +53,16 @@ function AppLayoutContent() {
   const isOnboarding = pathname === "/onboarding";
 
   return (
-    <NavTitleProvider>
-      <DisplayPathnameProvider pathname={pathname}>
-        <div className="fixed inset-0 flex flex-col overflow-clip">
-          {!isOnboarding && <TopNavbar />}
-          <main
-          className="app-layout-safe-bottom app-scroll-hide min-h-0 flex-1 overflow-auto overscroll-none pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))]"
-          >
-            <PageTransition />
-          </main>
-          {!isOnboarding && <BottomNavbar />}
-          {!isOnboarding && <AddExpenseFAB />}
-        </div>
-      </DisplayPathnameProvider>
-    </NavTitleProvider>
+    <div className="fixed inset-0 flex flex-col overflow-clip">
+      {!isOnboarding && <TopNavbar />}
+      <main
+        className="app-layout-safe-bottom app-scroll-hide min-h-0 flex-1 overflow-auto overscroll-none pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))]"
+      >
+        <PageTransition />
+      </main>
+      {!isOnboarding && <BottomNavbar />}
+      {!isOnboarding && <AddExpenseFAB />}
+    </div>
   );
 }
 

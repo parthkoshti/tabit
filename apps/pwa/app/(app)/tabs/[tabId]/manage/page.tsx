@@ -70,7 +70,6 @@ export function TabManagePage() {
       title: "Manage tab",
       backHref: `/tabs/${tabIdOrEmpty}`,
     });
-    return () => setNavTitle?.(null);
   }, [setNavTitle, tabIdOrEmpty]);
 
   if (!tabIdOrEmpty) return null;

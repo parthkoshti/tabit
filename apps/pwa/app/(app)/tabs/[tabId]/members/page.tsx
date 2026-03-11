@@ -240,7 +240,6 @@ export function TabMembersPage() {
       avatarUserIds: avatarUserIds.length > 0 ? avatarUserIds : undefined,
       avatarDisplayName,
     });
-    return () => setNavTitle?.(null);
   }, [setNavTitle, navTitle, tabId, avatarUserIds, avatarDisplayName]);
 
   const memberIds = useMemo(

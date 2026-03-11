@@ -191,7 +191,6 @@ export function TabPage() {
       avatarUserIds,
       avatarDisplayName,
     });
-    return () => setNavTitle?.(null);
   }, [setNavTitle, navTitle, tab, avatarUserIds, avatarDisplayName]);
 
   if (!tabIdOrEmpty) return null;

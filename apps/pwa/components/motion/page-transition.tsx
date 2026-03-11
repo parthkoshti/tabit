@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useLocation, Routes } from "react-router-dom";
 import { pageTransition, transitionSpring } from "@/lib/animations";
 import { appLayoutRoutes } from "@/src/routes/app-layout-routes";
-import { useDisplayPathnameSetter } from "@/app/(app)/context/display-pathname-context";
+import { useNavStore } from "@/lib/stores/nav-store";
 
 function createLocation(pathname: string) {
   return { pathname, search: "", hash: "", key: "", state: null };
@@ -11,21 +11,16 @@ function createLocation(pathname: string) {
 
 export function PageTransition() {
   const { pathname } = useLocation();
-  const setDisplayPathname = useDisplayPathnameSetter();
+  const setDisplayPathname = useNavStore((s) => s.setDisplayPathname);
 
+  // Update navbar immediately when pathname changes - prevents flash from late sync
   useEffect(() => {
-    if (setDisplayPathname) setDisplayPathname(pathname);
-  }, []);
+    setDisplayPathname(pathname);
+  }, [pathname, setDisplayPathname]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
-      <AnimatePresence
-        mode="wait"
-        initial={false}
-        onExitComplete={() =>
-          setDisplayPathname && setDisplayPathname(pathname)
-        }
-      >
+      <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={pathname}
           variants={pageTransition}
@@ -35,9 +30,7 @@ export function PageTransition() {
           transition={transitionSpring.transition}
           className="absolute inset-0 overflow-auto opacity-0"
         >
-          <Routes location={createLocation(pathname)}>
-            {appLayoutRoutes}
-          </Routes>
+          <Routes location={createLocation(pathname)}>{appLayoutRoutes}</Routes>
         </motion.div>
       </AnimatePresence>
     </div>
