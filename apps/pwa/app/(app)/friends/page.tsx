@@ -15,9 +15,11 @@ import {
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
+import { PokeIcon } from "@/components/icons/poke-icon";
 
 export function FriendsPage() {
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null);
@@ -32,11 +34,14 @@ export function FriendsPage() {
         balance: number;
         expenseCount: number;
         lastExpenseDate?: string | null;
-        friend: { id: string; email: string; name: string | null; username: string | null };
+        friend: {
+          id: string;
+          email: string;
+          name: string | null;
+          username: string | null;
+        };
       }>;
     },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
   const friends = friendsData ?? [];
   const { data: requestsData, isLoading: requestsLoading } = useQuery({
@@ -45,8 +50,6 @@ export function FriendsPage() {
       const r = await api.friends.getPendingRequests();
       return r.success ? r.requests : [];
     },
-    staleTime: 0,
-    refetchOnMount: "always",
   });
   const pendingRequests = requestsData ?? [];
 
@@ -75,6 +78,17 @@ export function FriendsPage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
+  }
+
+  async function handlePoke(friendTabId: string, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    const result = await api.friends.poke(friendTabId);
+    if (result.success) {
+      toast.success("Poked!");
+    } else {
+      toast.error(result.error ?? "Failed to poke");
+    }
   }
 
   return (
@@ -208,62 +222,73 @@ export function FriendsPage() {
                 <motion.div key={f.id} variants={staggerItem}>
                   <Link to={`/tabs/${f.id}`}>
                     <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <UserAvatar
-                          userId={f.friend.id}
-                          size="sm"
-                          className="shrink-0"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate font-medium">
-                            {getDisplayName(f.friend)}
-                          </div>
-                          {f.friend.username && (
-                            <div className="truncate text-sm text-muted-foreground">
-                              @{f.friend.username}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <UserAvatar
+                            userId={f.friend.id}
+                            size="sm"
+                            className="shrink-0"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-medium">
+                              {getDisplayName(f.friend)}
                             </div>
-                          )}
+                            {f.friend.username && (
+                              <div className="truncate text-sm text-muted-foreground">
+                                @{f.friend.username}
+                              </div>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <span
-                        className={
-                          f.balance > 0
-                            ? "shrink-0 text-sm font-medium text-positive"
+                        <span
+                          className={`shrink-0 ${
+                            f.balance > 0
+                              ? "text-sm font-medium text-positive"
+                              : f.balance < 0
+                                ? "text-sm font-medium text-negative"
+                                : "text-sm text-muted-foreground"
+                          }`}
+                        >
+                          {f.balance > 0
+                            ? `Owes you $${formatAmount(f.balance)}`
                             : f.balance < 0
-                              ? "shrink-0 text-sm font-medium text-negative"
-                              : "shrink-0 text-sm text-muted-foreground"
-                        }
-                      >
-                        {f.balance > 0
-                          ? `They owe you $${formatAmount(f.balance)}`
-                          : f.balance < 0
-                            ? `You owe $${formatAmount(Math.abs(f.balance))}`
-                            : "Settled up"}
-                      </span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {f.expenseCount === 0
-                        ? "No expenses yet"
-                        : `${f.expenseCount} expense${f.expenseCount === 1 ? "" : "s"}`}
-                      {f.lastExpenseDate && (
-                        <>
-                          {" "}
-                          &middot;{" "}
-                          {new Date(f.lastExpenseDate).toLocaleDateString(
-                            undefined,
-                            {
-                              month: "short",
-                              day: "numeric",
-                              year: "numeric",
-                            },
+                              ? `You owe $${formatAmount(Math.abs(f.balance))}`
+                              : "Settled up"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {f.expenseCount === 0
+                            ? "No expenses yet"
+                            : `${f.expenseCount} expense${f.expenseCount === 1 ? "" : "s"}`}
+                          {f.lastExpenseDate && (
+                            <>
+                              {" "}
+                              &middot;{" "}
+                              {new Date(f.lastExpenseDate).toLocaleDateString(
+                                undefined,
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                },
+                              )}
+                            </>
                           )}
-                        </>
-                      )}
-                    </span>
-                  </AnimatedCard>
-                </Link>
-              </motion.div>
+                        </span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0 hover:text-negative/90"
+                          onClick={(e) => handlePoke(f.id, e)}
+                        >
+                          <PokeIcon className="h-4 w-4 stroke-3 text-negative" />{" "}
+                          Poke
+                        </Button>
+                      </div>
+                    </AnimatedCard>
+                  </Link>
+                </motion.div>
               ))}
             </motion.div>
           )}

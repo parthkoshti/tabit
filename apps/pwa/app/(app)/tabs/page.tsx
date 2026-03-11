@@ -24,8 +24,6 @@ export function TabsPage() {
       const r = await api.tabs.list();
       return (r.success ? r.tabs : []) as TabItem[];
     },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
   const tabs = tabsData ?? [];
   const { data: tabInvitesData } = useQuery({
@@ -34,8 +32,6 @@ export function TabsPage() {
       const r = await api.tabInvites.getPendingRequests();
       return (r.success ? r.requests : []) as TabInviteItem[];
     },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
   const pendingTabInvites = tabInvitesData ?? [];
 

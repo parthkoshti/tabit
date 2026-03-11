@@ -42,8 +42,6 @@ export function SettlementPage() {
       return r.success && r.settlement ? r.settlement : null;
     },
     enabled: !!tabIdOrEmpty && !!settlementIdOrEmpty,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 
   const { data: tab } = useQuery({
@@ -53,8 +51,6 @@ export function SettlementPage() {
       return r.success && r.tab ? r.tab : null;
     },
     enabled: !!tabIdOrEmpty,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 
   const { data: auditLog } = useQuery({
@@ -64,8 +60,6 @@ export function SettlementPage() {
       return r.success ? (r.auditLog ?? []) : [];
     },
     enabled: !!tabIdOrEmpty && !!settlementIdOrEmpty && !!settlement,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {

@@ -14,6 +14,7 @@ import { publishNotification } from "../lib/redis.js";
 import {
   createFriendRequestNotificationPayload,
   createFriendRequestAcceptedNotificationPayload,
+  createPokeNotificationPayload,
 } from "models";
 import { tab } from "data";
 
@@ -391,4 +392,69 @@ friendsRoutes.get("/", async (c) => {
   const { userId } = c.get("auth");
   const friends = await tab.getDirectTabsForUser(userId);
   return c.json({ success: true, friends });
+});
+
+friendsRoutes.post("/poke", async (c) => {
+  const { userId } = c.get("auth");
+
+  const body = await c.req.json().catch(() => ({}));
+  const friendTabId = body.friendTabId;
+
+  if (typeof friendTabId !== "string" || !friendTabId.trim()) {
+    return c.json({ success: false, error: "friendTabId is required" }, 400);
+  }
+
+  const [directTab] = await db
+    .select()
+    .from(tabTable)
+    .innerJoin(tabMember, eq(tabTable.id, tabMember.tabId))
+    .where(
+      and(
+        eq(tabTable.id, friendTabId.trim()),
+        eq(tabTable.isDirect, true),
+        eq(tabMember.userId, userId),
+      ),
+    )
+    .limit(1);
+
+  if (!directTab) {
+    return c.json(
+      { success: false, error: "Tab not found or you are not a member" },
+      404,
+    );
+  }
+
+  const [friendMember] = await db
+    .select({ userId: tabMember.userId })
+    .from(tabMember)
+    .where(
+      and(
+        eq(tabMember.tabId, friendTabId.trim()),
+        ne(tabMember.userId, userId),
+      ),
+    )
+    .limit(1);
+
+  if (!friendMember) {
+    return c.json({ success: false, error: "Friend not found" }, 404);
+  }
+
+  const [sender] = await db
+    .select({ name: user.name, username: user.username })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  await publishNotification(
+    friendMember.userId,
+    createPokeNotificationPayload({
+      friendTabId: friendTabId.trim(),
+      fromUserId: userId,
+      fromUserName: sender?.name ?? null,
+      fromUserUsername: sender?.username ?? null,
+      createdAt: new Date(),
+    }),
+  );
+
+  return c.json({ success: true });
 });

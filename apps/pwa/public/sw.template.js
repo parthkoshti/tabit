@@ -49,7 +49,9 @@ self.addEventListener("push", function (event) {
         ? "New friend request"
         : data.type === "tab_invite"
           ? "New tab invite"
-          : "You have a new notification");
+          : data.type === "poke"
+            ? "Poke them back!"
+            : "You have a new notification");
     const url =
       decl?.navigate ||
       data.url ||
@@ -57,16 +59,24 @@ self.addEventListener("push", function (event) {
         data.type === "tab_invite" ? "/tabs" : "/friends",
         self.location.origin,
       ).href;
+    const tag =
+      data.type === "friend_request"
+        ? "friend_request"
+        : data.type === "tab_invite"
+          ? "tab_invite"
+          : data.type === "poke"
+            ? "poke"
+            : "default";
     const options = {
       body,
       icon: "/icon-192x192.png",
-      tag:
-        data.type === "friend_request"
-          ? "friend_request"
-          : data.type === "tab_invite"
-            ? "tab_invite"
-            : "default",
+      tag,
       renotify: true,
+      vibrate: [200, 100, 200],
+      requireInteraction:
+        data.type === "friend_request" ||
+        data.type === "tab_invite" ||
+        data.type === "poke",
       data: { url, ...data },
     };
     return self.registration
@@ -81,20 +91,23 @@ self.addEventListener("push", function (event) {
 self.addEventListener("notificationclick", function (event) {
   event.notification.close();
   const url =
-    event.notification.data?.url || new URL("/tabs", self.location.origin).href;
+    event.notification.data?.url ||
+    new URL("/friends", self.location.origin).href;
+  const targetUrl = url.startsWith("http") ? url : new URL(url, self.location.origin).href;
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
       .then(function (clientList) {
         for (const client of clientList) {
           if (client.url.includes(self.location.origin) && "focus" in client) {
-            client.navigate(url);
+            client.navigate(targetUrl);
             return client.focus();
           }
         }
         if (self.clients.openWindow) {
-          return self.clients.openWindow(url);
+          return self.clients.openWindow(targetUrl);
         }
+        return Promise.resolve();
       }),
   );
 });

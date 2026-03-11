@@ -169,7 +169,6 @@ export function AddExpenseFAB() {
       return r.success ? (r.friends ?? []) : [];
     },
     enabled: open || aiDialogOpen,
-    staleTime: 0,
   });
 
   const { data: tabs, isLoading: tabsLoading } = useQuery({
@@ -179,7 +178,6 @@ export function AddExpenseFAB() {
       return r.success ? (r.tabs ?? []) : [];
     },
     enabled: open || aiDialogOpen,
-    staleTime: 0,
   });
 
   const effectiveTabId =
@@ -197,7 +195,6 @@ export function AddExpenseFAB() {
       return r.success && r.tab ? r.tab : null;
     },
     enabled: open && !!effectiveTabId,
-    staleTime: 0,
   });
 
   const handleOpenChange = (next: boolean) => {
@@ -402,7 +399,7 @@ export function AddExpenseFAB() {
                               }
                             >
                               {f.balance > 0
-                                ? `They owe you $${f.balance.toFixed(2)}`
+                                ? `Owes you $${f.balance.toFixed(2)}`
                                 : f.balance < 0
                                   ? `You owe $${Math.abs(f.balance).toFixed(2)}`
                                   : "Settled up"}

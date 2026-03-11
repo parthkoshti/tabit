@@ -130,6 +130,10 @@ function getPushTitle(payload: {
     const who = payload.fromUserName ?? "Someone";
     return `${who} imported ${payload.count} expense${payload.count !== 1 ? "s" : ""} to ${payload.tabName}`;
   }
+  if (payload.type === "poke" && payload.fromUserName) {
+    return `${payload.fromUserName} poked you`;
+  }
+  if (payload.type === "poke") return "Someone poked you";
   if (payload.type === "friend_request") return "New friend request";
   if (payload.type === "tab_invite") return "New tab invite";
   if (payload.type === "friend_request_accepted")
@@ -174,6 +178,7 @@ function getPushBody(payload: {
   ) {
     return `${payload.count} expense${payload.count !== 1 ? "s" : ""} imported to ${payload.tabName}`;
   }
+  if (payload.type === "poke") return "Poke them back!";
   return "You have a new notification";
 }
 
@@ -201,6 +206,7 @@ function getNavigatePath(payload: {
   if (payload.type === "expenses_bulk_imported" && payload.tabId) {
     return `/tabs/${payload.tabId}`;
   }
+  if (payload.type === "poke") return "/friends";
   return "/friends";
 }
 

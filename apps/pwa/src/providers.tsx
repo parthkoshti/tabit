@@ -8,8 +8,10 @@ import { get, set, del, createStore } from "idb-keyval";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
+      staleTime: 1000 * 60,
       gcTime: 1000 * 60 * 60 * 24,
+      refetchOnWindowFocus: true,
+      refetchOnMount: true,
     },
   },
 });
@@ -42,7 +44,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         client={queryClient}
         persistOptions={{
           persister,
-          maxAge: 1000 * 60 * 60 * 24,
+          maxAge: 1000 * 60 * 60 * 24 * 7,
           buster: CACHE_BUSTER,
         }}
       >

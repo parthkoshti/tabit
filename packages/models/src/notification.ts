@@ -8,6 +8,7 @@ export const notificationTypeSchema = z.enum([
   "expense_added",
   "expense_updated",
   "expenses_bulk_imported",
+  "poke",
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
@@ -107,6 +108,18 @@ export type ExpensesBulkImportedNotificationPayload = z.infer<
   typeof expensesBulkImportedNotificationPayloadSchema
 >;
 
+export const pokeNotificationPayloadSchema = z.object({
+  type: z.literal("poke"),
+  friendTabId: z.string(),
+  fromUserId: z.string(),
+  fromUserName: z.string().nullable(),
+  fromUserUsername: z.string().nullable(),
+  createdAt: z.string(),
+});
+export type PokeNotificationPayload = z.infer<
+  typeof pokeNotificationPayloadSchema
+>;
+
 export const notificationPayloadSchema = z.discriminatedUnion("type", [
   friendRequestNotificationPayloadSchema,
   tabInviteNotificationPayloadSchema,
@@ -115,6 +128,7 @@ export const notificationPayloadSchema = z.discriminatedUnion("type", [
   expenseAddedNotificationPayloadSchema,
   expenseUpdatedNotificationPayloadSchema,
   expensesBulkImportedNotificationPayloadSchema,
+  pokeNotificationPayloadSchema,
 ]);
 export type NotificationPayload = z.infer<typeof notificationPayloadSchema>;
 
@@ -257,6 +271,23 @@ export function createExpensesBulkImportedNotificationPayload(data: {
     fromUserId: data.fromUserId,
     fromUserName: data.fromUserName,
     count: data.count,
+    createdAt: data.createdAt.toISOString(),
+  };
+}
+
+export function createPokeNotificationPayload(data: {
+  friendTabId: string;
+  fromUserId: string;
+  fromUserName: string | null;
+  fromUserUsername: string | null;
+  createdAt: Date;
+}): PokeNotificationPayload {
+  return {
+    type: "poke",
+    friendTabId: data.friendTabId,
+    fromUserId: data.fromUserId,
+    fromUserName: data.fromUserName,
+    fromUserUsername: data.fromUserUsername,
     createdAt: data.createdAt.toISOString(),
   };
 }

@@ -23,8 +23,6 @@ export function BottomNavbar() {
       const r = await api.friends.getPendingRequests();
       return r.success ? r.requests : [];
     },
-    staleTime: 0,
-    refetchOnMount: "always",
   });
   const { data: tabInvitesData } = useQuery({
     queryKey: ["pendingTabInviteRequests"],
@@ -32,8 +30,6 @@ export function BottomNavbar() {
       const r = await api.tabInvites.getPendingRequests();
       return r.success ? r.requests : [];
     },
-    staleTime: 0,
-    refetchOnMount: "always",
   });
   const friendInviteCount = friendRequestsData?.length ?? 0;
   const tabInviteCount = tabInvitesData?.length ?? 0;

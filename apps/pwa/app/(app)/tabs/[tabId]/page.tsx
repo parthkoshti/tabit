@@ -48,8 +48,6 @@ export function TabPage() {
       return r.success && r.tab ? r.tab : null;
     },
     enabled: !!tabIdOrEmpty,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 
   const {
@@ -85,8 +83,6 @@ export function TabPage() {
         : undefined;
     },
     enabled: !!tabIdOrEmpty && !!session?.user,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
   const expenses = useMemo(
     () =>
@@ -101,8 +97,6 @@ export function TabPage() {
       return r.success ? (r.settlements ?? []) : [];
     },
     enabled: !!tabIdOrEmpty,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 
   const { data: balances } = useQuery({
@@ -112,8 +106,6 @@ export function TabPage() {
       return r.success ? (r.balances ?? []) : [];
     },
     enabled: !!tabIdOrEmpty,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 
   const [settleUpOpen, setSettleUpOpen] = useState(false);

@@ -264,8 +264,6 @@ function ImportCsvForm({
         : { expenses: [], total: 0 };
     },
     enabled: step === "preview" && !!tabIdOrEmpty,
-    staleTime: 0,
-    refetchOnMount: "always",
   });
   const existingExpenses = expensesResult?.expenses ?? [];
 

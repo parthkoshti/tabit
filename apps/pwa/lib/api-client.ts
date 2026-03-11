@@ -92,6 +92,11 @@ export const api = {
       ),
     list: () =>
       request<{ success: boolean; friends: FriendTab[] }>("/friends"),
+    poke: (friendTabId: string) =>
+      request<{ success: boolean; error?: string }>("/friends/poke", {
+        method: "POST",
+        body: { friendTabId },
+      }),
   },
   tabInvites: {
     getByToken: (token: string) =>

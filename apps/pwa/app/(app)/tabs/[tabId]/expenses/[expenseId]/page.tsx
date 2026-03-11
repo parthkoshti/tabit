@@ -40,8 +40,6 @@ export function ExpensePage() {
       return r.success && r.expense ? r.expense : null;
     },
     enabled: !!tabIdOrEmpty && !!expenseIdOrEmpty,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 
   const { data: tab } = useQuery({
@@ -51,8 +49,6 @@ export function ExpensePage() {
       return r.success && r.tab ? r.tab : null;
     },
     enabled: !!tabIdOrEmpty,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 
   const { data: auditLog } = useQuery({
@@ -62,8 +58,6 @@ export function ExpensePage() {
       return r.success ? (r.auditLog ?? []) : [];
     },
     enabled: !!tabIdOrEmpty && !!expenseIdOrEmpty && !!expense,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
   });
 
   useEffect(() => {
