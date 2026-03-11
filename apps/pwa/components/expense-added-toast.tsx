@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
@@ -31,24 +32,39 @@ export function ExpenseAddedToast({
 }) {
   const router = useRouter();
 
+  const sortedParticipants = useMemo(
+    () =>
+      [...participants].sort((a, b) => {
+        const aPaid = a.paid != null && a.paid > 0 ? 1 : 0;
+        const bPaid = b.paid != null && b.paid > 0 ? 1 : 0;
+        if (bPaid !== aPaid) return bPaid - aPaid;
+        const aName = (a.userId === currentUserId ? "You" : a.name ?? "Unknown").toLowerCase();
+        const bName = (b.userId === currentUserId ? "You" : b.name ?? "Unknown").toLowerCase();
+        return aName.localeCompare(bName);
+      }),
+    [participants, currentUserId],
+  );
+
   return (
     <div className="flex min-w-0 items-center justify-between gap-4">
       <div className="min-w-0 flex-1 space-y-1.5">
         <p className="font-medium">Expense added</p>
-        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <span className="text-foreground">${amount.toFixed(2)}</span> for{" "}
-          <span className="text-foreground">{description}</span> to{" "}
-          <span className="inline-flex items-center gap-1 text-foreground">
+        <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
+          <span className="text-foreground wrap-break-word">${amount.toFixed(2)}</span>
+          <span>for</span>
+          <span className="text-foreground wrap-break-word">{description}</span>
+          <span>to</span>
+          <span className="inline-flex items-center gap-1 text-foreground wrap-break-word">
             <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
             {tabName}
           </span>
         </p>
         {participants.length > 0 ? (
           <div className="flex flex-wrap items-center gap-1.5">
-            {participants.map((p) => (
+            {sortedParticipants.map((p) => (
               <span
                 key={p.userId}
-                className="inline-flex items-center gap-1 rounded-full bg-muted/60 py-0.5 pl-0.5 pr-1.5 text-xs text-muted-foreground"
+                className="inline-flex items-center gap-1 rounded-full bg-muted/60 py-0.5 pl-0.5 pr-1.5 text-xs text-muted-foreground wrap-break-word"
               >
                 <UserAvatar userId={p.userId} size="xs" />
                 <span>
@@ -72,13 +88,13 @@ export function ExpenseAddedToast({
         ) : null}
       </div>
       <Button
-        variant="default"
-        size="sm"
-        className="h-7 shrink-0 px-2.5"
-        onClick={() => {
-          router.push(`/tabs/${tabId}/expenses/${expenseId}?edit=1`);
-        }}
-      >
+          variant="default"
+          size="sm"
+          className="h-7 shrink-0 px-2.5"
+          onClick={() => {
+            router.push(`/tabs/${tabId}/expenses/${expenseId}?edit=1`);
+          }}
+        >
         <Pencil className="h-3.5 w-3.5" />
         Edit
       </Button>

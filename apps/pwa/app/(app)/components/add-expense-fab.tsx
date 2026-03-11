@@ -35,6 +35,8 @@ import { toast } from "sonner";
 import { fabSpring } from "@/lib/animations";
 import { ExpenseAddedToast } from "@/components/expense-added-toast";
 
+const TEST_BUTTON_VISIBLE = false;
+
 type Member = {
   userId: string;
   role: string;
@@ -138,10 +140,7 @@ export function AddExpenseFAB() {
   const { data: tab, isLoading: tabLoading } = useQuery({
     queryKey: ["tab", effectiveTabId],
     queryFn: () => fetchTab(effectiveTabId!),
-    enabled:
-      open &&
-      addExpenseMode === "tab" &&
-      !!effectiveTabId,
+    enabled: open && addExpenseMode === "tab" && !!effectiveTabId,
     staleTime: 0,
   });
 
@@ -231,35 +230,64 @@ export function AddExpenseFAB() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={addExpenseMode === "tab" ? "default" : "outline"}
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => {
+                  setAddExpenseMode("tab");
+                  setSelectedFriendId(null);
+                  setPickedAnotherTab(false);
+                  setSelectedTabId(tabIdFromParams ?? null);
+                }}
+              >
+                <ReceiptText className="h-4 w-4" />
+                Tab
+              </Button>
+              <Button
+                type="button"
+                variant={addExpenseMode === "direct" ? "default" : "outline"}
+                size="sm"
+                className="flex-1 gap-2"
+                onClick={() => {
+                  setAddExpenseMode("direct");
+                  setSelectedTabId(null);
+                  setSelectedFriendId(null);
+                }}
+              >
+                <User className="h-4 w-4" />
+                Direct
+              </Button>
+            </div>
             <Button
               type="button"
-              variant={addExpenseMode === "tab" ? "default" : "outline"}
+              variant="ghost"
               size="sm"
-              className="flex-1 gap-2"
+              hidden={!TEST_BUTTON_VISIBLE}
+              className="text-muted-foreground text-xs self-start"
               onClick={() => {
-                setAddExpenseMode("tab");
-                setSelectedFriendId(null);
-                setPickedAnotherTab(false);
-                setSelectedTabId(tabIdFromParams ?? null);
+                toast.success(
+                  <ExpenseAddedToast
+                    expenseId="test-expense-id"
+                    tabId="test-tab-id"
+                    amount={12.5}
+                    description="Coffee at Blue Bottle"
+                    tabName="BLR Trip"
+                    participants={[
+                      { userId: "u1", name: "You", owes: 4.17 },
+                      { userId: "u2", name: "Sam", paid: 12.5 },
+                      { userId: "u3", name: "Alex", owes: 4.16 },
+                    ]}
+                    currentUserId={currentUserId}
+                  />,
+                  { duration: 10_000 },
+                );
               }}
             >
-              <ReceiptText className="h-4 w-4" />
-              Tab
-            </Button>
-            <Button
-              type="button"
-              variant={addExpenseMode === "direct" ? "default" : "outline"}
-              size="sm"
-              className="flex-1 gap-2"
-              onClick={() => {
-                setAddExpenseMode("direct");
-                setSelectedTabId(null);
-                setSelectedFriendId(null);
-              }}
-            >
-              <User className="h-4 w-4" />
-              Direct
+              Test toast
             </Button>
           </div>
 
@@ -539,7 +567,6 @@ export function AddExpenseFAB() {
               )}
             </>
           )}
-
         </DialogContent>
       </Dialog>
 

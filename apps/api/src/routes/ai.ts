@@ -46,6 +46,8 @@ const parsedExpenseSchema = z.object({
   description: z.string().min(1),
   paidById: z.string(),
   participantIds: z.array(z.string()).optional(),
+  confidence: z.number().min(0).max(1),
+  ambiguityReason: z.string().optional(),
 });
 
 export const aiRoutes = new Hono<{ Variables: { auth: AuthContext } }>();
@@ -149,7 +151,7 @@ aiRoutes.post("/add-expense", async (c) => {
         .join("\n"),
   );
 
-  const systemPrompt = `You are an expense parsing assistant. Extract expense details from the user's natural language and return structured data.
+  const systemPrompt = `You are an expense parsing assistant. Extract expense details from the user's natural language and return structured data. Do NOT guess or make up values when the input is ambiguous.
 
 Current user ID (use for "I paid" or when payer is not specified): ${userId}
 
@@ -163,7 +165,13 @@ Rules:
 - Extract amount in dollars (number). If user says "$50" or "50 dollars", use 50.
 - Extract a clear description (e.g. "dinner at the restaurant").
 - paidById must be a valid userId from the members list. When user says "I paid", use ${userId}.
-- participantIds: omit for equal split among all members, or provide user IDs to include in split.`;
+- participantIds: omit for equal split among all members, or provide user IDs to include in split.
+
+CRITICAL - Confidence and ambiguity:
+- confidence: 0.0 to 1.0. Use 1.0 only when amount, tab, payer, and participants are all clearly specified and unambiguous.
+- Use 0.5 or lower when: multiple tabs could match (e.g. user has two friends named John), amount is unclear, payer is ambiguous, or you had to guess.
+- Use 0.3 or lower when: you had to infer or assume critical fields (tab, payer, amount).
+- ambiguityReason: when confidence < 0.8, briefly explain what is unclear (e.g. "Multiple tabs match 'John'", "Amount not specified", "Unclear who paid").`;
 
   const userPrompt = `Parse this expense: "${text}"`;
 
@@ -176,6 +184,20 @@ Rules:
         schema: parsedExpenseSchema,
       }),
     });
+
+    const CONFIDENCE_THRESHOLD = 0.8;
+    if (output.confidence < CONFIDENCE_THRESHOLD) {
+      const reason =
+        output.ambiguityReason ??
+        "Input is ambiguous. Please specify amount, which tab, and who paid.";
+      return c.json(
+        {
+          success: false,
+          error: reason,
+        },
+        400,
+      );
+    }
 
     const parsedExpense = {
       ...output,

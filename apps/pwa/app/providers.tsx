@@ -1,5 +1,6 @@
 "use client";
 
+import "ios-vibrator-pro-max";
 import { ThemeProvider } from "next-themes";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
