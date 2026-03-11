@@ -9,7 +9,8 @@ out
 .turbo
 
 # Local HTTPS certs (mkcert-generated)
-apps/web/certificates/*.pem
+*.pem
+*.pem
 
 # Environment
 .env

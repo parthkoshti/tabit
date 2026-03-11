@@ -15,12 +15,29 @@ const https =
 
 const isProd = process.env.NODE_ENV === "production";
 
+function getAllowedHosts(): string[] {
+  const hosts = ["localhost"];
+  const pwaUrl = process.env.VITE_PWA_URL;
+  if (pwaUrl) {
+    try {
+      const host = new URL(pwaUrl).hostname;
+      if (!hosts.includes(host)) hosts.push(host);
+    } catch {
+      // ignore invalid URL
+    }
+  }
+  return hosts;
+}
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
     },
+  },
+  preview: {
+    allowedHosts: getAllowedHosts(),
   },
   server: {
     https: isProd ? undefined : https,
