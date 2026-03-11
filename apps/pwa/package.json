@@ -8,6 +8,8 @@
     "generate-https-certs": "node ../../scripts/generate-https-certs.js",
     "build": "dotenv -e ../../.env -e ../../.env.local -- sh -c 'node scripts/generate-sw.js && vite build'",
     "preview": "vite preview --port 3003",
+    "start": "vite preview --port 3003",
+    "start:prod": "vite preview --port 3003 --host",
     "check": "tsc --noEmit && eslint .",
     "lint": "eslint ."
   },
