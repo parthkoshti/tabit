@@ -3,7 +3,7 @@ self.addEventListener("install", function (event) {
   console.log("[SW] Installing new service worker");
   event.waitUntil(
     caches.open("tabit-static-__CACHE_BUSTER__").then(function (cache) {
-      return cache.addAll(["/"]);
+      return cache.addAll(["/", "/favicon.ico"]);
     }),
   );
   self.skipWaiting();

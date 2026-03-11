@@ -32,7 +32,7 @@ export function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/invite" element={<InvitePage />} />
-            <Route path="/" element={<AppLayout />}>
+            <Route path="*" element={<AppLayout />}>
               <Route index element={<AppPage />} />
               <Route path="onboarding" element={<OnboardingPage />} />
               <Route path="tabs" element={<TabsPage />} />

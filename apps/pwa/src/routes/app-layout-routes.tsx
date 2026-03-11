@@ -1,4 +1,5 @@
 import { Route } from "react-router-dom";
+import { NotFoundPage } from "@/app/not-found";
 import { AppPage } from "@/app/(app)/page";
 import { OnboardingPage } from "@/app/(app)/onboarding/page";
 import { TabsPage } from "@/app/(app)/tabs/page";
@@ -36,5 +37,6 @@ export const appLayoutRoutes = (
     <Route path="friends/add-by-qr" element={<AddByQrPage />} />
     <Route path="activity" element={<ActivityPage />} />
     <Route path="me" element={<MePage />} />
+    <Route path="*" element={<NotFoundPage />} />
   </>
 );
