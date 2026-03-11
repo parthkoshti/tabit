@@ -37,16 +37,25 @@ export function useNotifications(enabled: boolean) {
   const connect = useCallback(() => {
     if (!enabled) return;
 
+    let cancelled = false;
+
     const getTokenAndConnect = async () => {
+      if (cancelled) return;
       try {
         const res = await fetch(`${apiUrl}/notifications/token`, {
           credentials: "include",
         });
+        if (cancelled) return;
         if (!res.ok) return;
         const { token } = await res.json();
+        if (cancelled) return;
         const wsUrl = getWebSocketUrl();
         const url = `${wsUrl}?token=${encodeURIComponent(token)}`;
         const ws = new WebSocket(url);
+        if (cancelled) {
+          ws.close();
+          return;
+        }
 
         ws.onopen = () => {
           reconnectAttempts.current = 0;
@@ -113,6 +122,7 @@ export function useNotifications(enabled: boolean) {
 
         ws.onclose = () => {
           wsRef.current = null;
+          if (cancelled) return;
           const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 30000);
           reconnectAttempts.current += 1;
           reconnectTimeoutRef.current = setTimeout(() => {
@@ -126,7 +136,7 @@ export function useNotifications(enabled: boolean) {
 
         wsRef.current = ws;
       } catch {
-        // retry later
+        if (cancelled) return;
         reconnectTimeoutRef.current = setTimeout(() => {
           getTokenAndConnect();
         }, 5000);
@@ -136,6 +146,7 @@ export function useNotifications(enabled: boolean) {
     getTokenAndConnect();
 
     return () => {
+      cancelled = true;
       if (reconnectTimeoutRef.current) {
         clearTimeout(reconnectTimeoutRef.current);
         reconnectTimeoutRef.current = null;
