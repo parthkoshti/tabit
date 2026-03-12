@@ -37,11 +37,13 @@ export const metadata: Metadata = {
     siteName: appConfig.name,
     title: appConfig.seo.title,
     description: appConfig.seo.description,
+    images: ["/opengraph.png"],
   },
   twitter: {
     card: "summary_large_image",
     title: appConfig.seo.title,
     description: appConfig.seo.description,
+    images: ["/opengraph.png"],
   },
   robots: {
     index: true,
