@@ -3,7 +3,7 @@ import { inferAdditionalFields } from "better-auth/client/plugins";
 import { emailOTPClient } from "better-auth/client/plugins";
 
 export const authClient = createAuthClient({
-  baseURL: process.env.VITE_APP_URL ?? "http://localhost:3000",
+  baseURL: process.env.NEXT_PUBLIC_WEB_URL ?? "http://localhost:3000",
   plugins: [
     emailOTPClient(),
     inferAdditionalFields({

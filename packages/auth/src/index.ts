@@ -144,7 +144,7 @@ export const auth = betterAuth({
   ],
   baseURL: process.env.BETTER_AUTH_URL ?? "https://localhost:3003",
   trustedOrigins: [
-    process.env.VITE_PWA_URL!,
+    process.env.NEXT_PUBLIC_PWA_URL!,
     "https://localhost:3003",
     "http://localhost:3003",
     ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS

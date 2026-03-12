@@ -299,8 +299,8 @@ tabInvitesRoutes.get("/token", async (c) => {
   }
 
   const baseUrl =
-    process.env.VITE_PWA_URL ??
-    process.env.VITE_APP_URL ??
+    process.env.NEXT_PUBLIC_PWA_URL ??
+    process.env.NEXT_PUBLIC_WEB_URL ??
     process.env.APP_URL ??
     "http://localhost:3003";
   const url = `${baseUrl}/invite?type=tab&token=${encodeURIComponent(token)}`;

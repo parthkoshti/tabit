@@ -19,10 +19,10 @@ A Splitwise alternative built with Next.js 15, PWA, PostgreSQL, Drizzle, Better 
 
 1. Copy `apps/web/.env.example` to `.env` or `.env.local` at the project root and fill in:
    - `DATABASE_URL` - PostgreSQL connection string
-   - `VITE_APP_URL` - Landing URL (e.g. http://localhost:3000)
-   - `VITE_PWA_URL` - PWA app URL (e.g. https://localhost:3003)
+   - `NEXT_PUBLIC_WEB_URL` - Landing URL (e.g. http://localhost:3000)
+   - `NEXT_PUBLIC_PWA_URL` - PWA app URL (e.g. https://localhost:3003)
    - `BETTER_AUTH_SECRET` - Secret for Better Auth (min 32 chars)
-   - `BETTER_AUTH_URL` - Same as VITE_PWA_URL when developing PWA
+   - `BETTER_AUTH_URL` - Same as NEXT_PUBLIC_PWA_URL when developing PWA
    - `PLUNK_SECRET_KEY` - Plunk API key for magic link emails
    - `API_URL` - API base URL (e.g. http://localhost:3001)
    - `REDIS_URL` - Redis connection string (for API and notifications)

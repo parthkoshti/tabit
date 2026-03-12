@@ -17,7 +17,7 @@ const isProd = process.env.NODE_ENV === "production";
 
 function getAllowedHosts(): string[] {
   const hosts = ["localhost"];
-  const pwaUrl = process.env.VITE_PWA_URL;
+  const pwaUrl = process.env.NEXT_PUBLIC_PWA_URL;
   if (pwaUrl) {
     try {
       const host = new URL(pwaUrl).hostname;
