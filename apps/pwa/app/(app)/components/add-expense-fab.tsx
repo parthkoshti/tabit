@@ -32,6 +32,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import { fabSpring } from "@/lib/animations";
 import { useSpeechRecognition } from "@/lib/use-speech-recognition";
+import { useSpeechRecognitionSettings } from "@/lib/use-speech-recognition-settings";
 import { vibrate } from "@/lib/vibrate";
 import { ExpenseAddedToast } from "@/components/expense-added-toast";
 
@@ -129,6 +130,8 @@ export function AddExpenseFAB() {
   const aiFormRef = useRef<HTMLFormElement>(null);
   const voiceInputBaseRef = useRef("");
 
+  const { settings: voiceSettings } = useSpeechRecognitionSettings();
+
   const {
     isListening,
     isSupported,
@@ -141,14 +144,15 @@ export function AddExpenseFAB() {
       setAiInputText(base ? `${base} ${transcript}`.trim() : transcript);
     },
     onError: (err) => setAiError(err),
+    lang: voiceSettings.lang,
   });
 
   useEffect(() => {
-    if (aiDialogOpen && isSupported && !aiLoading) {
+    if (aiDialogOpen && isSupported && !aiLoading && voiceSettings.autoStart) {
       voiceInputBaseRef.current = "";
       startVoice();
     }
-  }, [aiDialogOpen, isSupported, startVoice]);
+  }, [aiDialogOpen, isSupported, startVoice, voiceSettings.autoStart]);
 
   const handleToggleVoice = () => {
     if (!isSupported) {

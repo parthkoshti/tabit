@@ -15,6 +15,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Loader2,
   CircleCheck,
   CircleX,
@@ -24,7 +31,12 @@ import {
   Github,
   Heart,
   ExternalLink,
+  Mic,
 } from "lucide-react";
+import {
+  useSpeechRecognitionSettings,
+  SPEECH_RECOGNITION_LANGUAGES,
+} from "@/lib/use-speech-recognition-settings";
 import { toast } from "sonner";
 import {
   useNeedsPushResubscription,
@@ -337,6 +349,8 @@ export function MePage() {
           </Dialog>
         </section>
 
+        <VoiceInputSection />
+
         <PushNotificationsSection />
 
         <SupportSection />
@@ -344,6 +358,64 @@ export function MePage() {
         <InviteSection />
       </div>
     </div>
+  );
+}
+
+function VoiceInputSection() {
+  const { settings, update } = useSpeechRecognitionSettings();
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-xl border border-border bg-card/50 p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <Mic className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-medium">Voice input</h2>
+        </div>
+
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm">Language</p>
+              <p className="text-[11px] text-muted-foreground">
+                Language used for speech recognition
+              </p>
+            </div>
+            <Select
+              value={settings.lang}
+              onValueChange={(val) => update({ lang: val })}
+            >
+              <SelectTrigger className="w-48 shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SPEECH_RECOGNITION_LANGUAGES.map((lang) => (
+                  <SelectItem key={lang.value} value={lang.value}>
+                    {lang.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-sm">Auto-start microphone</p>
+              <p className="text-[11px] text-muted-foreground">
+                Automatically listen when opening the AI expense dialog
+              </p>
+            </div>
+            <Button
+              variant={settings.autoStart ? "default" : "outline"}
+              size="sm"
+              className="shrink-0"
+              onClick={() => update({ autoStart: !settings.autoStart })}
+            >
+              {settings.autoStart ? "On" : "Off"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
