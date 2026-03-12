@@ -30,6 +30,7 @@ function getAllowedHosts(): string[] {
 }
 
 export default defineConfig({
+  envPrefix: ["NEXT_PUBLIC_", "VITE_"],
   plugins: [react()],
   resolve: {
     alias: {
