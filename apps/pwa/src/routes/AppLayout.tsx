@@ -55,9 +55,7 @@ function AppLayoutContent() {
   return (
     <div className="fixed inset-0 flex flex-col overflow-clip">
       {!isOnboarding && <TopNavbar />}
-      <main
-        className="app-layout-safe-bottom app-scroll-hide min-h-0 flex-1 overflow-auto overscroll-none pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))]"
-      >
+      <main className="app-layout-safe-bottom app-scroll-hide min-h-0 flex-1 overflow-auto overscroll-none pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))]">
         <PageTransition />
       </main>
       {!isOnboarding && <BottomNavbar />}

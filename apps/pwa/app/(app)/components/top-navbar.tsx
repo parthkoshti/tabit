@@ -34,57 +34,57 @@ export function TopNavbar() {
     <header className="top-nav-safe fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]">
       {navPage ? (
         <div className="absolute inset-0 flex items-center justify-between px-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative z-10 shrink-0"
-              aria-label="Go back"
-              onClick={() => navigate(-1)}
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <div className="absolute left-0 right-0 flex items-center justify-center gap-2 px-14 pointer-events-none">
-              <div className="flex items-center justify-center gap-2 min-w-0 pointer-events-auto overflow-hidden">
-                {navPage.icon ? (
-                  <span className="shrink-0">{navPage.icon}</span>
-                ) : isTabPage ? (
-                  <ReceiptText className="h-5 w-5 shrink-0 text-tab-icon" />
-                ) : null}
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.h1
-                    key={navPage.title}
-                    className="truncate text-lg font-semibold"
-                    variants={navTitleVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    transition={transitionSpring.transition}
-                  >
-                    {navPage.title}
-                  </motion.h1>
-                </AnimatePresence>
-                {isTabPage &&
-                  navPage.avatarUserIds &&
-                  navPage.avatarUserIds.length > 0 && (
-                    <div className="flex -space-x-2 shrink-0 items-center">
-                      {navPage.avatarUserIds.slice(0, 2).map((userId) => (
-                        <UserAvatar
-                          key={userId}
-                          userId={userId}
-                          size="xs"
-                          className="ring-2 ring-background"
-                        />
-                      ))}
-                      {navPage.avatarUserIds.length > 3 && (
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
-                          3+
-                        </span>
-                      )}
-                    </div>
-                  )}
-              </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative z-10 shrink-0"
+            aria-label="Go back"
+            onClick={() => navigate(-1)}
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div className="absolute left-0 right-0 flex items-center justify-center gap-2 px-14 pointer-events-none">
+            <div className="flex items-center justify-center gap-2 min-w-0 pointer-events-auto overflow-hidden">
+              {navPage.icon ? (
+                <span className="shrink-0">{navPage.icon}</span>
+              ) : isTabPage ? (
+                <ReceiptText className="h-5 w-5 shrink-0 text-tab-icon" />
+              ) : null}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.h1
+                  key={navPage.title}
+                  className="truncate text-lg font-semibold"
+                  variants={navTitleVariants}
+                  initial="initial"
+                  animate="animate"
+                  exit="exit"
+                  transition={transitionSpring.transition}
+                >
+                  {navPage.title}
+                </motion.h1>
+              </AnimatePresence>
+              {isTabPage &&
+                navPage.avatarUserIds &&
+                navPage.avatarUserIds.length > 0 && (
+                  <div className="flex -space-x-2 shrink-0 items-center">
+                    {navPage.avatarUserIds.slice(0, 2).map((userId) => (
+                      <UserAvatar
+                        key={userId}
+                        userId={userId}
+                        size="xs"
+                        className="ring-2 ring-background"
+                      />
+                    ))}
+                    {navPage.avatarUserIds.length > 3 && (
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
+                        3+
+                      </span>
+                    )}
+                  </div>
+                )}
             </div>
-            <div className="relative z-10 flex shrink-0 justify-end w-20" />
+          </div>
+          <div className="relative z-10 flex shrink-0 justify-end w-20" />
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-between w-full">
@@ -105,12 +105,7 @@ export function TopNavbar() {
           </div>
         ) : isFriendsListPage ? (
           <div className="relative z-10 flex shrink-0 justify-end">
-            <Button
-              variant="default"
-              size="sm"
-              asChild
-              aria-label="Add friend"
-            >
+            <Button variant="default" size="sm" asChild aria-label="Add friend">
               <Link to="/friends/addFriend" className="">
                 <Plus className="h-5 w-5" />
                 <span>Friend</span>

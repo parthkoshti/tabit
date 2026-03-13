@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Providers } from "./providers";
-import { RegisterSW } from "./RegisterSW";
+import { ReloadPrompt } from "@/components/reload-prompt";
 import { SplashScreenLinks } from "./SplashScreenLinks";
 import { Toaster } from "@/components/ui/sonner";
 import { AppLayout } from "./routes/AppLayout";
@@ -27,7 +27,7 @@ export function App() {
     <BrowserRouter>
       <Providers>
         <SplashScreenLinks />
-        <RegisterSW />
+        <ReloadPrompt />
         <div className="min-h-screen bg-background font-sans text-foreground">
           <Routes>
             <Route path="/login" element={<LoginPage />} />

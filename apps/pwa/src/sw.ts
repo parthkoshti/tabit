@@ -1,34 +1,29 @@
-// __CACHE_BUSTER__ is replaced at build time with VITE_QUERY_CACHE_BUSTER (default: v1)
-self.addEventListener("install", function (event) {
-  console.log("[SW] Installing new service worker");
-  event.waitUntil(
-    caches.open("tabit-static-__CACHE_BUSTER__").then(function (cache) {
-      return cache.addAll(["/", "/favicon.ico"]);
-    }),
-  );
-  self.skipWaiting();
+/// <reference types="vite/client" />
+
+import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from "workbox-precaching";
+import { clientsClaim } from "workbox-core";
+import { NavigationRoute, registerRoute, setCatchHandler } from "workbox-routing";
+
+declare let self: ServiceWorkerGlobalScope;
+
+self.skipWaiting();
+clientsClaim();
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
+  }
 });
 
-self.addEventListener("activate", function (event) {
-  console.log("[SW] Service worker activated");
-  event.waitUntil(self.clients.claim());
-});
+cleanupOutdatedCaches();
+precacheAndRoute(self.__WB_MANIFEST);
 
-self.addEventListener("fetch", function (event) {
-  event.respondWith(
-    fetch(event.request).catch(function () {
-      return caches.match(event.request).then(function (cached) {
-        return (
-          cached ||
-          new Response("Offline - please check your connection", {
-            status: 503,
-            statusText: "Service Unavailable",
-            headers: { "Content-Type": "text/html; charset=utf-8" },
-          })
-        );
-      });
-    }),
-  );
+const allowlist = import.meta.env.DEV ? [/^\/$/] : undefined;
+const handler = createHandlerBoundToURL("/index.html");
+registerRoute(new NavigationRoute(handler, { allowlist }));
+
+setCatchHandler(async () => {
+  return (await caches.match("/offline.html")) ?? new Response("Offline", { status: 503 });
 });
 
 self.addEventListener("push", function (event) {
@@ -93,21 +88,23 @@ self.addEventListener("notificationclick", function (event) {
   const url =
     event.notification.data?.url ||
     new URL("/friends", self.location.origin).href;
-  const targetUrl = url.startsWith("http") ? url : new URL(url, self.location.origin).href;
+  const targetUrl = url.startsWith("http")
+    ? url
+    : new URL(url, self.location.origin).href;
   event.waitUntil(
     self.clients
       .matchAll({ type: "window", includeUncontrolled: true })
-      .then(function (clientList) {
+      .then(async function (clientList) {
         for (const client of clientList) {
           if (client.url.includes(self.location.origin) && "focus" in client) {
             client.navigate(targetUrl);
-            return client.focus();
+            await client.focus();
+            return;
           }
         }
         if (self.clients.openWindow) {
-          return self.clients.openWindow(targetUrl);
+          await self.clients.openWindow(targetUrl);
         }
-        return Promise.resolve();
       }),
   );
 });

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#08090a" />
+    <title>Offline - Tab</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: system-ui, -apple-system, sans-serif;
+        background: #08090a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+      }
+      .offline-content {
+        text-align: center;
+        max-width: 20rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        color: #8a8f98;
+        margin: 0 0 1.5rem;
+        font-size: 0.9375rem;
+      }
+      button {
+        background: #5e6ad2;
+        color: white;
+        border: none;
+        padding: 0.625rem 1.25rem;
+        border-radius: 0.5rem;
+        font-size: 0.9375rem;
+        font-weight: 500;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #4d59b8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="offline-content">
+      <h1>You're offline</h1>
+      <p>Check your connection and try again.</p>
+      <button type="button" onclick="location.reload()">Retry</button>
+    </div>
+  </body>
+</html>

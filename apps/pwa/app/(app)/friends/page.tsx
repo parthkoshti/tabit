@@ -83,6 +83,9 @@ export function FriendsPage() {
   async function handlePoke(friendTabId: string, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if ("vibrate" in navigator) {
+      navigator.vibrate(100);
+    }
     const result = await api.friends.poke(friendTabId);
     if (result.success) {
       toast.success("Poked!");
