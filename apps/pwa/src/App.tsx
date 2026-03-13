@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Providers } from "./providers";
-import { ReloadPrompt } from "@/components/reload-prompt";
+import { UpdateGate } from "@/components/update-gate";
 import { SplashScreenLinks } from "./SplashScreenLinks";
 import { Toaster } from "@/components/ui/sonner";
 import { AppLayout } from "./routes/AppLayout";
@@ -26,38 +26,39 @@ export function App() {
   return (
     <BrowserRouter>
       <Providers>
-        <SplashScreenLinks />
-        <ReloadPrompt />
-        <div className="min-h-screen bg-background font-sans text-foreground">
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/invite" element={<InvitePage />} />
-            <Route path="*" element={<AppLayout />}>
-              <Route index element={<AppPage />} />
-              <Route path="onboarding" element={<OnboardingPage />} />
-              <Route path="tabs" element={<TabsPage />} />
-              <Route path="tabs/create" element={<CreateTabPage />} />
-              <Route path="tabs/:tabId" element={<TabPage />} />
-              <Route path="tabs/:tabId/manage" element={<TabManagePage />} />
-              <Route path="tabs/:tabId/members" element={<TabMembersPage />} />
-              <Route
-                path="tabs/:tabId/expenses/:expenseId"
-                element={<ExpensePage />}
-              />
-              <Route
-                path="tabs/:tabId/settlements/:settlementId"
-                element={<SettlementPage />}
-              />
-              <Route path="friends" element={<FriendsPage />} />
-              <Route path="friends/addFriend" element={<AddFriendPage />} />
-              <Route path="friends/add-by-qr" element={<AddByQrPage />} />
-              <Route path="activity" element={<ActivityPage />} />
-              <Route path="me" element={<MePage />} />
-            </Route>
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
-        </div>
-        <Toaster />
+        <UpdateGate>
+          <SplashScreenLinks />
+          <div className="min-h-screen bg-background font-sans text-foreground">
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/invite" element={<InvitePage />} />
+              <Route path="*" element={<AppLayout />}>
+                <Route index element={<AppPage />} />
+                <Route path="onboarding" element={<OnboardingPage />} />
+                <Route path="tabs" element={<TabsPage />} />
+                <Route path="tabs/create" element={<CreateTabPage />} />
+                <Route path="tabs/:tabId" element={<TabPage />} />
+                <Route path="tabs/:tabId/manage" element={<TabManagePage />} />
+                <Route path="tabs/:tabId/members" element={<TabMembersPage />} />
+                <Route
+                  path="tabs/:tabId/expenses/:expenseId"
+                  element={<ExpensePage />}
+                />
+                <Route
+                  path="tabs/:tabId/settlements/:settlementId"
+                  element={<SettlementPage />}
+                />
+                <Route path="friends" element={<FriendsPage />} />
+                <Route path="friends/addFriend" element={<AddFriendPage />} />
+                <Route path="friends/add-by-qr" element={<AddByQrPage />} />
+                <Route path="activity" element={<ActivityPage />} />
+                <Route path="me" element={<MePage />} />
+              </Route>
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </div>
+          <Toaster />
+        </UpdateGate>
       </Providers>
     </BrowserRouter>
   );

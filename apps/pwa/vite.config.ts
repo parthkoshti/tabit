@@ -16,6 +16,10 @@ const https =
 
 const isProd = process.env.NODE_ENV === "production";
 
+const pkg = JSON.parse(
+  fs.readFileSync(path.join(__dirname, "package.json"), "utf-8"),
+) as { version: string };
+
 function getAllowedHosts(): string[] {
   const hosts = ["localhost"];
   const pwaUrl = process.env.NEXT_PUBLIC_PWA_URL;
@@ -32,6 +36,9 @@ function getAllowedHosts(): string[] {
 
 export default defineConfig({
   envPrefix: ["NEXT_PUBLIC_", "VITE_"],
+  define: {
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   plugins: [
     react(),
     VitePWA({
