@@ -39,7 +39,23 @@ export function TopNavbar() {
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,
-  } = useRegisterSW();
+  } = useRegisterSW({
+    onRegisteredSW(swUrl, registration) {
+      if (!registration) return;
+      setInterval(async () => {
+        if (registration.installing || !navigator.onLine) return;
+        try {
+          const resp = await fetch(swUrl, {
+            cache: "no-store",
+            headers: { "Cache-Control": "no-cache" },
+          });
+          if (resp?.status === 200) await registration.update();
+        } catch {
+          // ignore
+        }
+      }, 15 * 60 * 1000);
+    },
+  });
 
   return (
     <header className="top-nav-safe fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]">
