@@ -54,14 +54,20 @@ export function ActivityPage() {
     initialPageParam: 0,
     enabled: !!session?.user,
     placeholderData: (prev) =>
-      prev ?? { pages: [] as { items: ActivityItem[]; total: number }[], pageParams: [0] },
+      prev ?? {
+        pages: [] as { items: ActivityItem[]; total: number }[],
+        pageParams: [0],
+      },
     getNextPageParam: (lastPage, allPages) => {
       if (!lastPage || typeof lastPage !== "object" || !("total" in lastPage))
         return undefined;
       const pages = allPages ?? [];
       const loaded = pages.reduce(
         (sum, p) =>
-          sum + (p && typeof p === "object" && "items" in p ? (p.items as ActivityItem[]).length : 0),
+          sum +
+          (p && typeof p === "object" && "items" in p
+            ? (p.items as ActivityItem[]).length
+            : 0),
         0,
       );
       return loaded < (lastPage as { total: number }).total
@@ -72,7 +78,9 @@ export function ActivityPage() {
 
   const items = useMemo((): ActivityItem[] => {
     return (data?.pages ?? []).flatMap((p) =>
-      p && typeof p === "object" && "items" in p ? (p.items as ActivityItem[]) : []
+      p && typeof p === "object" && "items" in p
+        ? (p.items as ActivityItem[])
+        : [],
     );
   }, [data]);
 
@@ -136,42 +144,45 @@ export function ActivityPage() {
               {items.map((item, i) => {
                 const shouldAnimate = i < 8;
                 return item.type === "expense" ? (
-                  <motion.div key={`exp-${item.id}`} variants={shouldAnimate ? staggerItem : undefined}>
+                  <motion.div
+                    key={`exp-${item.id}`}
+                    variants={shouldAnimate ? staggerItem : undefined}
+                  >
                     <Link to={`/tabs/${item.tabId}/expenses/${item.id}`}>
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <UserAvatar userId={item.paidById} size="sm" />
-                          <span className="font-medium truncate">
-                            {item.description}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <UserAvatar userId={item.paidById} size="sm" />
+                            <span className="font-medium truncate">
+                              {item.description}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium shrink-0">
+                            ${formatAmount(item.amount)}
                           </span>
                         </div>
-                        <span className="text-sm font-medium shrink-0">
-                          ${formatAmount(item.amount)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                        {getDisplayName(
-                          {
-                            id: item.paidById,
-                            username: item.paidByUsername,
-                            name: item.paidByName,
-                            email: item.paidByEmail,
-                          },
-                          currentUserId
-                        )}{" "}
-                        paid in{" "}
-                        <span className="inline-flex items-center gap-1 text-foreground">
-                          <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
-                          {item.tabName}
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(item.expenseDate)}
-                      </p>
-                    </AnimatedCard>
-                  </Link>
-                </motion.div>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          {getDisplayName(
+                            {
+                              id: item.paidById,
+                              username: item.paidByUsername,
+                              name: item.paidByName,
+                              email: item.paidByEmail,
+                            },
+                            currentUserId,
+                          )}{" "}
+                          paid in{" "}
+                          <span className="inline-flex items-center gap-1 text-foreground">
+                            <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                            {item.tabName}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(item.expenseDate)}
+                        </p>
+                      </AnimatedCard>
+                    </Link>
+                  </motion.div>
                 ) : (
                   <motion.div
                     key={`set-${item.id}`}
@@ -179,44 +190,44 @@ export function ActivityPage() {
                   >
                     <Link to={`/tabs/${item.tabId}/settlements/${item.id}`}>
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
-                      <div className="flex items-center gap-2">
-                        <UserAvatar userId={item.fromUserId} size="sm" />
-                        <span className="font-medium">
-                          {getDisplayName(
-                            {
-                              id: item.fromUserId,
-                              username: item.fromUserUsername,
-                              name: item.fromUserName,
-                              email: item.fromUserEmail,
-                            },
-                            currentUserId,
-                          )}{" "}
-                          paid{" "}
-                          {getDisplayName(
-                            {
-                              id: item.toUserId,
-                              username: item.toUserUsername,
-                              name: item.toUserName,
-                              email: item.toUserEmail,
-                            },
-                            currentUserId,
-                          )}{" "}
-                          ${formatAmount(item.amount)}
-                        </span>
-                      </div>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                        Settlement in{" "}
-                        <span className="inline-flex items-center gap-1 text-foreground">
-                          <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
-                          {item.tabName}
-                        </span>
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(item.createdAt)}
-                      </p>
-                    </AnimatedCard>
-                  </Link>
-                </motion.div>
+                        <div className="flex items-center gap-2">
+                          <UserAvatar userId={item.fromUserId} size="sm" />
+                          <span className="font-medium">
+                            {getDisplayName(
+                              {
+                                id: item.fromUserId,
+                                username: item.fromUserUsername,
+                                name: item.fromUserName,
+                                email: item.fromUserEmail,
+                              },
+                              currentUserId,
+                            )}{" "}
+                            paid{" "}
+                            {getDisplayName(
+                              {
+                                id: item.toUserId,
+                                username: item.toUserUsername,
+                                name: item.toUserName,
+                                email: item.toUserEmail,
+                              },
+                              currentUserId,
+                            )}{" "}
+                            ${formatAmount(item.amount)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          Settlement in{" "}
+                          <span className="inline-flex items-center gap-1 text-foreground">
+                            <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                            {item.tabName}
+                          </span>
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDate(item.createdAt)}
+                        </p>
+                      </AnimatedCard>
+                    </Link>
+                  </motion.div>
                 );
               })}
               {isFetchingNextPage && (

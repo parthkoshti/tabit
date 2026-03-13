@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Providers } from "./providers";
 import { UpdateGate } from "@/components/update-gate";
-import { SplashScreenLinks } from "./SplashScreenLinks";
 import { Toaster } from "@/components/ui/sonner";
 import { AppLayout } from "./routes/AppLayout";
 import { LoginPage } from "@/app/login/page";
@@ -27,7 +26,6 @@ export function App() {
     <BrowserRouter>
       <Providers>
         <UpdateGate>
-          <SplashScreenLinks />
           <div className="min-h-screen bg-background font-sans text-foreground">
             <Routes>
               <Route path="/login" element={<LoginPage />} />

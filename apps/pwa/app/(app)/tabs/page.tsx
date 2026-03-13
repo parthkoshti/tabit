@@ -15,8 +15,23 @@ export function TabsPage() {
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
-  type TabItem = { id: string; name: string; balance?: number; memberUserIds?: string[]; expenseCount?: number; lastExpenseDate?: string | null };
-  type TabInviteItem = { id: string; tabId: string; fromUserId: string; tabName: string; fromUserName: string | null; fromUserUsername: string | null; createdAt: string };
+  type TabItem = {
+    id: string;
+    name: string;
+    balance?: number;
+    memberUserIds?: string[];
+    expenseCount?: number;
+    lastExpenseDate?: string | null;
+  };
+  type TabInviteItem = {
+    id: string;
+    tabId: string;
+    fromUserId: string;
+    tabName: string;
+    fromUserName: string | null;
+    fromUserUsername: string | null;
+    createdAt: string;
+  };
 
   const { data: tabsData, isLoading } = useQuery({
     queryKey: ["tabs"],
@@ -59,7 +74,7 @@ export function TabsPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-2xl space-y-6 pb-26">
         {pendingTabInvites.length > 0 && (
           <section className="space-y-4">
             <h2 className="text-base font-medium mb-1">Tab invites</h2>
@@ -158,63 +173,63 @@ export function TabsPage() {
                   <motion.div key={t.id} variants={staggerItem}>
                     <Link to={`/tabs/${t.id}`}>
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="font-medium">{t.name}</span>
-                        <span
-                          className={
-                            (t.balance ?? 0) > 0
-                              ? "text-sm font-medium text-positive shrink-0"
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-medium">{t.name}</span>
+                          <span
+                            className={
+                              (t.balance ?? 0) > 0
+                                ? "text-sm font-medium text-positive shrink-0"
+                                : (t.balance ?? 0) < 0
+                                  ? "text-sm font-medium text-negative shrink-0"
+                                  : "text-sm text-muted-foreground shrink-0"
+                            }
+                          >
+                            {(t.balance ?? 0) > 0
+                              ? `+$${formatAmount(t.balance ?? 0)}`
                               : (t.balance ?? 0) < 0
-                                ? "text-sm font-medium text-negative shrink-0"
-                                : "text-sm text-muted-foreground shrink-0"
-                          }
-                        >
-                          {(t.balance ?? 0) > 0
-                            ? `+$${formatAmount(t.balance ?? 0)}`
-                            : (t.balance ?? 0) < 0
-                              ? `-$${formatAmount(Math.abs(t.balance ?? 0))}`
-                              : "Settled"}
-                        </span>
-                      </div>
-                      {displayMembers.length > 0 && (
-                        <div className="flex -space-x-2">
-                          {displayMembers.map((userId) => (
-                            <UserAvatar
-                              key={userId}
-                              userId={userId}
-                              size="xs"
-                              className="ring-2 ring-background"
-                            />
-                          ))}
-                          {extraCount > 0 && (
-                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
-                              +{extraCount}
-                            </span>
-                          )}
+                                ? `-$${formatAmount(Math.abs(t.balance ?? 0))}`
+                                : "Settled"}
+                          </span>
                         </div>
-                      )}
-                      <span className="text-xs text-muted-foreground">
-                        {(t.expenseCount ?? 0) === 0
-                          ? "No expenses yet"
-                          : `${t.expenseCount} expense${(t.expenseCount ?? 0) === 1 ? "" : "s"}`}
-                        {t.lastExpenseDate && (
-                          <>
-                            {" "}
-                            &middot;{" "}
-                            {new Date(t.lastExpenseDate).toLocaleDateString(
-                              undefined,
-                              {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              },
+                        {displayMembers.length > 0 && (
+                          <div className="flex -space-x-2">
+                            {displayMembers.map((userId) => (
+                              <UserAvatar
+                                key={userId}
+                                userId={userId}
+                                size="xs"
+                                className="ring-2 ring-background"
+                              />
+                            ))}
+                            {extraCount > 0 && (
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
+                                +{extraCount}
+                              </span>
                             )}
-                          </>
+                          </div>
                         )}
-                      </span>
-                    </AnimatedCard>
-                  </Link>
-                </motion.div>
+                        <span className="text-xs text-muted-foreground">
+                          {(t.expenseCount ?? 0) === 0
+                            ? "No expenses yet"
+                            : `${t.expenseCount} expense${(t.expenseCount ?? 0) === 1 ? "" : "s"}`}
+                          {t.lastExpenseDate && (
+                            <>
+                              {" "}
+                              &middot;{" "}
+                              {new Date(t.lastExpenseDate).toLocaleDateString(
+                                undefined,
+                                {
+                                  month: "short",
+                                  day: "numeric",
+                                  year: "numeric",
+                                },
+                              )}
+                            </>
+                          )}
+                        </span>
+                      </AnimatedCard>
+                    </Link>
+                  </motion.div>
                 );
               })}
             </motion.div>

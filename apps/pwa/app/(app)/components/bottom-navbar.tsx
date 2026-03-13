@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useRegisterSW } from "virtual:pwa-register/react";
 import { Users, Activity, User, ReceiptText } from "lucide-react";
 import { useNeedsPushResubscription } from "@/app/(app)/context/push-resubscription-context";
 import { authClient } from "@/lib/auth-client";
@@ -34,6 +35,7 @@ export function BottomNavbar() {
   const friendInviteCount = friendRequestsData?.length ?? 0;
   const tabInviteCount = tabInvitesData?.length ?? 0;
   const needsPushResubscription = useNeedsPushResubscription();
+  const { needRefresh: [needRefresh] } = useRegisterSW();
 
   return (
     <nav className="bottom-nav-safe fixed bottom-8 left-0 right-0 z-40 flex justify-center px-4 pb-4 pt-2">
@@ -45,6 +47,7 @@ export function BottomNavbar() {
           const showBadge =
             (href === "/friends" && friendInviteCount > 0) ||
             (href === "/tabs" && tabInviteCount > 0) ||
+            (href === "/activity" && needRefresh) ||
             (href === "/me" && needsPushResubscription);
           const badgeCount =
             href === "/friends"
@@ -53,6 +56,7 @@ export function BottomNavbar() {
                 ? tabInviteCount
                 : 0;
           const isMeTab = href === "/me";
+          const isUpdateBadge = href === "/activity" && needRefresh;
           const showAvatar = isMeTab && session?.user?.id;
 
           return (
@@ -81,12 +85,12 @@ export function BottomNavbar() {
                   {showBadge && (
                     <span
                       className={`absolute -right-2 -top-2 flex items-center justify-center rounded-full bg-destructive text-[10px] font-medium text-foreground ${
-                        href === "/me" && needsPushResubscription
+                        (href === "/me" && needsPushResubscription) || isUpdateBadge
                           ? "h-2 w-2 min-w-2"
                           : "h-4 min-w-4 px-1"
                       }`}
                     >
-                      {href === "/me" && needsPushResubscription
+                      {(href === "/me" && needsPushResubscription) || isUpdateBadge
                         ? null
                         : badgeCount > 9
                           ? "9+"

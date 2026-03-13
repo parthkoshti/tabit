@@ -128,6 +128,7 @@ export function AddExpenseFAB() {
     }>;
   } | null>(null);
   const aiFormRef = useRef<HTMLFormElement>(null);
+  const aiTextareaRef = useRef<HTMLTextAreaElement>(null);
   const voiceInputBaseRef = useRef("");
 
   const { settings: voiceSettings } = useSpeechRecognitionSettings();
@@ -153,6 +154,13 @@ export function AddExpenseFAB() {
       startVoice();
     }
   }, [aiDialogOpen, isSupported, startVoice, voiceSettings.autoStart]);
+
+  useEffect(() => {
+    if (aiDialogOpen && !aiSuccessResult) {
+      const id = setTimeout(() => aiTextareaRef.current?.focus(), 0);
+      return () => clearTimeout(id);
+    }
+  }, [aiDialogOpen, aiSuccessResult]);
 
   const handleToggleVoice = () => {
     if (!isSupported) {
@@ -639,7 +647,7 @@ export function AddExpenseFAB() {
           setAiDialogOpen(next);
         }}
       >
-        <DialogContent className="max-w-[90vw] rounded-xl sm:max-w-md">
+        <DialogContent className="max-h-[90dvh] max-w-[90vw] overflow-y-auto rounded-xl sm:max-w-md">
           {aiSuccessResult ? (
             <>
               <DialogHeader>
@@ -777,8 +785,15 @@ export function AddExpenseFAB() {
                   }`}
                 >
                   <textarea
+                    ref={aiTextareaRef}
                     value={aiInputText}
                     onChange={(e) => setAiInputText(e.target.value)}
+                    onFocus={(e) => {
+                      e.target.scrollIntoView({
+                        block: "nearest",
+                        behavior: "smooth",
+                      });
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();

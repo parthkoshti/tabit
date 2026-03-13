@@ -2,7 +2,13 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { useRegisterSW } from "virtual:pwa-register/react";
-import { ArrowLeft, Plus, ReceiptText, ScrollText, Download } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  ReceiptText,
+  Download,
+  CircleFadingArrowUp,
+} from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { appConfig } from "@/src/config";
 import { useNavTitleConfig } from "../context/nav-title-context";
@@ -42,18 +48,21 @@ export function TopNavbar() {
   } = useRegisterSW({
     onRegisteredSW(swUrl, registration) {
       if (!registration) return;
-      setInterval(async () => {
-        if (registration.installing || !navigator.onLine) return;
-        try {
-          const resp = await fetch(swUrl, {
-            cache: "no-store",
-            headers: { "Cache-Control": "no-cache" },
-          });
-          if (resp?.status === 200) await registration.update();
-        } catch {
-          // ignore
-        }
-      }, 15 * 60 * 1000);
+      setInterval(
+        async () => {
+          if (registration.installing || !navigator.onLine) return;
+          try {
+            const resp = await fetch(swUrl, {
+              cache: "no-store",
+              headers: { "Cache-Control": "no-cache" },
+            });
+            if (resp?.status === 200) await registration.update();
+          } catch {
+            // ignore
+          }
+        },
+        15 * 60 * 1000,
+      );
     },
   });
 
@@ -180,9 +189,12 @@ export function TopNavbar() {
               aria-label="Changelog"
               onClick={() => setChangelogOpen(true)}
             >
-              <ScrollText className="h-5 w-5" />
+              <CircleFadingArrowUp className="h-5 w-5" />
             </Button>
-            <ChangelogDialog open={changelogOpen} onOpenChange={setChangelogOpen} />
+            <ChangelogDialog
+              open={changelogOpen}
+              onOpenChange={setChangelogOpen}
+            />
           </div>
         ) : null)}
       {navPage && isMePage && (

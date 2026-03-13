@@ -1,6 +1,11 @@
 {
   "releases": [
     {
+      "version": "0.1.2",
+      "date": "2025-03-13",
+      "content": "- AI Add expense: textarea now scrolls into view when keyboard opens on mobile\n- Improved mobile keyboard behavior with viewport resize support"
+    },
+    {
       "version": "0.1.1",
       "date": "2026-03-13",
       "content": "- Fixed top nav bar position\n- Introduced changelog"

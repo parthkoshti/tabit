@@ -96,7 +96,7 @@ export function FriendsPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6">
+      <div className="mx-auto max-w-2xl space-y-6 pb-26">
         {(requestsLoading || pendingRequests.length > 0) && (
           <section className="space-y-4">
             <h2 className="text-base font-medium mb-1">Friend requests</h2>
