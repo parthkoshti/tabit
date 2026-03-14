@@ -77,15 +77,10 @@ export default function RootLayout({
               <Footer />
             </div>
           </Providers>
-          {(process.env.RYBBIT_HOST ||
-            process.env.NEXT_PUBLIC_RYBBIT_SCRIPT_URL) &&
+          {process.env.NEXT_PUBLIC_RYBBIT_SCRIPT_URL &&
           process.env.NEXT_PUBLIC_WEB_RYBBIT_SITE_ID ? (
             <Script
-              src={
-                process.env.RYBBIT_HOST
-                  ? "/api/script.js"
-                  : process.env.NEXT_PUBLIC_RYBBIT_SCRIPT_URL!
-              }
+              src={process.env.NEXT_PUBLIC_RYBBIT_SCRIPT_URL}
               data-site-id={process.env.NEXT_PUBLIC_WEB_RYBBIT_SITE_ID}
               strategy="afterInteractive"
             />
