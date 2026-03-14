@@ -149,15 +149,32 @@ export function ActivityPage() {
                     variants={shouldAnimate ? staggerItem : undefined}
                   >
                     <Link to={`/tabs/${item.tabId}/expenses/${item.id}`}>
-                      <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
+                      <AnimatedCard
+                        className={`flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80 ${
+                          item.deletedAt ? "opacity-60" : ""
+                        }`}
+                      >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
                             <UserAvatar userId={item.paidById} size="sm" />
-                            <span className="font-medium truncate">
+                            <span
+                              className={`font-medium truncate ${
+                                item.deletedAt ? "text-muted-foreground" : ""
+                              }`}
+                            >
                               {item.description}
                             </span>
+                            {item.deletedAt && (
+                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                Deleted
+                              </span>
+                            )}
                           </div>
-                          <span className="text-sm font-medium shrink-0">
+                          <span
+                            className={`text-sm font-medium shrink-0 ${
+                              item.deletedAt ? "text-muted-foreground" : ""
+                            }`}
+                          >
                             ${formatAmount(item.amount)}
                           </span>
                         </div>

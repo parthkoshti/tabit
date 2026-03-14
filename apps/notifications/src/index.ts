@@ -104,6 +104,7 @@ function getPushTitle(payload: {
   amount?: string;
   count?: number;
   forcePush?: boolean;
+  isDirect?: boolean;
 }): string {
   if (payload.forcePush)
     return payload.type === "tab_invite"
@@ -129,21 +130,44 @@ function getPushTitle(payload: {
   ) {
     return `${payload.fromUserName} joined ${payload.tabName}`;
   }
-  if (
-    payload.type === "expense_added" &&
-    payload.fromUserName &&
-    payload.tabName
-  ) {
-    const desc = payload.description ? ` for ${payload.description}` : "";
+  if (payload.type === "expense_added" && payload.fromUserName) {
+    const desc = payload.description || "expense";
     const amt = payload.amount ? ` $${payload.amount}` : "";
-    return `${payload.fromUserName} added${amt}${desc} to ${payload.tabName}`;
+    if (payload.isDirect) {
+      return `${payload.fromUserName} paid${amt} for ${desc}`;
+    }
+    return payload.tabName
+      ? `${payload.fromUserName} paid${amt} for ${desc} in ${payload.tabName}`
+      : `${payload.fromUserName} paid${amt} for ${desc}`;
   }
-  if (
-    payload.type === "expense_updated" &&
-    payload.fromUserName &&
-    payload.tabName
-  ) {
-    return `${payload.fromUserName} updated an expense in ${payload.tabName}`;
+  if (payload.type === "expense_updated" && payload.fromUserName) {
+    const desc = payload.description || "expense";
+    if (payload.isDirect) {
+      return `${payload.fromUserName} edited ${desc} expense`;
+    }
+    return payload.tabName
+      ? `${payload.fromUserName} edited ${desc} expense in ${payload.tabName}`
+      : `${payload.fromUserName} edited ${desc} expense`;
+  }
+  if (payload.type === "expense_deleted" && payload.fromUserName) {
+    const desc = payload.description || "expense";
+    const amt = payload.amount ? ` $${payload.amount} for ` : " ";
+    if (payload.isDirect) {
+      return `${payload.fromUserName} deleted ${desc} expense`;
+    }
+    return payload.tabName
+      ? `${payload.fromUserName} deleted${amt}${desc} in ${payload.tabName}`
+      : `${payload.fromUserName} deleted ${desc} expense`;
+  }
+  if (payload.type === "expense_restored" && payload.fromUserName) {
+    const desc = payload.description || "expense";
+    const amt = payload.amount ? ` $${payload.amount}` : "";
+    if (payload.isDirect) {
+      return `${payload.fromUserName} restored ${desc} expense`;
+    }
+    return payload.tabName
+      ? `${payload.fromUserName} restored${amt} ${desc} in ${payload.tabName}`
+      : `${payload.fromUserName} restored ${desc} expense`;
   }
   if (
     payload.type === "expenses_bulk_imported" &&
@@ -164,6 +188,8 @@ function getPushTitle(payload: {
   if (payload.type === "tab_invite_accepted") return "Tab invite accepted";
   if (payload.type === "expense_added") return "New expense added";
   if (payload.type === "expense_updated") return "Expense updated";
+  if (payload.type === "expense_deleted") return "Expense deleted";
+  if (payload.type === "expense_restored") return "Expense restored";
   if (payload.type === "expenses_bulk_imported") return "Expenses imported";
   return "New notification";
 }
@@ -175,6 +201,9 @@ function getPushBody(payload: {
   tabName?: string;
   count?: number;
   forcePush?: boolean;
+  recipientOweAmount?: string;
+  descriptionChanged?: boolean;
+  amountChanged?: boolean;
 }): string {
   if (payload.forcePush) return "This is a test notification";
   if (payload.type === "friend_request") return "New friend request";
@@ -183,16 +212,29 @@ function getPushBody(payload: {
     return "Accepted your friend request";
   if (payload.type === "tab_invite_accepted") return "Joined your tab";
   if (payload.type === "expense_added") {
-    if (payload.description && payload.amount) {
-      return `${payload.description} - $${payload.amount}`;
-    }
-    if (payload.description) return payload.description;
-    if (payload.amount) return `$${payload.amount}`;
-    return "New expense added to tab";
+    return payload.recipientOweAmount
+      ? `You owe $${payload.recipientOweAmount}`
+      : "New expense added";
   }
   if (payload.type === "expense_updated") {
-    if (payload.description) return payload.description;
-    return "An expense was updated";
+    const parts: string[] = [];
+    if (payload.descriptionChanged && payload.description) {
+      parts.push(`Description: ${payload.description}`);
+    }
+    if (payload.amountChanged) {
+      const amt = payload.amount ? `$${payload.amount}` : "";
+      const owe = payload.recipientOweAmount
+        ? ` You owe $${payload.recipientOweAmount}`
+        : "";
+      parts.push(`Amount: ${amt}${owe}`);
+    }
+    return parts.length > 0 ? parts.join(". ") : "Expense updated";
+  }
+  if (payload.type === "expense_deleted") {
+    return "Expense was deleted";
+  }
+  if (payload.type === "expense_restored") {
+    return "Expense was restored";
   }
   if (
     payload.type === "expenses_bulk_imported" &&
@@ -219,7 +261,10 @@ function getNavigatePath(payload: {
     return `/tabs/${payload.tabId}`;
   }
   if (
-    (payload.type === "expense_added" || payload.type === "expense_updated") &&
+    (payload.type === "expense_added" ||
+      payload.type === "expense_updated" ||
+      payload.type === "expense_deleted" ||
+      payload.type === "expense_restored") &&
     payload.tabId
   ) {
     return payload.expenseId

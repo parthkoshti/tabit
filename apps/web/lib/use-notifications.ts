@@ -78,6 +78,8 @@ export function useNotifications(enabled: boolean) {
             } else if (
               payload.type === "expense_added" ||
               payload.type === "expense_updated" ||
+              payload.type === "expense_deleted" ||
+              payload.type === "expense_restored" ||
               payload.type === "expenses_bulk_imported"
             ) {
               if (payload.tabId) {
@@ -90,6 +92,22 @@ export function useNotifications(enabled: boolean) {
                 queryClient.invalidateQueries({
                   queryKey: ["tab", payload.tabId],
                 });
+                if (
+                  "expenseId" in payload &&
+                  typeof payload.expenseId === "string" &&
+                  payload.expenseId
+                ) {
+                  queryClient.invalidateQueries({
+                    queryKey: ["expense", payload.tabId, payload.expenseId],
+                  });
+                  queryClient.invalidateQueries({
+                    queryKey: [
+                      "expenseAuditLog",
+                      payload.tabId,
+                      payload.expenseId,
+                    ],
+                  });
+                }
               }
               queryClient.invalidateQueries({ queryKey: ["tabs"] });
               queryClient.invalidateQueries({ queryKey: ["activity"] });

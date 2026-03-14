@@ -390,7 +390,7 @@ export function EditExpenseForm({
           <AlertDialogHeader>
             <AlertDialogTitle>Delete expense?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete this expense and cannot be undone.
+              This will remove the expense from the tab. You can restore it later.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

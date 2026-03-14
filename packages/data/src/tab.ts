@@ -7,7 +7,7 @@ import {
   settlement as settlementTable,
   user,
 } from "db";
-import { eq, desc, inArray, and, sql } from "drizzle-orm";
+import { eq, desc, inArray, and, sql, isNull } from "drizzle-orm";
 
 export type TabWithBalance = {
   id: string;
@@ -75,7 +75,7 @@ async function getBalancesForTab(tabId: string): Promise<Balance[]> {
       amount: expenseTable.amount,
     })
     .from(expenseTable)
-    .where(eq(expenseTable.tabId, tabId));
+    .where(and(eq(expenseTable.tabId, tabId), isNull(expenseTable.deletedAt)));
 
   for (const exp of expenses) {
     balances[exp.paidById] = (balances[exp.paidById] ?? 0) + Number(exp.amount);
@@ -88,7 +88,9 @@ async function getBalancesForTab(tabId: string): Promise<Balance[]> {
     })
     .from(expenseSplit)
     .innerJoin(expenseTable, eq(expenseSplit.expenseId, expenseTable.id))
-    .where(eq(expenseTable.tabId, tabId));
+    .where(
+      and(eq(expenseTable.tabId, tabId), isNull(expenseTable.deletedAt)),
+    );
 
   for (const s of splits) {
     balances[s.userId] = (balances[s.userId] ?? 0) - Number(s.amount);
@@ -176,7 +178,9 @@ export const tab = {
             const [latestExp] = await db
               .select({ expenseDate: expenseTable.expenseDate })
               .from(expenseTable)
-              .where(eq(expenseTable.tabId, r.id))
+              .where(
+                and(eq(expenseTable.tabId, r.id), isNull(expenseTable.deletedAt)),
+              )
               .orderBy(desc(expenseTable.expenseDate))
               .limit(1);
             const [latestSet] = await db
@@ -200,7 +204,9 @@ export const tab = {
             const [countRow] = await db
               .select({ count: sql<number>`count(*)::int` })
               .from(expenseTable)
-              .where(eq(expenseTable.tabId, r.id));
+              .where(
+                and(eq(expenseTable.tabId, r.id), isNull(expenseTable.deletedAt)),
+              );
             result.expenseCount = countRow?.count ?? 0;
           }
           return result;
@@ -239,7 +245,9 @@ export const tab = {
           const [latestExp] = await db
             .select({ expenseDate: expenseTable.expenseDate })
             .from(expenseTable)
-            .where(eq(expenseTable.tabId, r.id))
+            .where(
+              and(eq(expenseTable.tabId, r.id), isNull(expenseTable.deletedAt)),
+            )
             .orderBy(desc(expenseTable.expenseDate))
             .limit(1);
           const [latestSet] = await db
@@ -261,7 +269,9 @@ export const tab = {
           const [countRow] = await db
             .select({ count: sql<number>`count(*)::int` })
             .from(expenseTable)
-            .where(eq(expenseTable.tabId, r.id));
+            .where(
+              and(eq(expenseTable.tabId, r.id), isNull(expenseTable.deletedAt)),
+            );
           result.expenseCount = countRow?.count ?? 0;
         }
         return result;
@@ -298,14 +308,15 @@ export const tab = {
       if (other) {
         const balances = await getBalancesForTab(t.id);
         const myBalance = balances.find((b) => b.userId === userId);
+        const deletedAtNull = isNull(expenseTable.deletedAt);
         const [countRow] = await db
           .select({ count: sql<number>`count(*)::int` })
           .from(expenseTable)
-          .where(eq(expenseTable.tabId, t.id));
+          .where(and(eq(expenseTable.tabId, t.id), deletedAtNull));
         const [latestExp] = await db
           .select({ expenseDate: expenseTable.expenseDate })
           .from(expenseTable)
-          .where(eq(expenseTable.tabId, t.id))
+          .where(and(eq(expenseTable.tabId, t.id), deletedAtNull))
           .orderBy(desc(expenseTable.expenseDate))
           .limit(1);
         const [latestSet] = await db

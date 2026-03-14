@@ -386,14 +386,43 @@ export function TabPage() {
                   >
                     <Link to={`/tabs/${tabIdOrEmpty}/expenses/${item.id}`}>
                       <AnimatedCard>
-                        <Card className="cursor-pointer hover:bg-muted/50">
+                        <Card
+                          className={`cursor-pointer hover:bg-muted/50 ${
+                            item.deletedAt ? "opacity-60" : ""
+                          }`}
+                        >
                           <CardContent className="flex flex-col gap-1 p-4">
                             <div className="flex items-center justify-between gap-2">
-                              <BanknoteArrowUp className="h-5 w-5 shrink-0 text-negative" />
-                              <span className="min-w-0 flex-1 font-medium text-sm">
-                                {item.description}
-                              </span>
-                              <span className="text-foreground text-sm shrink-0 font-medium">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <BanknoteArrowUp
+                                  className={`h-5 w-5 shrink-0 ${
+                                    item.deletedAt
+                                      ? "text-muted-foreground"
+                                      : "text-negative"
+                                  }`}
+                                />
+                                <span
+                                  className={`min-w-0 flex-1 font-medium text-sm ${
+                                    item.deletedAt
+                                      ? "text-muted-foreground"
+                                      : ""
+                                  }`}
+                                >
+                                  {item.description}
+                                </span>
+                                {item.deletedAt && (
+                                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    Deleted
+                                  </span>
+                                )}
+                              </div>
+                              <span
+                                className={`text-sm shrink-0 font-medium ${
+                                  item.deletedAt
+                                    ? "text-muted-foreground"
+                                    : "text-foreground"
+                                }`}
+                              >
                                 ${formatAmount(item.amount)}
                               </span>
                             </div>
@@ -441,7 +470,7 @@ export function TabPage() {
                                         getMemberUser(s.userId),
                                         currentUserId,
                                       )}{" "}
-                                      owes{" "}
+                                      {currentUserOwes ? "owe" : "owes"}{" "}
                                       {getDisplayName(
                                         getMemberUser(item.paidById),
                                         currentUserId,

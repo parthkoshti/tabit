@@ -315,20 +315,23 @@ CRITICAL - Confidence and ambiguity:
       .where(eq(user.id, userId))
       .limit(1);
 
-    const payload = createExpenseAddedNotificationPayload({
-      tabId: parsedExpense.tabId,
-      expenseId,
-      tabName: tabRow?.name ?? "Tab",
-      fromUserId: userId,
-      fromUserName: fromUser?.name ?? null,
-      description: parsedExpense.description,
-      amount: parsedExpense.amount.toString(),
-      createdAt: new Date(),
-    });
-
+    const splitByUser = new Map(splits.map((s) => [s.userId, s.amount]));
     const recipientCount = members.filter((m) => m.userId !== userId).length;
     for (const m of members) {
       if (m.userId !== userId) {
+        const recipientOweAmount = splitByUser.get(m.userId)?.toString();
+        const payload = createExpenseAddedNotificationPayload({
+          tabId: parsedExpense.tabId,
+          expenseId,
+          tabName: tabRow?.name ?? "Tab",
+          isDirect: tabRow?.isDirect ?? false,
+          fromUserId: userId,
+          fromUserName: fromUser?.name ?? null,
+          description: parsedExpense.description,
+          amount: parsedExpense.amount.toString(),
+          recipientOweAmount,
+          createdAt: new Date(),
+        });
         await publishNotification(m.userId, payload);
       }
     }
@@ -354,7 +357,6 @@ CRITICAL - Confidence and ambiguity:
         { userId: r.id, name: r.name, username: r.username },
       ]),
     );
-    const splitByUser = new Map(splits.map((s) => [s.userId, s.amount]));
     const participants = participantIds
       .map((id) => participantMap.get(id))
       .filter(Boolean)

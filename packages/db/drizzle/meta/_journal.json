@@ -78,6 +78,13 @@
       "when": 1773100000000,
       "tag": "0010_expense_tabId_expenseDate_idx",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1773514872356,
+      "tag": "0011_fine_nitro",
+      "breakpoints": true
     }
   ]
 }

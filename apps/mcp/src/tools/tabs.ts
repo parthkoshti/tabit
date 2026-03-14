@@ -16,7 +16,10 @@ export function registerTabsTools(server: McpServer, api: Api): void {
       inputSchema: {},
     },
     async () => {
-      const data = (await api.get("/tabs")) as { success: boolean; tabs: unknown[] };
+      const data = (await api.get("/tabs")) as {
+        success: boolean;
+        tabs: unknown[];
+      };
       return {
         content: [
           {
@@ -25,7 +28,7 @@ export function registerTabsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -53,7 +56,7 @@ export function registerTabsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -81,7 +84,7 @@ export function registerTabsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -109,7 +112,7 @@ export function registerTabsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -121,7 +124,10 @@ export function registerTabsTools(server: McpServer, api: Api): void {
         tabId: z.string().describe("ID of the tab"),
         amount: z.number().describe("Amount in dollars"),
         description: z.string().describe("Description of the expense"),
-        paidById: z.string().optional().describe("User ID who paid (defaults to current user)"),
+        paidById: z
+          .string()
+          .optional()
+          .describe("User ID who paid (defaults to current user)"),
       },
     },
     async ({ tabId, amount, description, paidById }) => {
@@ -148,7 +154,7 @@ export function registerTabsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -170,7 +176,7 @@ export function registerTabsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -202,7 +208,7 @@ export function registerTabsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -230,6 +236,6 @@ export function registerTabsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 }

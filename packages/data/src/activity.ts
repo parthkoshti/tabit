@@ -16,6 +16,7 @@ export type ActivityItem =
       description: string;
       expenseDate: Date;
       createdAt: Date;
+      deletedAt: Date | null;
     }
   | {
       type: "settlement";
@@ -88,6 +89,7 @@ export const activity = {
           description: expense.description,
           expenseDate: expense.expenseDate,
           createdAt: expense.createdAt,
+          deletedAt: expense.deletedAt,
           paidByEmail: user.email,
           paidByName: user.name,
           paidByUsername: user.username,
@@ -140,6 +142,7 @@ export const activity = {
         description: e.description,
         expenseDate: e.expenseDate,
         createdAt: e.createdAt,
+        deletedAt: e.deletedAt ?? null,
       })),
       ...settlementRows.map((s) => ({
         type: "settlement" as const,

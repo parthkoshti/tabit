@@ -22,6 +22,7 @@ export type GetExpensesForTabResult = {
     splitType: string;
     expenseDate: Date;
     createdAt: Date;
+    deletedAt: Date | null;
     paidBy: { id: string };
     splits: Array<{
       id: string;
@@ -43,6 +44,7 @@ type FlatRow = {
   splitType: string;
   expenseDate: Date;
   createdAt: Date;
+  deletedAt: Date | null;
   splitId: string | null;
   splitExpenseId: string | null;
   splitUserId: string | null;
@@ -78,6 +80,7 @@ function buildExpensesFromFlatRows(
       splitType: first.splitType,
       expenseDate: first.expenseDate,
       createdAt: first.createdAt,
+      deletedAt: first.deletedAt ?? null,
       paidBy: { id: first.paidById },
       splits,
     };
@@ -115,6 +118,7 @@ export type Expense = {
   splitType: string;
   expenseDate: Date;
   createdAt: Date;
+  deletedAt: Date | null;
   paidBy: {
     id: string;
     email: string;
@@ -140,7 +144,7 @@ export type ExpenseAuditLogEntry = {
   id: string;
   expenseId: string;
   tabId: string;
-  action: "create" | "update" | "delete";
+  action: "create" | "update" | "delete" | "restore";
   performedById: string;
   performedAt: Date;
   changes: Record<string, { from: unknown; to: unknown }> | null;
@@ -164,6 +168,7 @@ export const expense = {
         splitType: expenseTable.splitType,
         expenseDate: expenseTable.expenseDate,
         createdAt: expenseTable.createdAt,
+        deletedAt: expenseTable.deletedAt,
         paidByEmail: user.email,
         paidByName: user.name,
         paidByUsername: user.username,
@@ -192,6 +197,7 @@ export const expense = {
     return {
       ...row,
       amount: Number(row.amount),
+      deletedAt: row.deletedAt ?? null,
       paidBy: {
         id: row.paidById,
         email: row.paidByEmail,
@@ -236,7 +242,7 @@ export const expense = {
       id: r.id,
       expenseId: r.expenseId,
       tabId: r.tabId,
-      action: r.action as "create" | "update" | "delete",
+      action: r.action as "create" | "update" | "delete" | "restore",
       performedById: r.performedById,
       performedAt: r.performedAt,
       changes: r.changes as Record<string, { from: unknown; to: unknown }> | null,
@@ -267,6 +273,7 @@ export const expense = {
         splitType: expenseTable.splitType,
         expenseDate: expenseTable.expenseDate,
         createdAt: expenseTable.createdAt,
+        deletedAt: expenseTable.deletedAt,
       })
       .from(expenseTable)
       .where(eq(expenseTable.tabId, tabId))
@@ -291,6 +298,7 @@ export const expense = {
           splitType: paginated.splitType,
           expenseDate: paginated.expenseDate,
           createdAt: paginated.createdAt,
+          deletedAt: paginated.deletedAt,
           splitId: expenseSplit.id,
           splitExpenseId: expenseSplit.expenseId,
           splitUserId: expenseSplit.userId,
@@ -431,8 +439,29 @@ export const expense = {
       changes: null,
     });
 
-    await db.delete(expenseSplit).where(eq(expenseSplit.expenseId, expenseId));
-    await db.delete(expenseTable).where(eq(expenseTable.id, expenseId));
+    await db
+      .update(expenseTable)
+      .set({ deletedAt: new Date() })
+      .where(eq(expenseTable.id, expenseId));
+  },
+
+  restore: async (
+    expenseId: string,
+    tabId: string,
+    performedById: string,
+  ): Promise<void> => {
+    await db
+      .update(expenseTable)
+      .set({ deletedAt: null })
+      .where(eq(expenseTable.id, expenseId));
+
+    await db.insert(expenseAuditLog).values({
+      expenseId,
+      tabId,
+      action: "restore",
+      performedById,
+      changes: null,
+    });
   },
 
   createBulk: async (

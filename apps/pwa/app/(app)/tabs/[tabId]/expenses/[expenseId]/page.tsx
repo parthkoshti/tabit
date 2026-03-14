@@ -1,4 +1,9 @@
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
+import {
+  useParams,
+  useNavigate,
+  useSearchParams,
+  Link,
+} from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { useNavTitle } from "../../../../context/nav-title-context";
@@ -14,14 +19,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { ArrowLeft, BanknoteArrowUp, Pencil, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  BanknoteArrowUp,
+  Pencil,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 
 export function ExpensePage() {
-  const { tabId, expenseId } = useParams<{ tabId: string; expenseId: string }>();
+  const { tabId, expenseId } = useParams<{
+    tabId: string;
+    expenseId: string;
+  }>();
   const tabIdOrEmpty = tabId ?? "";
   const expenseIdOrEmpty = expenseId ?? "";
   const navigate = useNavigate();
@@ -32,6 +46,7 @@ export function ExpensePage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [restoreLoading, setRestoreLoading] = useState(false);
 
   const { data: expense, isLoading: expenseLoading } = useQuery({
     queryKey: ["expense", tabIdOrEmpty, expenseIdOrEmpty],
@@ -69,7 +84,12 @@ export function ExpensePage() {
   }, [setNavTitle, expense, tabIdOrEmpty]);
 
   useEffect(() => {
-    if (expense && tab && searchParams.get("edit") === "1") {
+    if (
+      expense &&
+      !expense.deletedAt &&
+      tab &&
+      searchParams.get("edit") === "1"
+    ) {
       setEditDialogOpen(true);
       navigate(`/tabs/${tabId}/expenses/${expenseId}`, { replace: true });
     }
@@ -169,6 +189,12 @@ export function ExpensePage() {
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["expenses", tabIdOrEmpty] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabIdOrEmpty] });
+      queryClient.invalidateQueries({
+        queryKey: ["expense", tabIdOrEmpty, expenseIdOrEmpty],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["expenseAuditLog", tabIdOrEmpty, expenseIdOrEmpty],
+      });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       toast.success("Expense deleted");
       navigate(`/tabs/${tabIdOrEmpty}`);
@@ -178,13 +204,42 @@ export function ExpensePage() {
     setDeleteLoading(false);
   }
 
+  async function handleRestore() {
+    setRestoreLoading(true);
+    const result = await api.expenses.restore(tabIdOrEmpty, expenseIdOrEmpty);
+    if (result.success) {
+      queryClient.invalidateQueries({ queryKey: ["expenses", tabIdOrEmpty] });
+      queryClient.invalidateQueries({ queryKey: ["balances", tabIdOrEmpty] });
+      queryClient.invalidateQueries({
+        queryKey: ["expense", tabIdOrEmpty, expenseIdOrEmpty],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["expenseAuditLog", tabIdOrEmpty, expenseIdOrEmpty],
+      });
+      queryClient.invalidateQueries({ queryKey: ["activity"] });
+      toast.success("Expense restored");
+    } else {
+      toast.error(result.error ?? "Failed to restore expense");
+    }
+    setRestoreLoading(false);
+  }
+
   return (
     <div className="p-4 pb-20">
       <div className="mx-auto max-w-md space-y-8">
         <div className="space-y-5">
+          {expense.deletedAt && (
+            <div className="rounded-lg border border-border bg-muted/50 px-3 py-2">
+              <span className="text-sm font-medium text-muted-foreground">
+                Deleted
+              </span>
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="flex items-center gap-2 text-xl font-medium text-foreground">
+              <p
+                className={`flex items-center gap-2 text-xl font-medium ${expense.deletedAt ? "text-muted-foreground" : "text-foreground"}`}
+              >
                 <UserAvatar userId={expense.paidById} size="lg" />
                 {getDisplayName(expense.paidBy, currentUserId)}
               </p>
@@ -196,31 +251,48 @@ export function ExpensePage() {
                 })}
               </p>
             </div>
-            <span className="text-foreground shrink-0 font-medium text-2xl">
+            <span
+              className={`shrink-0 font-medium text-2xl ${expense.deletedAt ? "text-muted-foreground" : "text-foreground"}`}
+            >
               ${expense.amount.toFixed(2)}
             </span>
           </div>
 
           <div className="mb-4 flex gap-2">
-            <Button
-              className="flex-1"
-              onClick={() => setEditDialogOpen(true)}
-              variant={"secondary"}
-              size="sm"
-            >
-              <Pencil className="mr-2 h-4 w-4" />
-              Edit
-            </Button>
-            <Button
-              variant="destructive"
-              className="flex-1"
-              disabled={deleteLoading}
-              onClick={() => setDeleteDialogOpen(true)}
-              size="sm"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
+            {expense.deletedAt ? (
+              <Button
+                className="flex-1"
+                onClick={handleRestore}
+                disabled={restoreLoading}
+                variant="secondary"
+                size="sm"
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Restore
+              </Button>
+            ) : (
+              <>
+                <Button
+                  className="flex-1"
+                  onClick={() => setEditDialogOpen(true)}
+                  variant="secondary"
+                  size="sm"
+                >
+                  <Pencil className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  disabled={deleteLoading}
+                  onClick={() => setDeleteDialogOpen(true)}
+                  size="sm"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
+                </Button>
+              </>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground pt-2">
@@ -240,7 +312,8 @@ export function ExpensePage() {
                     className="inline-flex items-center gap-2"
                   >
                     <UserAvatar userId={s.userId} size="sm" />
-                    {getDisplayName(s.user, currentUserId)} owes{" "}
+                    {getDisplayName(s.user, currentUserId)}{" "}
+                    {currentUserOwes ? "owe" : "owes"}{" "}
                     {getDisplayName(expense.paidBy, currentUserId)}{" "}
                     <span className={amountClass}>${s.amount.toFixed(2)}</span>
                   </span>
@@ -259,7 +332,7 @@ export function ExpensePage() {
                   className="flex items-start gap-2 text-muted-foreground"
                 >
                   <UserAvatar userId={entry.performedById} size="xs" />
-                  <span>
+                  <span className="text-foreground">
                     {entry.action === "create" && (
                       <>
                         Created by{" "}
@@ -344,6 +417,13 @@ export function ExpensePage() {
                         {formatAuditDate(entry.performedAt)}
                       </>
                     )}
+                    {entry.action === "restore" && (
+                      <>
+                        Restored by{" "}
+                        {getDisplayName(entry.performedBy, currentUserId)}{" "}
+                        {formatAuditDate(entry.performedAt)}
+                      </>
+                    )}
                   </span>
                 </li>
               ))}
@@ -356,7 +436,8 @@ export function ExpensePage() {
             <DialogHeader>
               <DialogTitle>Delete expense?</DialogTitle>
               <DialogDescription>
-                This will permanently delete this expense and cannot be undone.
+                This will remove the expense from the tab. You can restore it
+                later.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter className="flex justify-end gap-2">
@@ -372,31 +453,35 @@ export function ExpensePage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-          <DialogContent className="max-w-[90vw] rounded-xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Edit expense</DialogTitle>
-              <DialogDescription>Update the expense details</DialogDescription>
-            </DialogHeader>
-            <EditExpenseForm
-              expenseId={expenseIdOrEmpty}
-              tabId={tabIdOrEmpty}
-              expense={expense}
-              members={tab?.members ?? []}
-              currentUserId={currentUserId}
-              onSuccess={() => {
-                setEditDialogOpen(false);
-                queryClient.invalidateQueries({
-                  queryKey: ["expenseAuditLog", expenseIdOrEmpty],
-                });
-                queryClient.invalidateQueries({
-                  queryKey: ["expense", expenseIdOrEmpty],
-                });
-              }}
-              onDeleteSuccess={() => navigate(`/tabs/${tabIdOrEmpty}`)}
-            />
-          </DialogContent>
-        </Dialog>
+        {!expense.deletedAt && (
+          <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+            <DialogContent className="max-w-[90vw] rounded-xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Edit expense</DialogTitle>
+                <DialogDescription>
+                  Update the expense details
+                </DialogDescription>
+              </DialogHeader>
+              <EditExpenseForm
+                expenseId={expenseIdOrEmpty}
+                tabId={tabIdOrEmpty}
+                expense={expense}
+                members={tab?.members ?? []}
+                currentUserId={currentUserId}
+                onSuccess={() => {
+                  setEditDialogOpen(false);
+                  queryClient.invalidateQueries({
+                    queryKey: ["expenseAuditLog", expenseIdOrEmpty],
+                  });
+                  queryClient.invalidateQueries({
+                    queryKey: ["expense", expenseIdOrEmpty],
+                  });
+                }}
+                onDeleteSuccess={() => navigate(`/tabs/${tabIdOrEmpty}`)}
+              />
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
     </div>
   );

@@ -1,10 +1,12 @@
 import { Hono } from "hono";
-import { db, tab, tabMember, user } from "db";
+import { db, tab as tabTable, tabMember, user } from "db";
 import { eq, and, inArray, ne } from "drizzle-orm";
 import {
   createExpenseSchema,
   createExpenseAddedNotificationPayload,
   createExpenseUpdatedNotificationPayload,
+  createExpenseDeletedNotificationPayload,
+  createExpenseRestoredNotificationPayload,
   createExpensesBulkImportedNotificationPayload,
 } from "models";
 import type { AuthContext } from "../auth.js";
@@ -203,9 +205,9 @@ expensesRoutes.post("/", async (c) => {
   });
 
   const [tabRow] = await db
-    .select({ name: tab.name, isDirect: tab.isDirect })
-    .from(tab)
-    .where(eq(tab.id, parsed.data.tabId))
+    .select({ name: tabTable.name, isDirect: tabTable.isDirect })
+    .from(tabTable)
+    .where(eq(tabTable.id, parsed.data.tabId))
     .limit(1);
 
   let tabDisplayName = tabRow?.name ?? "Tab";
@@ -264,20 +266,22 @@ expensesRoutes.post("/", async (c) => {
     .where(eq(user.id, userId))
     .limit(1);
 
-  const payload = createExpenseAddedNotificationPayload({
-    tabId: parsed.data.tabId,
-    expenseId,
-    tabName: tabRow?.name ?? "Tab",
-    fromUserId: userId,
-    fromUserName: fromUser?.name ?? null,
-    description: parsed.data.description ?? "",
-    amount: parsed.data.amount.toString(),
-    createdAt: new Date(),
-  });
-
   const recipientCount = members.filter((m) => m.userId !== userId).length;
   for (const m of members) {
     if (m.userId !== userId) {
+      const recipientOweAmount = splitByUser.get(m.userId)?.toString();
+      const payload = createExpenseAddedNotificationPayload({
+        tabId: parsed.data.tabId,
+        expenseId,
+        tabName: tabRow?.name ?? "Tab",
+        isDirect: tabRow?.isDirect ?? false,
+        fromUserId: userId,
+        fromUserName: fromUser?.name ?? null,
+        description: parsed.data.description ?? "",
+        amount: parsed.data.amount.toString(),
+        recipientOweAmount,
+        createdAt: new Date(),
+      });
       await publishNotification(m.userId, payload);
     }
   }
@@ -326,9 +330,9 @@ expensesRoutes.post("/bulk", async (c) => {
     .where(eq(tabMember.tabId, tabId));
 
   const [tabRow] = await db
-    .select({ name: tab.name })
-    .from(tab)
-    .where(eq(tab.id, tabId))
+    .select({ name: tabTable.name })
+    .from(tabTable)
+    .where(eq(tabTable.id, tabId))
     .limit(1);
 
   const [fromUser] = await db
@@ -527,6 +531,10 @@ expensesRoutes.patch("/:expenseId", async (c) => {
     return c.json({ success: false, error: "Expense not found" }, 404);
   }
 
+  if (existingExp.deletedAt) {
+    return c.json({ success: false, error: "Cannot edit a deleted expense" }, 400);
+  }
+
   const [member] = await db
     .select()
     .from(tabMember)
@@ -643,9 +651,9 @@ expensesRoutes.patch("/:expenseId", async (c) => {
   );
 
   const [tabRow] = await db
-    .select({ name: tab.name })
-    .from(tab)
-    .where(eq(tab.id, tabId))
+    .select({ name: tabTable.name, isDirect: tabTable.isDirect })
+    .from(tabTable)
+    .where(eq(tabTable.id, tabId))
     .limit(1);
 
   const [fromUser] = await db
@@ -654,20 +662,32 @@ expensesRoutes.patch("/:expenseId", async (c) => {
     .where(eq(user.id, userId))
     .limit(1);
 
-  const payload = createExpenseUpdatedNotificationPayload({
-    tabId,
-    expenseId,
-    tabName: tabRow?.name ?? "Tab",
-    fromUserId: userId,
-    fromUserName: fromUser?.name ?? null,
-    description: parsed.data.description ?? "",
-    amount: parsed.data.amount.toString(),
-    createdAt: new Date(),
-  });
+  const previousDescription = existingExp.description ?? "";
+  const newDescription = parsed.data.description ?? previousDescription;
+  const descriptionChanged = newDescription.trim() !== previousDescription.trim();
+  const amountChanged =
+    parsed.data.amount !== Number(existingExp.amount);
+  const splitByUser = new Map(splits.map((s) => [s.userId, s.amount]));
 
   const recipientCount = members.filter((m) => m.userId !== userId).length;
   for (const m of members) {
     if (m.userId !== userId) {
+      const recipientOweAmount = splitByUser.get(m.userId)?.toString();
+      const payload = createExpenseUpdatedNotificationPayload({
+        tabId,
+        expenseId,
+        tabName: tabRow?.name ?? "Tab",
+        isDirect: tabRow?.isDirect ?? false,
+        fromUserId: userId,
+        fromUserName: fromUser?.name ?? null,
+        description: parsed.data.description ?? "",
+        amount: parsed.data.amount.toString(),
+        recipientOweAmount,
+        descriptionChanged,
+        amountChanged,
+        previousDescription: existingExp.description ?? "",
+        createdAt: new Date(),
+      });
       await publishNotification(m.userId, payload);
     }
   }
@@ -692,6 +712,10 @@ expensesRoutes.delete("/:expenseId", async (c) => {
     return c.json({ success: false, error: "Expense not found" }, 404);
   }
 
+  if (exp.deletedAt) {
+    return c.json({ success: false, error: "Expense already deleted" }, 400);
+  }
+
   const [member] = await db
     .select()
     .from(tabMember)
@@ -704,8 +728,103 @@ expensesRoutes.delete("/:expenseId", async (c) => {
     return c.json({ success: false, error: "Not a member" }, 403);
   }
 
+  const [tabRow] = await db
+    .select({ name: tabTable.name, isDirect: tabTable.isDirect })
+    .from(tabTable)
+    .where(eq(tabTable.id, tabId))
+    .limit(1);
+
+  const [fromUser] = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
   await expense.delete(expenseId, tabId, userId);
 
+  const participantIds = exp.splits.map((s) => s.userId);
+  const deletedAt = new Date();
+  for (const participantId of participantIds) {
+    if (participantId !== userId) {
+      const payload = createExpenseDeletedNotificationPayload({
+        tabId,
+        expenseId,
+        tabName: tabRow?.name ?? "Tab",
+        isDirect: tabRow?.isDirect ?? false,
+        fromUserId: userId,
+        fromUserName: fromUser?.name ?? null,
+        description: exp.description,
+        amount: exp.amount.toString(),
+        deletedAt,
+        createdAt: deletedAt,
+      });
+      await publishNotification(participantId, payload);
+    }
+  }
+
   log("info", "Expense deleted", { userId, tabId, expenseId });
+  return c.json({ success: true });
+});
+
+expensesRoutes.post("/:expenseId/restore", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId")!;
+  const expenseId = c.req.param("expenseId")!;
+
+  const exp = await expense.getById(expenseId);
+  if (!exp || exp.tabId !== tabId) {
+    return c.json({ success: false, error: "Expense not found" }, 404);
+  }
+
+  if (!exp.deletedAt) {
+    return c.json({ success: false, error: "Expense is not deleted" }, 400);
+  }
+
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(
+      and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId))
+    )
+    .limit(1);
+
+  if (!member) {
+    return c.json({ success: false, error: "Not a member" }, 403);
+  }
+
+  const [tabRow] = await db
+    .select({ name: tabTable.name, isDirect: tabTable.isDirect })
+    .from(tabTable)
+    .where(eq(tabTable.id, tabId))
+    .limit(1);
+
+  const [fromUser] = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  await expense.restore(expenseId, tabId, userId);
+
+  const restoredAt = new Date();
+  const participantIds = exp.splits.map((s) => s.userId);
+  for (const participantId of participantIds) {
+    if (participantId !== userId) {
+      const payload = createExpenseRestoredNotificationPayload({
+        tabId,
+        expenseId,
+        tabName: tabRow?.name ?? "Tab",
+        isDirect: tabRow?.isDirect ?? false,
+        fromUserId: userId,
+        fromUserName: fromUser?.name ?? null,
+        description: exp.description,
+        amount: exp.amount.toString(),
+        createdAt: restoredAt,
+      });
+      await publishNotification(participantId, payload);
+    }
+  }
+
+  log("info", "Expense restored", { userId, tabId, expenseId });
   return c.json({ success: true });
 });

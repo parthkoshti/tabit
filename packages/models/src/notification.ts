@@ -7,6 +7,8 @@ export const notificationTypeSchema = z.enum([
   "tab_invite_accepted",
   "expense_added",
   "expense_updated",
+  "expense_deleted",
+  "expense_restored",
   "expenses_bulk_imported",
   "poke",
 ]);
@@ -70,10 +72,12 @@ export const expenseAddedNotificationPayloadSchema = z.object({
   tabId: z.string(),
   expenseId: z.string(),
   tabName: z.string(),
+  isDirect: z.boolean().optional(),
   fromUserId: z.string(),
   fromUserName: z.string().nullable(),
   description: z.string(),
   amount: z.string(),
+  recipientOweAmount: z.string().optional(),
   createdAt: z.string(),
 });
 export type ExpenseAddedNotificationPayload = z.infer<
@@ -85,14 +89,52 @@ export const expenseUpdatedNotificationPayloadSchema = z.object({
   tabId: z.string(),
   expenseId: z.string(),
   tabName: z.string(),
+  isDirect: z.boolean().optional(),
+  fromUserId: z.string(),
+  fromUserName: z.string().nullable(),
+  description: z.string(),
+  amount: z.string(),
+  recipientOweAmount: z.string().optional(),
+  descriptionChanged: z.boolean().optional(),
+  amountChanged: z.boolean().optional(),
+  previousDescription: z.string().optional(),
+  createdAt: z.string(),
+});
+export type ExpenseUpdatedNotificationPayload = z.infer<
+  typeof expenseUpdatedNotificationPayloadSchema
+>;
+
+export const expenseDeletedNotificationPayloadSchema = z.object({
+  type: z.literal("expense_deleted"),
+  tabId: z.string(),
+  expenseId: z.string(),
+  tabName: z.string(),
+  isDirect: z.boolean().optional(),
+  fromUserId: z.string(),
+  fromUserName: z.string().nullable(),
+  description: z.string(),
+  amount: z.string(),
+  deletedAt: z.string(),
+  createdAt: z.string(),
+});
+export type ExpenseDeletedNotificationPayload = z.infer<
+  typeof expenseDeletedNotificationPayloadSchema
+>;
+
+export const expenseRestoredNotificationPayloadSchema = z.object({
+  type: z.literal("expense_restored"),
+  tabId: z.string(),
+  expenseId: z.string(),
+  tabName: z.string(),
+  isDirect: z.boolean().optional(),
   fromUserId: z.string(),
   fromUserName: z.string().nullable(),
   description: z.string(),
   amount: z.string(),
   createdAt: z.string(),
 });
-export type ExpenseUpdatedNotificationPayload = z.infer<
-  typeof expenseUpdatedNotificationPayloadSchema
+export type ExpenseRestoredNotificationPayload = z.infer<
+  typeof expenseRestoredNotificationPayloadSchema
 >;
 
 export const expensesBulkImportedNotificationPayloadSchema = z.object({
@@ -127,6 +169,8 @@ export const notificationPayloadSchema = z.discriminatedUnion("type", [
   tabInviteAcceptedNotificationPayloadSchema,
   expenseAddedNotificationPayloadSchema,
   expenseUpdatedNotificationPayloadSchema,
+  expenseDeletedNotificationPayloadSchema,
+  expenseRestoredNotificationPayloadSchema,
   expensesBulkImportedNotificationPayloadSchema,
   pokeNotificationPayloadSchema,
 ]);
@@ -214,10 +258,12 @@ export function createExpenseAddedNotificationPayload(data: {
   tabId: string;
   expenseId: string;
   tabName: string;
+  isDirect?: boolean;
   fromUserId: string;
   fromUserName: string | null;
   description: string;
   amount: string;
+  recipientOweAmount?: string;
   createdAt: Date;
 }): ExpenseAddedNotificationPayload {
   return {
@@ -225,10 +271,12 @@ export function createExpenseAddedNotificationPayload(data: {
     tabId: data.tabId,
     expenseId: data.expenseId,
     tabName: data.tabName,
+    isDirect: data.isDirect,
     fromUserId: data.fromUserId,
     fromUserName: data.fromUserName,
     description: data.description,
     amount: data.amount,
+    recipientOweAmount: data.recipientOweAmount,
     createdAt: data.createdAt.toISOString(),
   };
 }
@@ -237,10 +285,15 @@ export function createExpenseUpdatedNotificationPayload(data: {
   tabId: string;
   expenseId: string;
   tabName: string;
+  isDirect?: boolean;
   fromUserId: string;
   fromUserName: string | null;
   description: string;
   amount: string;
+  recipientOweAmount?: string;
+  descriptionChanged?: boolean;
+  amountChanged?: boolean;
+  previousDescription?: string;
   createdAt: Date;
 }): ExpenseUpdatedNotificationPayload {
   return {
@@ -248,6 +301,63 @@ export function createExpenseUpdatedNotificationPayload(data: {
     tabId: data.tabId,
     expenseId: data.expenseId,
     tabName: data.tabName,
+    isDirect: data.isDirect,
+    fromUserId: data.fromUserId,
+    fromUserName: data.fromUserName,
+    description: data.description,
+    amount: data.amount,
+    recipientOweAmount: data.recipientOweAmount,
+    descriptionChanged: data.descriptionChanged,
+    amountChanged: data.amountChanged,
+    previousDescription: data.previousDescription,
+    createdAt: data.createdAt.toISOString(),
+  };
+}
+
+export function createExpenseDeletedNotificationPayload(data: {
+  tabId: string;
+  expenseId: string;
+  tabName: string;
+  isDirect?: boolean;
+  fromUserId: string;
+  fromUserName: string | null;
+  description: string;
+  amount: string;
+  deletedAt: Date;
+  createdAt: Date;
+}): ExpenseDeletedNotificationPayload {
+  return {
+    type: "expense_deleted",
+    tabId: data.tabId,
+    expenseId: data.expenseId,
+    tabName: data.tabName,
+    isDirect: data.isDirect,
+    fromUserId: data.fromUserId,
+    fromUserName: data.fromUserName,
+    description: data.description,
+    amount: data.amount,
+    deletedAt: data.deletedAt.toISOString(),
+    createdAt: data.createdAt.toISOString(),
+  };
+}
+
+export function createExpenseRestoredNotificationPayload(data: {
+  tabId: string;
+  expenseId: string;
+  tabName: string;
+  isDirect?: boolean;
+  fromUserId: string;
+  fromUserName: string | null;
+  description: string;
+  amount: string;
+  createdAt: Date;
+}): ExpenseRestoredNotificationPayload {
+  return {
+    type: "expense_restored",
+    tabId: data.tabId,
+    expenseId: data.expenseId,
+    tabName: data.tabName,
+    isDirect: data.isDirect,
     fromUserId: data.fromUserId,
     fromUserName: data.fromUserName,
     description: data.description,

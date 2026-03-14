@@ -77,9 +77,11 @@ export const expense = pgTable(
     splitType: text("splitType").notNull().default("equal"),
     expenseDate: timestamp("expenseDate").notNull().defaultNow(),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
+    deletedAt: timestamp("deletedAt"),
   },
   (t) => [
     index("expense_tabId_expenseDate_idx").on(t.tabId, t.expenseDate),
+    index("expense_tabId_deletedAt_idx").on(t.tabId, t.deletedAt),
   ],
 );
 

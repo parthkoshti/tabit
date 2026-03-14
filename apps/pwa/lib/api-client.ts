@@ -278,6 +278,13 @@ export const api = {
           method: "DELETE",
         },
       ),
+    restore: (tabId: string, expenseId: string) =>
+      request<{ success: boolean; error?: string }>(
+        `/tabs/${tabId}/expenses/${expenseId}/restore`,
+        {
+          method: "POST",
+        },
+      ),
   },
   settlements: {
     list: (tabId: string) =>
