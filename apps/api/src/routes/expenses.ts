@@ -42,6 +42,7 @@ expensesRoutes.get("/", async (c) => {
       ? { limit: parseInt(limit, 10) || 50, offset: parseInt(offset ?? "0", 10) || 0 }
       : undefined;
   const { expenses, total } = await expense.getForTab(tabId, options);
+  log("info", "Expenses list fetched", { userId, tabId, total, limit: options?.limit });
   return c.json({ success: true, expenses, total });
 });
 
@@ -65,6 +66,7 @@ expensesRoutes.get("/:expenseId", async (c) => {
     return c.json({ success: false, error: "Expense not found" }, 404);
   }
 
+  log("info", "Expense fetched", { userId, tabId, expenseId });
   return c.json({ success: true, expense: exp });
 });
 
@@ -89,6 +91,7 @@ expensesRoutes.get("/:expenseId/audit-log", async (c) => {
   }
 
   const auditLog = await expense.getAuditLog(expenseId);
+  log("info", "Expense audit log fetched", { userId, tabId, expenseId });
   return c.json({ success: true, auditLog });
 });
 
@@ -272,12 +275,20 @@ expensesRoutes.post("/", async (c) => {
     createdAt: new Date(),
   });
 
+  const recipientCount = members.filter((m) => m.userId !== userId).length;
   for (const m of members) {
     if (m.userId !== userId) {
       await publishNotification(m.userId, payload);
     }
   }
 
+  log("info", "Expense created", {
+    userId,
+    tabId: parsed.data.tabId,
+    expenseId,
+    amount: parsed.data.amount,
+    recipientCount,
+  });
   return c.json({
     success: true,
     expenseId,
@@ -485,11 +496,17 @@ expensesRoutes.post("/bulk", async (c) => {
       count: imported,
       createdAt: new Date(),
     });
+    const bulkRecipientCount = allMembers.filter((m) => m.userId !== userId).length;
     for (const m of allMembers) {
       if (m.userId !== userId) {
         await publishNotification(m.userId, payload);
       }
     }
+    log("info", "Bulk import notifications sent", {
+      tabId,
+      imported,
+      recipientCount: bulkRecipientCount,
+    });
   }
 
   return c.json({
@@ -648,12 +665,20 @@ expensesRoutes.patch("/:expenseId", async (c) => {
     createdAt: new Date(),
   });
 
+  const recipientCount = members.filter((m) => m.userId !== userId).length;
   for (const m of members) {
     if (m.userId !== userId) {
       await publishNotification(m.userId, payload);
     }
   }
 
+  log("info", "Expense updated", {
+    userId,
+    tabId,
+    expenseId,
+    amount: parsed.data.amount,
+    recipientCount,
+  });
   return c.json({ success: true });
 });
 
@@ -681,5 +706,6 @@ expensesRoutes.delete("/:expenseId", async (c) => {
 
   await expense.delete(expenseId, tabId, userId);
 
+  log("info", "Expense deleted", { userId, tabId, expenseId });
   return c.json({ success: true });
 });

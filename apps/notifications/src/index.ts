@@ -1,3 +1,4 @@
+import "./instrumentation.js";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createHttpsServer } from "node:https";
 import type { IncomingMessage } from "node:http";
@@ -9,6 +10,7 @@ import { Redis } from "ioredis";
 import webpush from "web-push";
 import { db, pushSubscription } from "db";
 import { eq, and } from "drizzle-orm";
+import { log as otelLog } from "otel";
 
 const LOG_PREFIX = "[notifications]";
 
@@ -17,12 +19,7 @@ function log(
   msg: string,
   data?: Record<string, unknown>,
 ) {
-  const line = data
-    ? `${LOG_PREFIX} ${msg} ${JSON.stringify(data)}`
-    : `${LOG_PREFIX} ${msg}`;
-  if (level === "error") console.error(line);
-  else if (level === "warn") console.warn(line);
-  else console.log(line);
+  otelLog(level, `${LOG_PREFIX} ${msg}`, data);
 }
 
 const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";

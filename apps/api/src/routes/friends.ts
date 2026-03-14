@@ -10,6 +10,7 @@ import {
 import { eq, and, ne, desc, ilike, inArray, sql } from "drizzle-orm";
 import { createShortId } from "shared";
 import { authMiddleware, type AuthContext } from "../auth.js";
+import { log } from "../lib/logger.js";
 import { publishNotification } from "../lib/redis.js";
 import {
   createFriendRequestNotificationPayload,
@@ -49,6 +50,7 @@ friendsRoutes.get("/requests/pending", async (c) => {
     )
     .orderBy(desc(friendRequest.createdAt));
 
+  log("info", "Friend requests pending fetched", { userId, count: requests.length });
   return c.json({
     success: true,
     requests: requests.map((r) => ({
@@ -155,6 +157,12 @@ friendsRoutes.post("/requests", async (c) => {
     }),
   );
 
+  log("info", "Friend request created", {
+    requestId: inserted!.id,
+    fromUserId: userId,
+    toUserId: targetUser.id,
+    toUsername: targetUser.username,
+  });
   return c.json({ success: true });
 });
 
@@ -206,6 +214,12 @@ friendsRoutes.post("/requests/:id/accept", async (c) => {
     }),
   );
 
+  log("info", "Friend request accepted", {
+    requestId,
+    accepterUserId: userId,
+    fromUserId: req.fromUserId,
+    friendTabId,
+  });
   return c.json({ success: true, friendTabId });
 });
 
@@ -220,6 +234,7 @@ friendsRoutes.post("/requests/:id/reject", async (c) => {
       and(eq(friendRequest.id, requestId), eq(friendRequest.toUserId, userId)),
     );
 
+  log("info", "Friend request rejected", { requestId, userId });
   return c.json({ success: true });
 });
 
@@ -284,6 +299,7 @@ friendsRoutes.get("/token", async (c) => {
     "http://localhost:3003";
   const url = `${baseUrl}/invite?user=${encodeURIComponent(username)}&qr=${encodeURIComponent(token)}`;
 
+  log("info", "Invite token generated", { userId, username });
   return c.json({ success: true, token, url });
 });
 
@@ -332,6 +348,11 @@ friendsRoutes.post("/add-by-token", async (c) => {
       .limit(1);
     if (otherMember) {
       await db.delete(pendingFriend).where(eq(pendingFriend.id, pending.id));
+      log("info", "Friend added by token (already friends)", {
+        userId,
+        addedUserId: pending.userId,
+        friendTabId: t.id,
+      });
       return c.json({ success: true, friendTabId: t.id, alreadyFriends: true });
     }
   }
@@ -339,6 +360,11 @@ friendsRoutes.post("/add-by-token", async (c) => {
   const friendTabId = await tab.createDirect(userId, pending.userId);
   await db.delete(pendingFriend).where(eq(pendingFriend.id, pending.id));
 
+  log("info", "Friend added by token", {
+    userId,
+    addedUserId: pending.userId,
+    friendTabId,
+  });
   return c.json({ success: true, friendTabId });
 });
 
@@ -382,15 +408,18 @@ friendsRoutes.get("/search", async (c) => {
     .where(ilike(user.username, `%${trimmed}%`))
     .limit(10);
 
+  const filtered = users.filter((u) => u.id !== userId && !friendIdSet.has(u.id));
+  log("info", "User search", { userId, query: trimmed, resultCount: filtered.length });
   return c.json({
     success: true,
-    users: users.filter((u) => u.id !== userId && !friendIdSet.has(u.id)),
+    users: filtered,
   });
 });
 
 friendsRoutes.get("/", async (c) => {
   const { userId } = c.get("auth");
   const friends = await tab.getDirectTabsForUser(userId);
+  log("info", "Friends list fetched", { userId, count: friends.length });
   return c.json({ success: true, friends });
 });
 
@@ -456,5 +485,10 @@ friendsRoutes.post("/poke", async (c) => {
     }),
   );
 
+  log("info", "User poked", {
+    fromUserId: userId,
+    targetUserId: friendMember.userId,
+    friendTabId: friendTabId.trim(),
+  });
   return c.json({ success: true });
 });

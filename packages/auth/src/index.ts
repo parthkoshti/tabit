@@ -68,12 +68,7 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          const content = [
-            "**New user signup**",
-            `**Name:** ${user.name ?? "N/A"}`,
-            `**Username:** ${user.username ?? "N/A"}`,
-            `**Email:** ${user.email}`,
-          ].join("\n");
+          const content = [`New user: ${user.email}`].join("\n");
           sendDiscordWebhook(content);
         },
       },

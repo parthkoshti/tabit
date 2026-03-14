@@ -10,6 +10,7 @@ import {
 import { eq, and, desc, sql } from "drizzle-orm";
 import { createId } from "shared";
 import { authMiddleware, type AuthContext } from "../auth.js";
+import { log } from "../lib/logger.js";
 import { publishNotification } from "../lib/redis.js";
 import {
   createTabInviteNotificationPayload,
@@ -174,6 +175,7 @@ tabInvitesRoutes.get("/by-token", async (c) => {
     );
   }
 
+  log("info", "Tab invite by-token fetched", { tabId: pending.tabId });
   return c.json({
     success: true,
     tab: tabRow,
@@ -224,12 +226,14 @@ tabInvitesRoutes.post("/join-by-token", async (c) => {
     await db
       .delete(pendingTabInvite)
       .where(eq(pendingTabInvite.id, pending.id));
+    log("info", "Tab join by token (already member)", { userId, tabId: pending.tabId });
     return c.json({ success: true, tabId: pending.tabId, alreadyMember: true });
   }
 
   await addUserToTabAndCreateFriendships(userId, pending.tabId);
   await db.delete(pendingTabInvite).where(eq(pendingTabInvite.id, pending.id));
 
+  log("info", "Tab joined by token", { userId, tabId: pending.tabId });
   return c.json({ success: true, tabId: pending.tabId });
 });
 
@@ -305,6 +309,7 @@ tabInvitesRoutes.get("/token", async (c) => {
     "http://localhost:3003";
   const url = `${baseUrl}/invite?type=tab&token=${encodeURIComponent(token)}`;
 
+  log("info", "Tab invite token generated", { userId, tabId });
   return c.json({ success: true, url });
 });
 
@@ -332,6 +337,7 @@ tabInvitesRoutes.get("/requests/pending", async (c) => {
     )
     .orderBy(desc(tabInviteRequest.createdAt));
 
+  log("info", "Tab invite requests pending fetched", { userId, count: rows.length });
   return c.json({
     success: true,
     requests: rows.map((r) => ({
@@ -448,6 +454,13 @@ tabInvitesRoutes.post("/requests", async (c) => {
     }),
   );
 
+  log("info", "Tab invite sent", {
+    requestId: inserted!.id,
+    tabId,
+    fromUserId: userId,
+    toUserId: targetUser.id,
+    toUsername: targetUser.username,
+  });
   return c.json({ success: true });
 });
 
@@ -490,6 +503,11 @@ tabInvitesRoutes.post("/requests/:id/accept", async (c) => {
       .set({ status: "accepted" })
       .where(eq(tabInviteRequest.id, requestId));
     await publishTabInviteAcceptedNotification(userId, requestId, req);
+    log("info", "Tab invite accepted (already member)", {
+      requestId,
+      userId,
+      tabId: req.tabId,
+    });
     return c.json({ success: true, tabId: req.tabId, alreadyMember: true });
   }
 
@@ -500,6 +518,12 @@ tabInvitesRoutes.post("/requests/:id/accept", async (c) => {
     .where(eq(tabInviteRequest.id, requestId));
 
   await publishTabInviteAcceptedNotification(userId, requestId, req);
+  log("info", "Tab invite accepted", {
+    requestId,
+    accepterUserId: userId,
+    fromUserId: req.fromUserId,
+    tabId: req.tabId,
+  });
   return c.json({ success: true, tabId: req.tabId });
 });
 
@@ -531,5 +555,6 @@ tabInvitesRoutes.post("/requests/:id/reject", async (c) => {
     .set({ status: "rejected" })
     .where(eq(tabInviteRequest.id, requestId));
 
+  log("info", "Tab invite rejected", { requestId, userId });
   return c.json({ success: true });
 });

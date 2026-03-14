@@ -11,7 +11,7 @@ Tab It is a Splitwise-alternative for splitting expenses. It's a pnpm + Turborep
 ### Development
 ```bash
 pnpm install                          # Install all dependencies
-pnpm run build --filter=models --filter=db  # Build shared packages first (required before dev)
+pnpm run build --filter=models --filter=db --filter=otel  # Build shared packages first (required before dev)
 pnpm dev                              # Run all apps concurrently (web, pwa, api, notifications)
 pnpm dev:pwa                          # Run only the PWA
 pnpm dev:web                          # Run only the landing page
@@ -49,6 +49,7 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 - `packages/models` — Shared Zod schemas and TypeScript types
 - `packages/auth` — Better Auth configuration (magic link / email OTP only, emails via Plunk)
 - `packages/shared` — Shared utilities (e.g. `createId`)
+- `packages/otel` — OpenTelemetry setup (logs + traces to OTLP/SigNoz)
 - `packages/data` — Data access layer (query functions used by both `api` and `web`)
 
 ### Key Architectural Patterns
@@ -79,6 +80,8 @@ All apps read from a root `.env` / `.env.local` file (via `dotenv-cli`). Key var
 - `CORS_ORIGIN` — Comma-separated origins for the API
 - `NEXT_PUBLIC_PWA_URL` / `NEXT_PUBLIC_WEB_URL` — Public URLs
 - `NOTIFICATIONS_WS_URL` / `VITE_NOTIFICATIONS_WS_URL` — WebSocket URL
+
+**OpenTelemetry (optional)**: When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, logs and traces are sent to SigNoz or any OTLP-compatible backend. Variables: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` (e.g. `signoz-ingestion-key=<key>` for SigNoz Cloud), `OTEL_SERVICE_NAME`, `OTEL_SDK_DISABLED`, `OTEL_TRACES_EXPORTER`, `OTEL_LOGS_EXPORTER`.
 
 ### HTTPS for PWA (local dev)
 The PWA runs over HTTPS by default (needed for service workers). Certs go in `apps/pwa/certificates/`. Generate with:

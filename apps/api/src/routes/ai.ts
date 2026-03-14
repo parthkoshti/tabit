@@ -326,11 +326,20 @@ CRITICAL - Confidence and ambiguity:
       createdAt: new Date(),
     });
 
+    const recipientCount = members.filter((m) => m.userId !== userId).length;
     for (const m of members) {
       if (m.userId !== userId) {
         await publishNotification(m.userId, payload);
       }
     }
+
+    log("info", "AI expense created", {
+      userId,
+      tabId: parsedExpense.tabId,
+      expenseId,
+      amount: parsedExpense.amount,
+      recipientCount,
+    });
 
     const participantUserRows =
       participantIds.length > 0

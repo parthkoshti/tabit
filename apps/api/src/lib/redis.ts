@@ -15,6 +15,23 @@ export function getRedis(): Redis {
   return redis;
 }
 
+function notificationLogData(
+  userId: string,
+  payload: NotificationPayload
+): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    userId,
+    type: payload.type,
+    channel: `notifications:user:${userId}`,
+  };
+  if ("requestId" in payload && payload.requestId) base.requestId = payload.requestId;
+  if ("tabId" in payload && payload.tabId) base.tabId = payload.tabId;
+  if ("expenseId" in payload && payload.expenseId) base.expenseId = payload.expenseId;
+  if ("friendTabId" in payload && payload.friendTabId) base.friendTabId = payload.friendTabId;
+  if ("count" in payload && payload.count != null) base.count = payload.count;
+  return base;
+}
+
 export async function publishNotification(
   userId: string,
   payload: NotificationPayload,
@@ -24,5 +41,5 @@ export async function publishNotification(
   const channel = `notifications:user:${userId}`;
   const toPublish = options?.forcePush ? { ...payload, forcePush: true } : payload;
   await client.publish(channel, JSON.stringify(toPublish));
-  log("info", "Notification published", { userId, type: payload.type, channel });
+  log("info", "Notification published", notificationLogData(userId, payload));
 }
