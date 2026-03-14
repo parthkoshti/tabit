@@ -1,7 +1,10 @@
 import { context } from "@opentelemetry/api";
 import type { SeverityNumber } from "@opentelemetry/api-logs";
 import { logs } from "@opentelemetry/api-logs";
-import { LoggerProvider, BatchLogRecordProcessor } from "@opentelemetry/sdk-logs";
+import {
+  LoggerProvider,
+  BatchLogRecordProcessor,
+} from "@opentelemetry/sdk-logs";
 import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
 import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
@@ -26,7 +29,7 @@ function isOtelEnabled(): boolean {
 
 export function initTelemetry(serviceName: string): void {
   if (!isOtelEnabled()) return;
-  const name = process.env.OTEL_SERVICE_NAME?.trim() || serviceName;
+  const name = process.env.OTEL_SERVICE_NAME?.trim() || `tab-${serviceName}`;
   const deploymentEnv =
     process.env.NODE_ENV === "production" ? "production" : "development";
 
@@ -45,7 +48,9 @@ export function initTelemetry(serviceName: string): void {
 
   const logExporter = new OTLPLogExporter();
   loggerProvider = new LoggerProvider({ resource });
-  loggerProvider.addLogRecordProcessor(new BatchLogRecordProcessor(logExporter));
+  loggerProvider.addLogRecordProcessor(
+    new BatchLogRecordProcessor(logExporter),
+  );
   logs.setGlobalLoggerProvider(loggerProvider);
   otelLogger = loggerProvider.getLogger("default", "1.0.0");
 
@@ -57,7 +62,7 @@ export function initTelemetry(serviceName: string): void {
 export function log(
   level: "info" | "warn" | "error",
   msg: string,
-  data?: Record<string, unknown>
+  data?: Record<string, unknown>,
 ): void {
   const line = data ? `${msg} ${JSON.stringify(data)}` : msg;
   if (level === "error") console.error(line);
@@ -70,7 +75,9 @@ export function log(
       for (const [k, v] of Object.entries(data)) {
         if (v !== undefined && v !== null) {
           attributes[k] =
-            typeof v === "object" ? JSON.stringify(v) : (v as string | number | boolean);
+            typeof v === "object"
+              ? JSON.stringify(v)
+              : (v as string | number | boolean);
         }
       }
     }
