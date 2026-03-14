@@ -449,6 +449,17 @@ wss.on(
       totalConnections: userConnections.get(userId)!.size,
     });
 
+    ws.on("message", (data: Buffer) => {
+      try {
+        const payload = JSON.parse(data.toString());
+        if (payload.type === "ping") {
+          ws.send(JSON.stringify({ type: "pong" }));
+        }
+      } catch {
+        // ignore non-JSON or invalid messages
+      }
+    });
+
     ws.on("close", () => {
       const connections = userConnections.get(userId);
       if (connections) {

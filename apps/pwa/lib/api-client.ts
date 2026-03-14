@@ -377,6 +377,30 @@ export const api = {
   },
   notifications: {
     getToken: () => request<{ token: string }>("/notifications/token"),
+    getMissed: (since: number) =>
+      request<{
+        success: boolean;
+        friendRequests: Array<{
+          id: string;
+          type: "friend_request";
+          requestId: string;
+          fromUserId: string;
+          fromUserUsername: string | null;
+          fromUserName: string | null;
+          createdAt: string;
+        }>;
+        tabInvites: Array<{
+          id: string;
+          type: "tab_invite";
+          requestId: string;
+          tabId: string;
+          tabName: string;
+          fromUserId: string;
+          fromUserUsername: string | null;
+          fromUserName: string | null;
+          createdAt: string;
+        }>;
+      }>(`/notifications/missed?since=${encodeURIComponent(since)}`),
   },
   ai: {
     addExpense: (body: { text: string }) =>
