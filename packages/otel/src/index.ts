@@ -26,10 +26,13 @@ function isOtelEnabled(): boolean {
 
 export function initTelemetry(serviceName: string): void {
   if (!isOtelEnabled()) return;
-  const name = process.env.OTEL_SERVICE_NAME ?? serviceName;
+  const name = process.env.OTEL_SERVICE_NAME?.trim() || serviceName;
+  const deploymentEnv =
+    process.env.NODE_ENV === "production" ? "production" : "development";
 
   const resource = new Resource({
     "service.name": name,
+    "deployment.environment.name": deploymentEnv,
   });
 
   const traceExporter = new OTLPTraceExporter();
