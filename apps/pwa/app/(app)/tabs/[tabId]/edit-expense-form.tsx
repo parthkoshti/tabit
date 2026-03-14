@@ -217,10 +217,7 @@ export function EditExpenseForm({
             onValueChange={setPaidById}
             disabled={loading}
           >
-            <SelectTrigger
-              className="flex-1 min-w-0 [&>span]:line-clamp-none"
-              hideChevron
-            >
+            <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none">
               <SelectValue placeholder="Select who paid">
                 {(() => {
                   const payer = members.find((m) => m.userId === paidById);

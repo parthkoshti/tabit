@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { useMemo } from "react";
+import { formatAmount } from "@/lib/format-amount";
 
 function formatDate(d: Date | string): string {
   const date = new Date(d);
@@ -22,13 +23,6 @@ function formatDate(d: Date | string): string {
   if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
   return date.toLocaleDateString();
-}
-
-function formatAmount(n: number): string {
-  return n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
 }
 
 export function ActivityPage() {
@@ -93,7 +87,7 @@ export function ActivityPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-26">
+      <div className="mx-auto max-w-2xl space-y-6 pb-60">
         <section className="space-y-4">
           <h2 className="text-base font-medium mb-1">Activity</h2>
           <p className="text-xs text-muted-foreground mb-4">
@@ -175,7 +169,7 @@ export function ActivityPage() {
                               item.deletedAt ? "text-muted-foreground" : ""
                             }`}
                           >
-                            ${formatAmount(item.amount)}
+                            {formatAmount(item.amount, item.tabCurrency)}
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground flex items-center gap-1.5">
@@ -229,7 +223,7 @@ export function ActivityPage() {
                               },
                               currentUserId,
                             )}{" "}
-                            ${formatAmount(item.amount)}
+                            {formatAmount(item.amount, item.tabCurrency)}
                           </span>
                         </div>
                         <p className="text-sm text-muted-foreground flex items-center gap-1.5">

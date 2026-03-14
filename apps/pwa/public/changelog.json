@@ -1,6 +1,11 @@
 {
   "releases": [
     {
+      "version": "0.1.3",
+      "date": "2026-03-15",
+      "content": "- Multi-currency support: Set tab currency when creating tabs or via manage page\n- Expense restoration: Restore deleted expenses within 30 days\n- Improved expense display with proper currency formatting\n- Enhanced UI components and mobile experience\n- Bug fixes and performance improvements"
+    },
+    {
       "version": "0.1.2",
       "date": "2025-03-13",
       "content": "- AI Add expense: textarea now scrolls into view when keyboard opens on mobile\n- Improved mobile keyboard behavior with viewport resize support"

@@ -167,7 +167,7 @@ export function EditSettlementForm({
             }}
             disabled={loading}
           >
-            <SelectTrigger className="[&>span]:line-clamp-none" hideChevron>
+            <SelectTrigger className="[&>span]:line-clamp-none">
               <SelectValue placeholder="Select who paid">
                 {(() => {
                   const payer = members.find((m) => m.userId === fromUserId);
@@ -199,7 +199,7 @@ export function EditSettlementForm({
             onValueChange={setToUserId}
             disabled={loading || !fromUserId}
           >
-            <SelectTrigger className="[&>span]:line-clamp-none" hideChevron>
+            <SelectTrigger className="[&>span]:line-clamp-none">
               <SelectValue placeholder="Select who received">
                 {(() => {
                   const payee = members.find((m) => m.userId === toUserId);

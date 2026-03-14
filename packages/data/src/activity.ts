@@ -8,6 +8,7 @@ export type ActivityItem =
       id: string;
       tabId: string;
       tabName: string;
+      tabCurrency: string;
       paidById: string;
       paidByEmail: string;
       paidByName: string | null;
@@ -23,6 +24,7 @@ export type ActivityItem =
       id: string;
       tabId: string;
       tabName: string;
+      tabCurrency: string;
       fromUserId: string;
       fromUserEmail: string;
       fromUserName: string | null;
@@ -59,7 +61,9 @@ export const activity = {
 
     const tabs = await tab.getTabsForUser(userId, { includeDirect: true });
     const tabIds = tabs.map((t) => t.id);
-    const tabMap = Object.fromEntries(tabs.map((t) => [t.id, t.name]));
+    const tabMap = Object.fromEntries(
+      tabs.map((t) => [t.id, { name: t.name, currency: t.currency }]),
+    );
 
     if (tabIds.length === 0) {
       return paginate ? { items: [], total: 0 } : [];
@@ -129,12 +133,15 @@ export const activity = {
     const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
 
     const items: ActivityItem[] = [
-      ...expenses.map((e) => ({
-        type: "expense" as const,
-        id: e.id,
-        tabId: e.tabId,
-        tabName: tabMap[e.tabId] ?? "",
-        paidById: e.paidById,
+      ...expenses.map((e) => {
+        const tabInfo = tabMap[e.tabId];
+        return {
+          type: "expense" as const,
+          id: e.id,
+          tabId: e.tabId,
+          tabName: tabInfo?.name ?? "",
+          tabCurrency: tabInfo?.currency ?? "USD",
+          paidById: e.paidById,
         paidByEmail: e.paidByEmail,
         paidByName: e.paidByName,
         paidByUsername: e.paidByUsername,
@@ -143,12 +150,16 @@ export const activity = {
         expenseDate: e.expenseDate,
         createdAt: e.createdAt,
         deletedAt: e.deletedAt ?? null,
-      })),
-      ...settlementRows.map((s) => ({
-        type: "settlement" as const,
-        id: s.id,
-        tabId: s.tabId,
-        tabName: tabMap[s.tabId] ?? "",
+        };
+      }),
+      ...settlementRows.map((s) => {
+        const tabInfo = tabMap[s.tabId];
+        return {
+          type: "settlement" as const,
+          id: s.id,
+          tabId: s.tabId,
+          tabName: tabInfo?.name ?? "",
+          tabCurrency: tabInfo?.currency ?? "USD",
         fromUserId: s.fromUserId,
         fromUserEmail: userMap[s.fromUserId]?.email ?? "",
         fromUserName: userMap[s.fromUserId]?.name ?? null,
@@ -159,7 +170,8 @@ export const activity = {
         toUserUsername: userMap[s.toUserId]?.username ?? null,
         amount: Number(s.amount),
         createdAt: s.createdAt,
-      })),
+        };
+      }),
     ];
 
     items.sort((a, b) => {

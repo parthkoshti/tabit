@@ -5,11 +5,15 @@ import {
   expenseSplit,
   user,
 } from "db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, or, and } from "drizzle-orm";
+
+export type ExpenseFilter = "all" | "involved" | "owed" | "owe";
 
 export type GetExpensesForTabOptions = {
   limit?: number;
   offset?: number;
+  filter?: ExpenseFilter;
+  userId?: string;
 };
 
 export type GetExpensesForTabResult = {
@@ -262,6 +266,28 @@ export const expense = {
     const limit = options?.limit;
     const offset = options?.offset ?? 0;
     const paginate = limit !== undefined;
+    const filter = options?.filter ?? "all";
+    const userId = options?.userId;
+
+    const baseWhere = eq(expenseTable.tabId, tabId);
+    let filterWhere = baseWhere;
+    if (filter !== "all" && userId) {
+      if (filter === "owed") {
+        filterWhere = and(baseWhere, eq(expenseTable.paidById, userId)) ?? baseWhere;
+      } else if (filter === "owe") {
+        filterWhere =
+          and(
+            baseWhere,
+            sql`${expenseTable.id} IN (SELECT "expenseId" FROM "expense_split" WHERE "userId" = ${userId})`,
+          ) ?? baseWhere;
+      } else if (filter === "involved") {
+        const involvedCondition = or(
+          eq(expenseTable.paidById, userId),
+          sql`${expenseTable.id} IN (SELECT "expenseId" FROM "expense_split" WHERE "userId" = ${userId})`,
+        );
+        filterWhere = and(baseWhere, involvedCondition ?? sql`false`) ?? baseWhere;
+      }
+    }
 
     const baseExpenseQuery = db
       .select({
@@ -276,7 +302,7 @@ export const expense = {
         deletedAt: expenseTable.deletedAt,
       })
       .from(expenseTable)
-      .where(eq(expenseTable.tabId, tabId))
+      .where(filterWhere)
       .orderBy(desc(expenseTable.expenseDate));
 
     const paginated = paginate
@@ -287,7 +313,7 @@ export const expense = {
       db
         .select({ count: sql<number>`count(*)::int` })
         .from(expenseTable)
-        .where(eq(expenseTable.tabId, tabId)),
+        .where(filterWhere),
       db
         .select({
           id: paginated.id,

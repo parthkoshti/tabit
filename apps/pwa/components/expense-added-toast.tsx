@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { Pencil, ReceiptText } from "lucide-react";
+import { formatAmount } from "@/lib/format-amount";
 
 type Participant = {
   userId: string;
@@ -17,6 +18,7 @@ export function ExpenseAddedToast({
   amount,
   description,
   tabName,
+  currency = "USD",
   participants,
   currentUserId,
 }: {
@@ -25,6 +27,7 @@ export function ExpenseAddedToast({
   amount: number;
   description: string;
   tabName: string;
+  currency?: string;
   participants: Participant[];
   currentUserId: string;
 }) {
@@ -48,7 +51,7 @@ export function ExpenseAddedToast({
       <div className="min-w-0 flex-1 space-y-1.5">
         <p className="font-medium">Expense added</p>
         <p className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-sm text-muted-foreground">
-          <span className="text-foreground wrap-break-word">${amount.toFixed(2)}</span>
+          <span className="text-foreground wrap-break-word">{formatAmount(amount, currency)}</span>
           <span>for</span>
           <span className="text-foreground wrap-break-word">{description}</span>
           <span>to</span>
@@ -70,14 +73,14 @@ export function ExpenseAddedToast({
                 </span>
                 {p.paid != null && p.paid > 0 ? (
                   <span className="text-positive">
-                    Paid ${p.paid.toFixed(2)}
+                    Paid {formatAmount(p.paid, currency)}
                   </span>
                 ) : p.owes != null && p.owes > 0 ? (
                   <span className="text-destructive">
                     {p.userId === currentUserId || p.name === "You"
                       ? "Owe"
                       : "Owes"}{" "}
-                    ${p.owes.toFixed(2)}
+                    {formatAmount(p.owes, currency)}
                   </span>
                 ) : null}
               </span>

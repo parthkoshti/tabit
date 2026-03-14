@@ -12,6 +12,7 @@ import { eq, desc, inArray, and, sql, isNull } from "drizzle-orm";
 export type TabWithBalance = {
   id: string;
   name: string;
+  currency: string;
   createdAt: Date;
   balance?: number;
   memberUserIds?: string[];
@@ -21,6 +22,7 @@ export type TabWithBalance = {
 
 export type FriendTab = {
   id: string;
+  currency: string;
   createdAt: Date;
   balance: number;
   expenseCount: number;
@@ -49,6 +51,7 @@ export type Balance = {
 export type TabWithMembers = {
   id: string;
   name: string;
+  currency: string;
   createdAt: Date;
   isDirect?: boolean;
   members: Array<{
@@ -153,6 +156,7 @@ export const tab = {
         .select({
           id: tabTable.id,
           name: tabTable.name,
+          currency: tabTable.currency,
           createdAt: tabTable.createdAt,
         })
         .from(tabTable)
@@ -219,6 +223,7 @@ export const tab = {
       .select({
         id: tabTable.id,
         name: tabTable.name,
+        currency: tabTable.currency,
         createdAt: tabTable.createdAt,
       })
       .from(tabTable)
@@ -284,6 +289,7 @@ export const tab = {
     const directTabs = await db
       .select({
         id: tabTable.id,
+        currency: tabTable.currency,
         createdAt: tabTable.createdAt,
       })
       .from(tabTable)
@@ -335,6 +341,7 @@ export const tab = {
           expDate || setDate ? new Date(Math.max(expDate, setDate)) : null;
         result.push({
           id: t.id,
+          currency: t.currency,
           createdAt: t.createdAt,
           balance: myBalance ? myBalance.amount : 0,
           expenseCount: countRow?.count ?? 0,
@@ -383,10 +390,14 @@ export const tab = {
     };
   },
 
-  create: async (name: string, userId: string): Promise<string> => {
+  create: async (
+    name: string,
+    userId: string,
+    currency: string = "USD",
+  ): Promise<string> => {
     const [inserted] = await db
       .insert(tabTable)
-      .values({ name })
+      .values({ name, currency })
       .returning({ id: tabTable.id });
     const id = inserted!.id;
     await db.insert(tabMember).values({
@@ -397,8 +408,15 @@ export const tab = {
     return id;
   },
 
-  update: async (tabId: string, name: string): Promise<void> => {
-    await db.update(tabTable).set({ name }).where(eq(tabTable.id, tabId));
+  update: async (
+    tabId: string,
+    updates: { name?: string; currency?: string },
+  ): Promise<void> => {
+    const set: Record<string, unknown> = {};
+    if (updates.name !== undefined) set.name = updates.name;
+    if (updates.currency !== undefined) set.currency = updates.currency;
+    if (Object.keys(set).length === 0) return;
+    await db.update(tabTable).set(set).where(eq(tabTable.id, tabId));
   },
 
   addMember: async (
@@ -421,10 +439,35 @@ export const tab = {
       );
   },
 
-  createDirect: async (userId1: string, userId2: string): Promise<string> => {
+  createDirect: async (
+    userId1: string,
+    userId2: string,
+    currency: string = "USD",
+  ): Promise<string> => {
+    const user1DirectTabs = await db
+      .select({ tabId: tabMember.tabId })
+      .from(tabTable)
+      .innerJoin(tabMember, eq(tabTable.id, tabMember.tabId))
+      .where(
+        and(eq(tabTable.isDirect, true), eq(tabMember.userId, userId1)),
+      );
+    const tabIds = user1DirectTabs.map((d) => d.tabId);
+    if (tabIds.length > 0) {
+      const [existing] = await db
+        .select({ tabId: tabMember.tabId })
+        .from(tabMember)
+        .where(
+          and(
+            inArray(tabMember.tabId, tabIds),
+            eq(tabMember.userId, userId2),
+          ),
+        )
+        .limit(1);
+      if (existing) return existing.tabId;
+    }
     const [inserted] = await db
       .insert(tabTable)
-      .values({ name: "Direct", isDirect: true })
+      .values({ name: "Direct", isDirect: true, currency })
       .returning({ id: tabTable.id });
     const id = inserted!.id;
     await db.insert(tabMember).values([

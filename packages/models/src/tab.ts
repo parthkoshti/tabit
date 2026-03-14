@@ -5,12 +5,14 @@ export type TabMemberRole = z.infer<typeof tabMemberRoleSchema>;
 
 export const createTabSchema = z.object({
   name: z.string().min(1).max(100),
+  currency: z.string().min(1).max(10).optional(),
 });
 
 export type CreateTabInput = z.infer<typeof createTabSchema>;
 
 export const updateTabSchema = z.object({
-  name: z.string().min(1).max(100),
+  name: z.string().min(1).max(100).optional(),
+  currency: z.string().min(1).max(10).optional(),
 });
 
 export type UpdateTabInput = z.infer<typeof updateTabSchema>;

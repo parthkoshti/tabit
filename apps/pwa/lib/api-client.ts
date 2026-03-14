@@ -153,15 +153,18 @@ export const api = {
       request<{ success: boolean; balances: Balance[]; error?: string }>(
         `/tabs/${tabId}/balances`,
       ),
-    create: (name: string) =>
+    create: (name: string, currency?: string) =>
       request<{ success: boolean; tabId: string; error?: string }>("/tabs", {
         method: "POST",
-        body: { name },
+        body: currency ? { name, currency } : { name },
       }),
-    update: (tabId: string, name: string) =>
+    update: (
+      tabId: string,
+      updates: { name?: string; currency?: string },
+    ) =>
       request<{ success: boolean; error?: string }>(`/tabs/${tabId}`, {
         method: "PATCH",
-        body: { name },
+        body: updates,
       }),
     addMember: (tabId: string, email: string, role?: string) =>
       request<{ success: boolean; error?: string }>(`/tabs/${tabId}/members`, {
@@ -177,11 +180,17 @@ export const api = {
   expenses: {
     list: (
       tabId: string,
-      options?: { limit?: number; offset?: number },
+      options?: {
+        limit?: number;
+        offset?: number;
+        filter?: "all" | "involved" | "owed" | "owe";
+      },
     ) => {
       const params = new URLSearchParams();
       if (options?.limit != null) params.set("limit", String(options.limit));
       if (options?.offset != null) params.set("offset", String(options.offset));
+      if (options?.filter != null && options.filter !== "all")
+        params.set("filter", options.filter);
       const qs = params.toString();
       return request<{
         success: boolean;
@@ -219,6 +228,7 @@ export const api = {
         amount?: number;
         description?: string;
         tabName?: string;
+        currency?: string;
         participants?: Array<{
           userId: string;
           name: string | null;
@@ -342,10 +352,13 @@ export const api = {
     },
   },
   profile: {
-    update: (name: string) =>
+    update: (data: {
+      name?: string;
+      defaultCurrency?: string | null;
+    }) =>
       request<{ success: boolean; error?: string }>("/profile", {
         method: "PATCH",
-        body: { name },
+        body: data,
       }),
   },
   username: {
@@ -418,6 +431,7 @@ export const api = {
         description?: string;
         tabName?: string;
         tabId?: string;
+        currency?: string;
         participants?: Array<{
           userId: string;
           name: string | null;

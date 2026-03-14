@@ -1,16 +1,28 @@
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { Link } from "react-router-dom";
-import { ReceiptText } from "lucide-react";
+import { ReceiptText, ArrowDownAZ } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { authClient } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
+import { formatAmount } from "@/lib/format-amount";
+
+type TabSort = "expenses" | "recent" | "name";
 
 export function TabsPage() {
+  const [sortBy, setSortBy] = useState<TabSort>("expenses");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
@@ -18,6 +30,7 @@ export function TabsPage() {
   type TabItem = {
     id: string;
     name: string;
+    currency?: string;
     balance?: number;
     memberUserIds?: string[];
     expenseCount?: number;
@@ -40,7 +53,28 @@ export function TabsPage() {
       return (r.success ? r.tabs : []) as TabItem[];
     },
   });
-  const tabs = tabsData ?? [];
+  const tabs = useMemo(() => tabsData ?? [], [tabsData]);
+  const sortedTabs = useMemo(() => {
+    const arr = [...tabs];
+    if (sortBy === "name") {
+      arr.sort((a, b) =>
+        (a.name ?? "").toLowerCase().localeCompare((b.name ?? "").toLowerCase()),
+      );
+    } else if (sortBy === "recent") {
+      arr.sort((a, b) => {
+        const aDate = a.lastExpenseDate
+          ? new Date(a.lastExpenseDate).getTime()
+          : 0;
+        const bDate = b.lastExpenseDate
+          ? new Date(b.lastExpenseDate).getTime()
+          : 0;
+        return bDate - aDate;
+      });
+    } else {
+      arr.sort((a, b) => (b.expenseCount ?? 0) - (a.expenseCount ?? 0));
+    }
+    return arr;
+  }, [tabs, sortBy]);
   const { data: tabInvitesData } = useQuery({
     queryKey: ["pendingTabInviteRequests"],
     queryFn: async () => {
@@ -49,13 +83,6 @@ export function TabsPage() {
     },
   });
   const pendingTabInvites = tabInvitesData ?? [];
-
-  function formatAmount(n: number) {
-    return n.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
 
   async function handleAcceptTabInvite(requestId: string) {
     const result = await api.tabInvites.acceptRequest(requestId);
@@ -74,7 +101,7 @@ export function TabsPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-26">
+      <div className="mx-auto max-w-2xl space-y-6 pb-60">
         {pendingTabInvites.length > 0 && (
           <section className="space-y-4">
             <h2 className="text-base font-medium mb-1">Tab invites</h2>
@@ -142,10 +169,32 @@ export function TabsPage() {
         )}
 
         <section className="space-y-4">
-          <h2 className="text-base font-medium mb-1">Your tabs</h2>
-          <p className="text-xs text-muted-foreground mb-4">
-            Create a tab or tap to view
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-foreground">
+                Your tabs
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Create a tab or tap to view
+              </p>
+            </div>
+            {tabs.length > 0 && (
+              <Select
+                value={sortBy}
+                onValueChange={(v) => setSortBy(v as TabSort)}
+              >
+                <SelectTrigger className="shrink-0 w-fit h-9">
+                  <ArrowDownAZ className="h-4 w-4 shrink-0 opacity-70 mr-2" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expenses">Most expenses</SelectItem>
+                  <SelectItem value="recent">Most recent</SelectItem>
+                  <SelectItem value="name">Alphabetical</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           {isLoading ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
               Loading...
@@ -161,7 +210,7 @@ export function TabsPage() {
               initial="initial"
               animate="animate"
             >
-              {tabs.map((t) => {
+              {sortedTabs.map((t) => {
                 const otherMemberIds =
                   t.memberUserIds?.filter((id) => id !== currentUserId) ?? [];
                 const hasExtra = otherMemberIds.length > 3;
@@ -185,9 +234,9 @@ export function TabsPage() {
                             }
                           >
                             {(t.balance ?? 0) > 0
-                              ? `+$${formatAmount(t.balance ?? 0)}`
+                              ? `+${formatAmount(t.balance ?? 0, t.currency)}`
                               : (t.balance ?? 0) < 0
-                                ? `-$${formatAmount(Math.abs(t.balance ?? 0))}`
+                                ? `-${formatAmount(Math.abs(t.balance ?? 0), t.currency)}`
                                 : "Settled"}
                           </span>
                         </div>

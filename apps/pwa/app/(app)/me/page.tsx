@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Loader2,
   CircleCheck,
@@ -53,6 +54,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import QRCode from "qrcode";
+import { CURATED_CURRENCIES, getCurrency, formatAmount } from "shared";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{5,12}$/;
 
@@ -81,9 +83,12 @@ export function MePage() {
   const [nameLoading, setNameLoading] = useState(false);
 
   useEffect(() => {
-    const u = session?.user as { username?: string; name?: string } | undefined;
+    const u = session?.user as
+      | { username?: string; name?: string; defaultCurrency?: string | null }
+      | undefined;
     setUsername(u?.username ?? "");
     setName(u?.name ?? "");
+    setCurrency(u?.defaultCurrency ?? "USD");
   }, [session?.user]);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -96,6 +101,10 @@ export function MePage() {
   const checkIdRef = useRef(0);
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
   const [usernameDialogOpen, setUsernameDialogOpen] = useState(false);
+  const [currency, setCurrency] = useState("USD");
+  const [currencyLoading, setCurrencyLoading] = useState(false);
+  const [currencyError, setCurrencyError] = useState<string | null>(null);
+  const [currencySuccess, setCurrencySuccess] = useState(false);
   const setNavTitle = useNavTitle();
 
   useEffect(() => {
@@ -146,10 +155,7 @@ export function MePage() {
     setNameError(null);
     setNameSuccess(false);
 
-    const formData = new FormData();
-    formData.set("name", name);
-
-    const result = await api.profile.update(name);
+    const result = await api.profile.update({ name });
 
     if (result.success) {
       setNameSuccess(true);
@@ -161,9 +167,28 @@ export function MePage() {
     setNameLoading(false);
   }
 
+  async function handleCurrencyChange(value: string) {
+    setCurrency(value);
+    setCurrencyLoading(true);
+    setCurrencyError(null);
+    setCurrencySuccess(false);
+
+    const result = await api.profile.update({
+      defaultCurrency: value || null,
+    });
+
+    if (result.success) {
+      setCurrencySuccess(true);
+      refetch();
+    } else {
+      setCurrencyError(result.error ?? "Failed to update currency");
+    }
+    setCurrencyLoading(false);
+  }
+
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-26">
+      <div className="mx-auto max-w-2xl space-y-6 pb-60">
         <section className="space-y-4">
           <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/50 p-4">
             <div className="flex items-center gap-4">
@@ -222,6 +247,45 @@ export function MePage() {
                 )}
               </div>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/50 p-4">
+            <h3 className="text-sm font-medium">Default currency</h3>
+            <Select
+              value={currency}
+              onValueChange={handleCurrencyChange}
+              disabled={currencyLoading}
+            >
+              <SelectTrigger id="currency">
+                <SelectValue placeholder="Select currency" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {CURATED_CURRENCIES.map((code) => {
+                  const c = getCurrency(code);
+                  return (
+                    <SelectItem key={code} value={code}>
+                      {code} - {c?.name ?? code} ({c?.symbol ?? ""})
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            {currencyError && (
+              <Alert variant="destructive">
+                <AlertDescription>{currencyError}</AlertDescription>
+              </Alert>
+            )}
+            {currencySuccess && (
+              <Alert>
+                <AlertDescription>
+                  Default currency updated successfully.
+                </AlertDescription>
+              </Alert>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Used when creating new tabs. Existing tabs keep their own
+              currency.
+            </p>
           </div>
 
           <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>
@@ -387,7 +451,7 @@ function VoiceInputSection() {
               <SelectTrigger className="w-48 shrink-0">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-60">
                 {SPEECH_RECOGNITION_LANGUAGES.map((lang) => (
                   <SelectItem key={lang.value} value={lang.value}>
                     {lang.label}
@@ -404,14 +468,11 @@ function VoiceInputSection() {
                 Automatically listen when opening the AI expense dialog
               </p>
             </div>
-            <Button
-              variant={settings.autoStart ? "default" : "outline"}
-              size="sm"
-              className="shrink-0"
-              onClick={() => update({ autoStart: !settings.autoStart })}
-            >
-              {settings.autoStart ? "On" : "Off"}
-            </Button>
+            <Switch
+              id="auto-start-mic"
+              checked={settings.autoStart}
+              onCheckedChange={(checked) => update({ autoStart: checked })}
+            />
           </div>
         </div>
       </div>

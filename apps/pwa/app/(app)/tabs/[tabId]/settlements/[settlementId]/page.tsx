@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
+import { formatAmount } from "@/lib/format-amount";
 
 export function SettlementPage() {
   const { tabId, settlementId } = useParams<{
@@ -99,6 +100,7 @@ export function SettlementPage() {
   }
 
   const currentUserId = session?.user?.id ?? "";
+  const tabCurrency = tab?.currency ?? "USD";
 
   function formatAuditDate(date: Date | string) {
     return new Date(date).toLocaleDateString(undefined, {
@@ -149,7 +151,7 @@ export function SettlementPage() {
               </p>
             </div>
             <span className="text-foreground shrink-0 font-medium text-2xl">
-              ${settlement.amount.toFixed(2)}
+              {formatAmount(settlement.amount, tabCurrency)}
             </span>
           </div>
 

@@ -132,7 +132,7 @@ export function OnboardingPage() {
     setError(null);
 
     const [profileResult, usernameResult] = await Promise.all([
-      api.profile.update(name.trim()),
+      api.profile.update({ name: name.trim() }),
       api.username.update(username.trim().toLowerCase()),
     ]);
     const result =

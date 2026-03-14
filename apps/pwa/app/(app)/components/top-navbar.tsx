@@ -8,6 +8,7 @@ import {
   ReceiptText,
   Download,
   CircleFadingArrowUp,
+  Settings,
 } from "lucide-react";
 import { AnimatePresence, motion } from "framer-motion";
 import { appConfig } from "@/src/config";
@@ -39,6 +40,10 @@ export function TopNavbar() {
   const isTabPage =
     displayPathname.startsWith("/tabs/") &&
     !displayPathname.match(/^\/tabs\/?$/);
+  const isMainTabPage = /^\/tabs\/[^/]+$/.test(displayPathname);
+  const mainTabId = isMainTabPage
+    ? displayPathname.replace(/^\/tabs\//, "").split("/")[0]
+    : null;
   const isActivityPage = displayPathname === "/activity";
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -120,7 +125,7 @@ export function TopNavbar() {
                 )}
             </div>
           </div>
-          <div className="relative z-10 flex shrink-0 justify-end w-20">
+          <div className="relative z-10 flex shrink-0 justify-end w-20 gap-1">
             {needRefresh && (
               <Button
                 variant="default"
@@ -130,6 +135,18 @@ export function TopNavbar() {
               >
                 <Download className="h-5 w-5" />
                 <span>Update</span>
+              </Button>
+            )}
+            {isMainTabPage && mainTabId && (
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Manage tab"
+                asChild
+              >
+                <Link to={`/tabs/${mainTabId}/manage`}>
+                  <Settings className="h-5 w-5" />
+                </Link>
               </Button>
             )}
           </div>

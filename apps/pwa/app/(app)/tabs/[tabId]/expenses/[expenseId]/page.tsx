@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
+import { formatAmount } from "@/lib/format-amount";
 
 export function ExpensePage() {
   const { tabId, expenseId } = useParams<{
@@ -122,6 +123,7 @@ export function ExpensePage() {
   }
 
   const currentUserId = session?.user?.id ?? "";
+  const tabCurrency = tab?.currency ?? "USD";
 
   function formatAuditDate(date: Date | string) {
     return new Date(date).toLocaleDateString(undefined, {
@@ -168,7 +170,7 @@ export function ExpensePage() {
     if (changes.amount) {
       const from = Number(changes.amount.from);
       const to = Number(changes.amount.to);
-      parts.push(`Amount $${from.toFixed(2)} to $${to.toFixed(2)}`);
+      parts.push(`Amount ${formatAmount(from, tabCurrency)} to ${formatAmount(to, tabCurrency)}`);
     }
     if (changes.description) {
       parts.push("Description updated");
@@ -254,7 +256,7 @@ export function ExpensePage() {
             <span
               className={`shrink-0 font-medium text-2xl ${expense.deletedAt ? "text-muted-foreground" : "text-foreground"}`}
             >
-              ${expense.amount.toFixed(2)}
+              {formatAmount(expense.amount, tabCurrency)}
             </span>
           </div>
 
@@ -315,7 +317,7 @@ export function ExpensePage() {
                     {getDisplayName(s.user, currentUserId)}{" "}
                     {currentUserOwes ? "owe" : "owes"}{" "}
                     {getDisplayName(expense.paidBy, currentUserId)}{" "}
-                    <span className={amountClass}>${s.amount.toFixed(2)}</span>
+                    <span className={amountClass}>{formatAmount(s.amount, tabCurrency)}</span>
                   </span>
                 );
               })}

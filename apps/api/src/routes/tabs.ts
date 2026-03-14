@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { db, tabMember, user } from "db";
+import { CURRENCY_CODES } from "shared";
 import { eq, and } from "drizzle-orm";
 import {
   createTabSchema,
@@ -228,7 +229,24 @@ tabsRoutes.post("/", async (c) => {
     );
   }
 
-  const id = await tab.create(parsed.data.name, userId);
+  let currency = parsed.data.currency?.trim();
+  if (currency !== undefined) {
+    if (!(CURRENCY_CODES as readonly string[]).includes(currency)) {
+      return c.json(
+        { success: false, error: "Invalid currency code" },
+        400
+      );
+    }
+  } else {
+    const [creator] = await db
+      .select({ defaultCurrency: user.defaultCurrency })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+    currency = creator?.defaultCurrency ?? "USD";
+  }
+
+  const id = await tab.create(parsed.data.name, userId, currency);
 
   return c.json({ success: true, tabId: id });
 });
@@ -247,15 +265,27 @@ tabsRoutes.patch("/:tabId", async (c) => {
     );
   }
 
+  const updates: { name?: string; currency?: string } = {};
+  if (parsed.data.name !== undefined) updates.name = parsed.data.name.trim();
+  if (parsed.data.currency !== undefined)
+    updates.currency = parsed.data.currency.trim();
+
+  if (Object.keys(updates).length === 0) {
+    return c.json(
+      { success: false, error: "Provide name or currency to update" },
+      400
+    );
+  }
+
   const [currentUserMember] = await db
     .select()
     .from(tabMember)
     .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId)))
     .limit(1);
 
-  if (!currentUserMember || currentUserMember.role !== "owner") {
+  if (!currentUserMember) {
     return c.json(
-      { success: false, error: "Only the tab admin can rename the tab" },
+      { success: false, error: "Not a member of this tab" },
       403
     );
   }
@@ -265,14 +295,25 @@ tabsRoutes.patch("/:tabId", async (c) => {
     return c.json({ success: false, error: "Tab not found" }, 404);
   }
 
-  if (existingTab.isDirect) {
-    return c.json(
-      { success: false, error: "Direct tabs cannot be renamed" },
-      400
-    );
+  if (updates.name !== undefined) {
+    if (existingTab.isDirect) {
+      return c.json(
+        { success: false, error: "Direct tabs cannot be renamed" },
+        400
+      );
+    }
   }
 
-  await tab.update(tabId, parsed.data.name);
+  if (updates.currency !== undefined) {
+    if (!(CURRENCY_CODES as readonly string[]).includes(updates.currency)) {
+      return c.json(
+        { success: false, error: "Invalid currency code" },
+        400
+      );
+    }
+  }
+
+  await tab.update(tabId, updates);
 
   return c.json({ success: true });
 });
@@ -358,9 +399,9 @@ tabsRoutes.delete("/:tabId/members", async (c) => {
     .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId)))
     .limit(1);
 
-  if (!currentUserMember || currentUserMember.role !== "owner") {
+  if (!currentUserMember) {
     return c.json(
-      { success: false, error: "Only the tab admin can remove members" },
+      { success: false, error: "Not a member of this tab" },
       403
     );
   }

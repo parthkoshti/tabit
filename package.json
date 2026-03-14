@@ -19,6 +19,7 @@
     "check": "turbo check",
     "lint": "turbo lint",
     "build:db": "turbo build --filter=db",
+    "build:shared": "turbo build --filter=shared",
     "db:generate": "turbo db:generate",
     "db:migrate": "turbo db:migrate",
     "db:push": "turbo db:push",

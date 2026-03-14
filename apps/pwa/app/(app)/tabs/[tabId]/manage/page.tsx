@@ -42,8 +42,11 @@ import {
   type ParsedCsvRow,
 } from "@/lib/csv-import";
 import { format } from "date-fns";
-import { Upload, FileSpreadsheet } from "lucide-react";
+import { Upload, FileSpreadsheet, ExternalLink } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
+import { getDisplayName } from "@/lib/display-name";
+import { formatAmount } from "@/lib/format-amount";
+import { CURATED_CURRENCIES, getCurrency } from "shared";
 
 export function TabManagePage() {
   const { tabId } = useParams<{ tabId: string }>();
@@ -62,8 +65,8 @@ export function TabManagePage() {
   });
 
   const currentUserId = session?.user?.id ?? "";
-  const isAdmin =
-    tab?.members?.find((m) => m.userId === currentUserId)?.role === "owner";
+  const tabCurrency = tab?.currency ?? "USD";
+  const isMember = tab?.members?.some((m) => m.userId === currentUserId);
 
   useEffect(() => {
     setNavTitle?.({
@@ -82,13 +85,13 @@ export function TabManagePage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isMember) {
     return (
       <div className="p-4">
         <div className="mx-auto max-w-md">
           <Alert variant="destructive">
             <AlertDescription>
-              Only the tab admin can manage this tab.
+              You are not a member of this tab.
             </AlertDescription>
           </Alert>
           <Button variant="outline" className="mt-4" asChild>
@@ -99,47 +102,41 @@ export function TabManagePage() {
     );
   }
 
-  if (tab.isDirect) {
-    return (
-      <div className="p-4">
-        <div className="mx-auto max-w-md">
-          <Alert variant="destructive">
-            <AlertDescription>Direct tabs cannot be renamed.</AlertDescription>
-          </Alert>
-          <Button variant="outline" className="mt-4" asChild>
-            <Link to={`/tabs/${tabIdOrEmpty}`}>Back to tab</Link>
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  const invalidateTabQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ["tab", tabIdOrEmpty] });
+    queryClient.invalidateQueries({ queryKey: ["tabs"] });
+    queryClient.invalidateQueries({ queryKey: ["expenses", tabIdOrEmpty] });
+    queryClient.invalidateQueries({
+      queryKey: ["expenses", tabIdOrEmpty, "all"],
+    });
+    queryClient.invalidateQueries({ queryKey: ["balances", tabIdOrEmpty] });
+    queryClient.invalidateQueries({ queryKey: ["activity"] });
+  };
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-md space-y-6 pb-26">
-        <RenameTabForm
+      <div className="mx-auto max-w-md space-y-6 pb-60">
+        <SetCurrencyForm
           tabIdOrEmpty={tabIdOrEmpty}
-          currentName={tab.name}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["tab", tabIdOrEmpty] });
-            queryClient.invalidateQueries({ queryKey: ["tabs"] });
-          }}
+          currentCurrency={tabCurrency}
+          onSuccess={invalidateTabQueries}
         />
-        <ImportCsvForm
-          tabIdOrEmpty={tabIdOrEmpty}
-          members={tab.members}
-          currentUserId={currentUserId}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["tab", tabIdOrEmpty] });
-            queryClient.invalidateQueries({ queryKey: ["expenses", tabIdOrEmpty] });
-            queryClient.invalidateQueries({
-              queryKey: ["expenses", tabIdOrEmpty, "all"],
-            });
-            queryClient.invalidateQueries({ queryKey: ["balances", tabIdOrEmpty] });
-            queryClient.invalidateQueries({ queryKey: ["activity"] });
-            queryClient.invalidateQueries({ queryKey: ["tabs"] });
-          }}
-        />
+        {!tab.isDirect && (
+          <>
+            <RenameTabForm
+              tabIdOrEmpty={tabIdOrEmpty}
+              currentName={tab.name}
+              onSuccess={invalidateTabQueries}
+            />
+            <ImportCsvForm
+              tabIdOrEmpty={tabIdOrEmpty}
+              tabCurrency={tabCurrency}
+              members={tab.members}
+              currentUserId={currentUserId}
+              onSuccess={invalidateTabQueries}
+            />
+          </>
+        )}
       </div>
     </div>
   );
@@ -167,7 +164,9 @@ function RenameTabForm({
     setLoading(true);
     setError(null);
 
-    const result = await api.tabs.update(tabIdOrEmpty, name.trim());
+    const result = await api.tabs.update(tabIdOrEmpty, {
+      name: name.trim(),
+    });
 
     if (result.success) {
       toast.success("Tab renamed");
@@ -189,7 +188,6 @@ function RenameTabForm({
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Tab name</Label>
             <Input
               id="name"
               type="text"
@@ -219,6 +217,82 @@ function RenameTabForm({
   );
 }
 
+function SetCurrencyForm({
+  tabIdOrEmpty,
+  currentCurrency,
+  onSuccess,
+}: {
+  tabIdOrEmpty: string;
+  currentCurrency: string;
+  onSuccess?: () => void;
+}) {
+  const [currency, setCurrency] = useState(currentCurrency);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCurrency(currentCurrency);
+  }, [currentCurrency]);
+
+  async function handleCurrencyChange(value: string) {
+    setCurrency(value);
+    setLoading(true);
+    setError(null);
+
+    const result = await api.tabs.update(tabIdOrEmpty, { currency: value });
+
+    setLoading(false);
+    if (result.success) {
+      toast.success("Currency updated");
+      onSuccess?.();
+    } else {
+      setError(result.error ?? "Failed to update currency");
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Expense currency</CardTitle>
+        <CardDescription>
+          Set the currency for expenses in this tab. All members can change
+          this.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Select
+              value={currency}
+              onValueChange={handleCurrencyChange}
+              disabled={loading}
+            >
+              <SelectTrigger id="tab-currency">
+                <SelectValue placeholder="Select currency" />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {CURATED_CURRENCIES.map((code) => {
+                  const c = getCurrency(code);
+                  return (
+                    <SelectItem key={code} value={code}>
+                      {code} - {c?.name ?? code} ({c?.symbol ?? ""})
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 type TabMember = {
   userId: string;
   role: string;
@@ -232,11 +306,13 @@ type TabMember = {
 
 function ImportCsvForm({
   tabIdOrEmpty,
+  tabCurrency = "USD",
   members,
   currentUserId,
   onSuccess,
 }: {
   tabIdOrEmpty: string;
+  tabCurrency?: string;
   members: TabMember[];
   currentUserId: string;
   onSuccess?: () => void;
@@ -266,20 +342,6 @@ function ImportCsvForm({
     enabled: step === "preview" && !!tabIdOrEmpty,
   });
   const existingExpenses = expensesResult?.expenses ?? [];
-
-  function getDisplayName(m: TabMember): string {
-    if (m.userId === currentUserId) return "You";
-    return (
-      m.user.name ?? (m.user.username ? `@${m.user.username}` : m.user.email)
-    );
-  }
-
-  function formatAmount(n: number): string {
-    return n.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -324,7 +386,9 @@ function ImportCsvForm({
   }
 
   async function handlePreviewClick() {
-    await queryClient.invalidateQueries({ queryKey: ["expenses", tabIdOrEmpty] });
+    await queryClient.invalidateQueries({
+      queryKey: ["expenses", tabIdOrEmpty],
+    });
     setStep("preview");
   }
 
@@ -453,15 +517,16 @@ function ImportCsvForm({
       <CardHeader>
         <CardTitle>Import from Splitwise</CardTitle>
         <CardDescription>
-          Export a group/friend as spreadsheet from Splitwise, then upload the
-          CSV.{" "}
+          Export a group or friend as spreadsheet from Splitwise, then upload
+          the CSV.{" "}
           <a
             href={splitwiseExportUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="underline underline-offset-2 text-foreground"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-foreground underline underline-offset-2 hover:bg-muted/50 transition-colors"
           >
             How to export from Splitwise
+            <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-70" />
           </a>
         </CardDescription>
       </CardHeader>
@@ -518,7 +583,7 @@ function ImportCsvForm({
                         <SelectItem key={m.userId} value={m.userId}>
                           <span className="flex items-center gap-2">
                             <UserAvatar userId={m.userId} size="xs" />
-                            {getDisplayName(m)}
+                            {getDisplayName(m.user, currentUserId)}
                           </span>
                         </SelectItem>
                       ))}
@@ -629,7 +694,7 @@ function ImportCsvForm({
                             {row.description || "-"}
                           </td>
                           <td className="w-16 shrink-0 px-2 py-1.5 text-right">
-                            ${formatAmount(row.cost)}
+                            {formatAmount(row.cost, tabCurrency)}
                           </td>
                           <td className="min-w-0 wrap-break-word px-2 py-1.5">
                             {validation.valid && validation.splits
@@ -648,7 +713,7 @@ function ImportCsvForm({
                                         m.userId === validation.payerUserId,
                                     );
                                     return owee && payer
-                                      ? `${getDisplayName(owee)} ${owee.userId === currentUserId ? "owe" : "owes"} ${getDisplayName(payer)} $${formatAmount(s.amount)}`
+                                      ? `${getDisplayName(owee.user, currentUserId)} ${owee.userId === currentUserId ? "owe" : "owes"} ${getDisplayName(payer.user, currentUserId)} ${formatAmount(s.amount, tabCurrency)}`
                                       : null;
                                   })
                                   .filter(Boolean)
@@ -687,7 +752,7 @@ function ImportCsvForm({
                           >
                             <UserAvatar userId={m.userId} size="xs" />
                             <span>
-                              {getDisplayName(m)}:{" "}
+                              {getDisplayName(m.user, currentUserId)}:{" "}
                               <span
                                 className={
                                   bal > 0
@@ -697,7 +762,7 @@ function ImportCsvForm({
                                       : ""
                                 }
                               >
-                                {`${bal > 0 ? "+" : bal < 0 ? "-" : ""}$${formatAmount(Math.abs(bal))}`}
+                                {`${bal > 0 ? "+" : bal < 0 ? "-" : ""}${formatAmount(Math.abs(bal), tabCurrency)}`}
                               </span>
                             </span>
                           </div>

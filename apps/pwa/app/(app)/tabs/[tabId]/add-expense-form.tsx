@@ -157,6 +157,7 @@ export function AddExpenseForm({
           amount={result.amount}
           description={result.description}
           tabName={result.tabName}
+          currency={result.currency}
           participants={result.participants ?? []}
           currentUserId={currentUserId}
         />,
@@ -182,10 +183,7 @@ export function AddExpenseForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex gap-2">
         <Select value={paidById} onValueChange={setPaidById} disabled={loading}>
-          <SelectTrigger
-            className="flex-1 min-w-0 [&>span]:line-clamp-none"
-            hideChevron
-          >
+          <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none">
             <SelectValue placeholder="Select who paid">
               {(() => {
                 const payer = members.find((m) => m.userId === paidById);

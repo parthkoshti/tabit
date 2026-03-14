@@ -283,7 +283,7 @@ CRITICAL - Confidence and ambiguity:
     });
 
     const [tabRow] = await db
-      .select({ name: tab.name, isDirect: tab.isDirect })
+      .select({ name: tab.name, isDirect: tab.isDirect, currency: tab.currency })
       .from(tab)
       .where(eq(tab.id, parsedExpense.tabId))
       .limit(1);
@@ -378,6 +378,7 @@ CRITICAL - Confidence and ambiguity:
       description: parsedExpense.description,
       tabName: tabDisplayName,
       tabId: parsedExpense.tabId,
+      currency: tabRow?.currency ?? "USD",
       participants,
     });
   } catch (err) {

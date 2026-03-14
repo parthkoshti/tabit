@@ -43,6 +43,7 @@ export const tab = pgTable("tab", {
     .$defaultFn(() => createId()),
   name: text("name").notNull(),
   isDirect: boolean("isDirect").notNull().default(false),
+  currency: text("currency").notNull().default("USD"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 

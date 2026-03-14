@@ -53,6 +53,12 @@ export const auth = betterAuth({
         defaultValue: null,
         input: true,
       },
+      defaultCurrency: {
+        type: "string",
+        required: false,
+        defaultValue: null,
+        input: true,
+      },
     },
   },
   database: drizzleAdapter(db, {

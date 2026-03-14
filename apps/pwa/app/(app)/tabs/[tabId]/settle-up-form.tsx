@@ -17,6 +17,8 @@ import {
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { toast } from "sonner";
+import { formatAmount } from "@/lib/format-amount";
+import { getCurrency } from "shared";
 
 type Member = {
   userId: string;
@@ -35,12 +37,14 @@ export function SettleUpForm({
   currentUserId,
   members,
   balances,
+  tabCurrency = "USD",
   onSuccess,
 }: {
   tabId: string;
   currentUserId: string;
   members: Member[];
   balances: Balance[];
+  tabCurrency?: string;
   onSuccess?: () => void;
 }) {
   const [fromUserId, setFromUserId] = useState("");
@@ -137,7 +141,7 @@ export function SettleUpForm({
                     <UserAvatar userId={m.userId} size="sm" />
                     {getDisplayName(m.user, currentUserId)}
                     {(balanceMap[m.userId] ?? 0) > 0 && (
-                      <> (owed ${(balanceMap[m.userId] ?? 0).toFixed(2)})</>
+                      <> (owed {formatAmount(balanceMap[m.userId] ?? 0, tabCurrency)})</>
                     )}
                   </span>
                 </SelectItem>
@@ -146,7 +150,9 @@ export function SettleUpForm({
         </Select>
       </div>
       <div className="space-y-2">
-        <Label htmlFor="amount">Amount ($)</Label>
+        <Label htmlFor="amount">
+          Amount ({getCurrency(tabCurrency)?.symbol ?? "$"})
+        </Label>
         <Input
           id="amount"
           type="number"

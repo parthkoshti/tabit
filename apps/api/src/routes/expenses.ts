@@ -39,12 +39,22 @@ expensesRoutes.get("/", async (c) => {
 
   const limit = c.req.query("limit");
   const offset = c.req.query("offset");
-  const options =
+  const rawFilter = c.req.query("filter");
+  const validFilters = ["all", "involved", "owed", "owe"] as const;
+  const filter = validFilters.includes(rawFilter as (typeof validFilters)[number])
+    ? (rawFilter as (typeof validFilters)[number])
+    : "all";
+
+  const options: { limit?: number; offset?: number; filter?: (typeof validFilters)[number]; userId?: string } =
     limit !== undefined
       ? { limit: parseInt(limit, 10) || 50, offset: parseInt(offset ?? "0", 10) || 0 }
-      : undefined;
+      : {};
+  if (filter !== "all") {
+    options.filter = filter;
+    options.userId = userId;
+  }
   const { expenses, total } = await expense.getForTab(tabId, options);
-  log("info", "Expenses list fetched", { userId, tabId, total, limit: options?.limit });
+  log("info", "Expenses list fetched", { userId, tabId, total, limit: options.limit, filter });
   return c.json({ success: true, expenses, total });
 });
 
@@ -205,7 +215,7 @@ expensesRoutes.post("/", async (c) => {
   });
 
   const [tabRow] = await db
-    .select({ name: tabTable.name, isDirect: tabTable.isDirect })
+    .select({ name: tabTable.name, isDirect: tabTable.isDirect, currency: tabTable.currency })
     .from(tabTable)
     .where(eq(tabTable.id, parsed.data.tabId))
     .limit(1);
@@ -300,6 +310,7 @@ expensesRoutes.post("/", async (c) => {
     amount: parsed.data.amount,
     description: parsed.data.description,
     tabName: tabDisplayName,
+    currency: tabRow?.currency ?? "USD",
     participants,
   });
 });

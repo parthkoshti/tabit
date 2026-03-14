@@ -6,6 +6,7 @@ export type {
   GetExpensesForTabResult,
   Expense,
   ExpenseAuditLogEntry,
+  ExpenseFilter,
 } from "./expense.js";
 
 export { tab } from "./tab.js";

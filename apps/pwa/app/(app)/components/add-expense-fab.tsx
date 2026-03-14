@@ -35,6 +35,7 @@ import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import { useSpeechRecognitionSettings } from "@/lib/use-speech-recognition-settings";
 import { vibrate } from "@/lib/vibrate";
 import { ExpenseAddedToast } from "@/components/expense-added-toast";
+import { formatAmount } from "@/lib/format-amount";
 
 const TEST_BUTTON_VISIBLE = false;
 
@@ -120,6 +121,7 @@ export function AddExpenseFAB() {
     amount: number;
     description: string;
     tabName: string;
+    currency?: string;
     participants: Array<{
       userId: string;
       name: string | null;
@@ -392,7 +394,7 @@ export function AddExpenseFAB() {
                               />
                               <div className="min-w-0 flex-1">
                                 <div className="truncate font-medium">
-                                  {getDisplayName(f.friend)}
+                                  {getDisplayName(f.friend, undefined, { useFullName: true })}
                                 </div>
                                 {f.friend.username && (
                                   <div className="truncate text-sm text-muted-foreground">
@@ -411,9 +413,9 @@ export function AddExpenseFAB() {
                               }
                             >
                               {f.balance > 0
-                                ? `Owes you $${f.balance.toFixed(2)}`
+                                ? `Owes you ${formatAmount(f.balance, f.currency)}`
                                 : f.balance < 0
-                                  ? `You owe $${Math.abs(f.balance).toFixed(2)}`
+                                  ? `You owe ${formatAmount(Math.abs(f.balance), f.currency)}`
                                   : "Settled up"}
                             </span>
                           </div>
@@ -527,9 +529,9 @@ export function AddExpenseFAB() {
                                 }
                               >
                                 {(t.balance ?? 0) > 0
-                                  ? `+$${(t.balance ?? 0).toFixed(2)}`
+                                  ? `+${formatAmount(t.balance ?? 0, t.currency)}`
                                   : (t.balance ?? 0) < 0
-                                    ? `-$${Math.abs(t.balance ?? 0).toFixed(2)}`
+                                    ? `-${formatAmount(Math.abs(t.balance ?? 0), t.currency)}`
                                     : "Settled"}
                               </span>
                             </div>
@@ -653,7 +655,7 @@ export function AddExpenseFAB() {
               <DialogHeader>
                 <DialogTitle>Expense added</DialogTitle>
                 <DialogDescription>
-                  ${aiSuccessResult.amount.toFixed(2)} for{" "}
+                  {formatAmount(aiSuccessResult.amount, aiSuccessResult.currency)} for{" "}
                   {aiSuccessResult.description} to {aiSuccessResult.tabName}
                 </DialogDescription>
               </DialogHeader>
@@ -748,6 +750,7 @@ export function AddExpenseFAB() {
                       amount: result.amount,
                       description: result.description,
                       tabName: result.tabName,
+                      currency: result.currency,
                       participants: result.participants ?? [],
                     });
                     toast.info(
@@ -757,6 +760,7 @@ export function AddExpenseFAB() {
                         amount={result.amount}
                         description={result.description}
                         tabName={result.tabName}
+                        currency={result.currency}
                         participants={result.participants ?? []}
                         currentUserId={currentUserId}
                       />,

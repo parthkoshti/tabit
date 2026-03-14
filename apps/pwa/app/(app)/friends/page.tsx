@@ -1,9 +1,16 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -20,9 +27,29 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { PokeIcon } from "@/components/icons/poke-icon";
+import { formatAmount } from "@/lib/format-amount";
+import { SortDesc } from "lucide-react";
+
+type FriendSort = "expenses" | "recent" | "name";
+
+function getFirstNameForSort(f: {
+  friend: {
+    name?: string | null;
+    username?: string | null;
+    email?: string | null;
+  };
+}): string {
+  const name = f.friend.name?.trim();
+  if (name) {
+    const first = name.split(/\s+/).filter(Boolean)[0];
+    return (first ?? name).toLowerCase();
+  }
+  return (f.friend.username ?? f.friend.email ?? "").toLowerCase();
+}
 
 export function FriendsPage() {
   const [rejectRequestId, setRejectRequestId] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<FriendSort>("expenses");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { data: friendsData, isLoading } = useQuery({
@@ -31,6 +58,7 @@ export function FriendsPage() {
       const r = await api.friends.list();
       return (r.success ? r.friends : []) as Array<{
         id: string;
+        currency?: string;
         balance: number;
         expenseCount: number;
         lastExpenseDate?: string | null;
@@ -43,7 +71,28 @@ export function FriendsPage() {
       }>;
     },
   });
-  const friends = friendsData ?? [];
+  const friends = useMemo(() => friendsData ?? [], [friendsData]);
+  const sortedFriends = useMemo(() => {
+    const arr = [...friends];
+    if (sortBy === "name") {
+      arr.sort((a, b) =>
+        getFirstNameForSort(a).localeCompare(getFirstNameForSort(b)),
+      );
+    } else if (sortBy === "recent") {
+      arr.sort((a, b) => {
+        const aDate = a.lastExpenseDate
+          ? new Date(a.lastExpenseDate).getTime()
+          : 0;
+        const bDate = b.lastExpenseDate
+          ? new Date(b.lastExpenseDate).getTime()
+          : 0;
+        return bDate - aDate;
+      });
+    } else {
+      arr.sort((a, b) => (b.expenseCount ?? 0) - (a.expenseCount ?? 0));
+    }
+    return arr;
+  }, [friends, sortBy]);
   const { data: requestsData, isLoading: requestsLoading } = useQuery({
     queryKey: ["pendingFriendRequests"],
     queryFn: async () => {
@@ -73,13 +122,6 @@ export function FriendsPage() {
     ? pendingRequests.find((r) => r.id === rejectRequestId)
     : null;
 
-  function formatAmount(n: number) {
-    return n.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-
   async function handlePoke(friendTabId: string, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
@@ -96,7 +138,7 @@ export function FriendsPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-26">
+      <div className="mx-auto max-w-2xl space-y-6 pb-60">
         {(requestsLoading || pendingRequests.length > 0) && (
           <section className="space-y-4">
             <h2 className="text-base font-medium mb-1">Friend requests</h2>
@@ -202,10 +244,32 @@ export function FriendsPage() {
         </Dialog>
 
         <section className="space-y-4">
-          <h2 className="text-base font-medium mb-1">Your friends</h2>
-          <p className="text-xs text-muted-foreground mb-4">
-            Tap to view split and add expenses
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-foreground">
+                Your friends
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Tap to view split and add expenses
+              </p>
+            </div>
+            {friends.length > 0 && (
+              <Select
+                value={sortBy}
+                onValueChange={(v) => setSortBy(v as FriendSort)}
+              >
+                <SelectTrigger className="shrink-0 w-fit max-w-34 h-8 text-xs">
+                  <SortDesc className="h-4 w-4 shrink-0 opacity-70 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expenses">Most expenses</SelectItem>
+                  <SelectItem value="recent">Most recent</SelectItem>
+                  <SelectItem value="name">Alphabetical</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
           {isLoading ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
               Loading...
@@ -221,7 +285,7 @@ export function FriendsPage() {
               initial="initial"
               animate="animate"
             >
-              {friends.map((f) => (
+              {sortedFriends.map((f) => (
                 <motion.div key={f.id} variants={staggerItem}>
                   <Link to={`/tabs/${f.id}`}>
                     <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
@@ -234,7 +298,9 @@ export function FriendsPage() {
                           />
                           <div className="min-w-0 flex-1">
                             <div className="truncate font-medium">
-                              {getDisplayName(f.friend)}
+                              {getDisplayName(f.friend, undefined, {
+                                useFullName: true,
+                              })}
                             </div>
                             {f.friend.username && (
                               <div className="truncate text-sm text-muted-foreground">
@@ -253,9 +319,9 @@ export function FriendsPage() {
                           }`}
                         >
                           {f.balance > 0
-                            ? `Owes you $${formatAmount(f.balance)}`
+                            ? `Owes you ${formatAmount(f.balance, f.currency)}`
                             : f.balance < 0
-                              ? `You owe $${formatAmount(Math.abs(f.balance))}`
+                              ? `You owe ${formatAmount(Math.abs(f.balance), f.currency)}`
                               : "Settled up"}
                         </span>
                       </div>
@@ -280,12 +346,12 @@ export function FriendsPage() {
                           )}
                         </span>
                         <Button
-                          size="sm"
+                          size="default"
                           variant="outline"
                           className="shrink-0 hover:text-negative/90"
                           onClick={(e) => handlePoke(f.id, e)}
                         >
-                          <PokeIcon className="h-4 w-4 stroke-3 text-negative" />{" "}
+                          <PokeIcon className="h-5 w-5 stroke-3 text-negative" />{" "}
                           Poke
                         </Button>
                       </div>

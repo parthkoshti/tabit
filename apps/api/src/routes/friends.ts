@@ -128,6 +128,28 @@ friendsRoutes.post("/requests", async (c) => {
     );
   }
 
+  const [reverseRequest] = await db
+    .select()
+    .from(friendRequest)
+    .where(
+      and(
+        eq(friendRequest.fromUserId, targetUser.id),
+        eq(friendRequest.toUserId, userId),
+        eq(friendRequest.status, "pending"),
+      ),
+    )
+    .limit(1);
+
+  if (reverseRequest) {
+    return c.json(
+      {
+        success: false,
+        error: "You have a pending request from this person - accept it from your friend requests",
+      },
+      400,
+    );
+  }
+
   const [inserted] = await db
     .insert(friendRequest)
     .values({
@@ -194,7 +216,14 @@ friendsRoutes.post("/requests/:id/accept", async (c) => {
     .set({ status: "accepted" })
     .where(eq(friendRequest.id, requestId));
 
-  const friendTabId = await tab.createDirect(userId, req.fromUserId);
+  const [accepterUser] = await db
+    .select({ defaultCurrency: user.defaultCurrency })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  const currency = accepterUser?.defaultCurrency ?? "USD";
+
+  const friendTabId = await tab.createDirect(userId, req.fromUserId, currency);
 
   const [accepter] = await db
     .select({ name: user.name, username: user.username })
@@ -357,7 +386,14 @@ friendsRoutes.post("/add-by-token", async (c) => {
     }
   }
 
-  const friendTabId = await tab.createDirect(userId, pending.userId);
+  const [adderUser] = await db
+    .select({ defaultCurrency: user.defaultCurrency })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  const currency = adderUser?.defaultCurrency ?? "USD";
+
+  const friendTabId = await tab.createDirect(userId, pending.userId, currency);
   await db.delete(pendingFriend).where(eq(pendingFriend.id, pending.id));
 
   log("info", "Friend added by token", {

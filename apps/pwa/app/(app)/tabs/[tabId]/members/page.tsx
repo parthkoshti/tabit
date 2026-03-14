@@ -191,10 +191,6 @@ export function TabMembersPage() {
     enabled: !!tabId,
   });
   const currentUserId = session?.user?.id ?? "";
-  const currentUserMember = tab?.members.find(
-    (m) => m.userId === currentUserId,
-  );
-  const isAdmin = currentUserMember?.role === "owner";
   const memberToRemove = removeMemberId
     ? tab?.members.find((m) => m.userId === removeMemberId)
     : null;
@@ -296,24 +292,22 @@ export function TabMembersPage() {
   return (
     <div className="p-4">
       <div className="mx-auto max-w-md space-y-6 pb-24">
-        {!tab.isDirect && isAdmin && (
-          <section className="space-y-4">
-            <h2 className="text-base font-medium mb-1">Manage tab</h2>
-            <p className="text-xs text-muted-foreground mb-4">
-              Rename this tab
-            </p>
-            <Button
-              variant="outline"
-              className="w-full justify-center gap-2"
-              asChild
-            >
-              <Link to={`/tabs/${tabId}/manage`}>
-                <Settings className="h-4 w-4" />
-                Rename tab
-              </Link>
-            </Button>
-          </section>
-        )}
+        <section className="space-y-4">
+          <h2 className="text-base font-medium mb-1">Manage tab</h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            Rename this tab, set currency, and import expenses
+          </p>
+          <Button
+            variant="outline"
+            className="w-full justify-center gap-2"
+            asChild
+          >
+            <Link to={`/tabs/${tabId}/manage`}>
+              <Settings className="h-4 w-4" />
+              Manage tab
+            </Link>
+          </Button>
+        </section>
         <section className="space-y-4">
           <div>
             <h2 className="text-base font-medium mb-1">Members</h2>
@@ -348,7 +342,7 @@ export function TabMembersPage() {
                     )}
                   </div>
                 </div>
-                {isAdmin && m.userId !== currentUserId && (
+                {m.userId !== currentUserId && (
                   <Button
                     size="sm"
                     variant="ghost"

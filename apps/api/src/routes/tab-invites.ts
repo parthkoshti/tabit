@@ -24,10 +24,11 @@ function secureToken(): string {
 async function createDirectTab(
   userId1: string,
   userId2: string,
+  currency: string = "USD",
 ): Promise<string> {
   const [inserted] = await db
     .insert(tab)
-    .values({ name: "Direct", isDirect: true })
+    .values({ name: "Direct", isDirect: true, currency })
     .returning({ id: tab.id });
   const id = inserted!.id;
   await db.insert(tabMember).values([
@@ -40,6 +41,7 @@ async function createDirectTab(
 async function getOrCreateDirectTab(
   userId1: string,
   userId2: string,
+  currency: string = "USD",
 ): Promise<string> {
   const directTabs = await db
     .select({ id: tab.id })
@@ -56,7 +58,7 @@ async function getOrCreateDirectTab(
     if (other) return t.id;
   }
 
-  return createDirectTab(userId1, userId2);
+  return createDirectTab(userId1, userId2, currency);
 }
 
 async function publishTabInviteAcceptedNotification(
@@ -99,6 +101,13 @@ async function addUserToTabAndCreateFriendships(
     .from(tabMember)
     .where(eq(tabMember.tabId, tabId));
 
+  const [newUser] = await db
+    .select({ defaultCurrency: user.defaultCurrency })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+  const currency = newUser?.defaultCurrency ?? "USD";
+
   await db.insert(tabMember).values({
     tabId,
     userId,
@@ -107,7 +116,7 @@ async function addUserToTabAndCreateFriendships(
 
   for (const m of members) {
     if (m.userId !== userId) {
-      await getOrCreateDirectTab(userId, m.userId);
+      await getOrCreateDirectTab(userId, m.userId, currency);
     }
   }
 }

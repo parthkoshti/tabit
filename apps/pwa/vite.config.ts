@@ -75,6 +75,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "."),
+      shared: path.resolve(__dirname, "../../packages/shared/src/index.ts"),
     },
   },
   preview: {
@@ -95,6 +96,7 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["auth", "data", "models", "shared"],
+    include: ["auth", "data", "models"],
+    exclude: ["shared"],
   },
 });

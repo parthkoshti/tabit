@@ -23,23 +23,31 @@ import {
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import {
-  BanknoteArrowUp,
-  Settings,
-  UserPlus,
-  Wallet,
-} from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { BanknoteArrowUp, Filter, UserPlus, Wallet } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
+import { formatAmount } from "@/lib/format-amount";
 
 export function TabPage() {
   const { tabId } = useParams<{ tabId: string }>();
   const tabIdOrEmpty = tabId ?? "";
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id ?? "";
   const setNavTitle = useNavTitle();
+
+  const [expenseFilter, setExpenseFilter] = useState<
+    "all" | "involved" | "owed" | "owe"
+  >("all");
 
   const { data: tab, isLoading: tabLoading } = useQuery({
     queryKey: ["tab", tabIdOrEmpty],
@@ -58,11 +66,12 @@ export function TabPage() {
     hasNextPage: hasMoreExpenses,
     isFetchingNextPage: isLoadingMoreExpenses,
   } = useInfiniteQuery({
-    queryKey: ["expenses", tabIdOrEmpty],
+    queryKey: ["expenses", tabIdOrEmpty, expenseFilter],
     queryFn: async ({ pageParam }) => {
       const r = await api.expenses.list(tabIdOrEmpty, {
         limit: 50,
         offset: pageParam,
+        filter: expenseFilter,
       });
       return r.success
         ? { expenses: r.expenses ?? [], total: r.total ?? 0 }
@@ -84,11 +93,22 @@ export function TabPage() {
     },
     enabled: !!tabIdOrEmpty && !!session?.user,
   });
-  const expenses = useMemo(
-    () =>
-      expensesData?.pages.flatMap((p) => p?.expenses ?? []) ?? [],
+  const rawExpenses = useMemo(
+    () => expensesData?.pages.flatMap((p) => p?.expenses ?? []) ?? [],
     [expensesData],
   );
+
+  const expenses = useMemo(() => {
+    if (expenseFilter === "all") return rawExpenses;
+    return rawExpenses.filter((e) => {
+      const isPayer = e.paidById === currentUserId;
+      const isInSplits = e.splits?.some((s) => s.userId === currentUserId) ?? false;
+      if (expenseFilter === "involved") return isPayer || isInSplits;
+      if (expenseFilter === "owed") return isPayer;
+      if (expenseFilter === "owe") return isInSplits;
+      return true;
+    });
+  }, [rawExpenses, expenseFilter, currentUserId]);
 
   const { data: settlements, isLoading: settlementsLoading } = useQuery({
     queryKey: ["settlements", tabIdOrEmpty],
@@ -117,14 +137,7 @@ export function TabPage() {
     rootMargin: "0px 0px 200px 0px",
   });
 
-  function formatAmount(n: number): string {
-    return n.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  }
-
-  const currentUserId = session?.user?.id ?? "";
+  const tabCurrency = tab?.currency ?? "USD";
   const membersByUserId = useMemo(() => {
     const map = new Map<
       string,
@@ -161,19 +174,32 @@ export function TabPage() {
     tab?.isDirect && otherMember
       ? getDisplayName(otherMember, currentUserId)
       : undefined;
-  const isAdmin =
-    tab?.members?.find((m) => m.userId === currentUserId)?.role === "owner";
+
+  const filteredSettlements = useMemo(() => {
+    const list = settlements ?? [];
+    if (expenseFilter === "all") return list;
+    return list.filter((s) => {
+      if (expenseFilter === "involved")
+        return s.fromUserId === currentUserId || s.toUserId === currentUserId;
+      if (expenseFilter === "owed") return s.toUserId === currentUserId;
+      if (expenseFilter === "owe") return s.fromUserId === currentUserId;
+      return true;
+    });
+  }, [settlements, expenseFilter, currentUserId]);
 
   const expensesAndSettlements = useMemo(() => {
     return [
       ...(expenses ?? []).map((e) => ({ ...e, type: "expense" as const })),
-      ...(settlements ?? []).map((s) => ({ ...s, type: "settlement" as const })),
+      ...filteredSettlements.map((s) => ({
+        ...s,
+        type: "settlement" as const,
+      })),
     ].sort((a, b) => {
       const dateA = a.type === "expense" ? a.expenseDate : a.createdAt;
       const dateB = b.type === "expense" ? b.expenseDate : b.createdAt;
       return new Date(dateB).getTime() - new Date(dateA).getTime();
     });
-  }, [expenses, settlements]);
+  }, [expenses, filteredSettlements]);
 
   useEffect(() => {
     if (!tab) return;
@@ -216,20 +242,8 @@ export function TabPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-3xl space-y-6 pb-26">
+      <div className="mx-auto max-w-3xl space-y-6 pb-60">
         <div className="flex gap-2 overflow-x-auto overflow-y-hidden -mx-1 px-1 app-scroll-hide">
-          {!tab.isDirect && isAdmin && (
-            <Button
-              variant="secondary"
-              className="shrink-0 justify-center gap-2 min-w-28"
-              asChild
-            >
-              <Link to={`/tabs/${tabIdOrEmpty}/manage`}>
-                <Settings className="h-4 w-4" />
-                Manage
-              </Link>
-            </Button>
-          )}
           {!tab.isDirect && avatarUserIds.length > 0 && (
             <Button
               variant="secondary"
@@ -264,6 +278,7 @@ export function TabPage() {
                 currentUserId={currentUserId}
                 members={tab.members}
                 balances={balances ?? []}
+                tabCurrency={tabCurrency}
                 onSuccess={() => setSettleUpOpen(false)}
               />
             </DialogContent>
@@ -298,12 +313,12 @@ export function TabPage() {
                 <div className="space-y-2">
                   {youOwe.map((b) => (
                     <p key={b.userId} className="text-negative text-sm">
-                      You owe ${formatAmount(Math.abs(b.amount))}
+                      You owe {formatAmount(Math.abs(b.amount), tabCurrency)}
                     </p>
                   ))}
                   {owedToYou.map((b) => (
                     <p key={b.userId} className="text-positive text-sm">
-                      You are owed ${formatAmount(b.amount)}
+                      You are owed {formatAmount(b.amount, tabCurrency)}
                     </p>
                   ))}
                   {others.map((b) => (
@@ -314,8 +329,8 @@ export function TabPage() {
                       <UserAvatar userId={b.userId} size="xs" />
                       <span>
                         {b.amount > 0
-                          ? `${getDisplayName(b.user, currentUserId)} is owed $${formatAmount(b.amount)}`
-                          : `${getDisplayName(b.user, currentUserId)} owes $${formatAmount(Math.abs(b.amount))}`}
+                          ? `${getDisplayName(b.user, currentUserId)} is owed ${formatAmount(b.amount, tabCurrency)}`
+                          : `${getDisplayName(b.user, currentUserId)} owes ${formatAmount(Math.abs(b.amount), tabCurrency)}`}
                       </span>
                     </div>
                   ))}
@@ -326,17 +341,40 @@ export function TabPage() {
         </section>
 
         <section>
-          <h2 className="text-base font-medium mb-1">Expenses</h2>
-          <p className="text-xs text-muted-foreground mb-4">
-            All expenses and settlements in this tab
-          </p>
+          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 mb-4">
+            <div>
+              <h2 className="text-base font-medium mb-0.5">Expenses</h2>
+              <p className="text-xs text-muted-foreground">
+                All expenses and settlements in this tab
+              </p>
+            </div>
+            <Select
+              value={expenseFilter}
+              onValueChange={(v) =>
+                setExpenseFilter(v as "all" | "involved" | "owed" | "owe")
+              }
+            >
+              <SelectTrigger className="shrink-0 w-fit h-9">
+                <Filter className="h-4 w-4 shrink-0 opacity-70 mr-2" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="involved">I'm involved</SelectItem>
+                <SelectItem value="owed">I'm owed</SelectItem>
+                <SelectItem value="owe">I owe</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {expensesError ? (
             <div className="rounded-lg border border-dashed border-border p-8 text-center">
               <p className="text-muted-foreground mb-4">Something went wrong</p>
               <Button
                 variant="outline"
                 onClick={() => {
-                  queryClient.resetQueries({ queryKey: ["expenses", tabIdOrEmpty] });
+                  queryClient.resetQueries({
+                    queryKey: ["expenses", tabIdOrEmpty, expenseFilter],
+                  });
                 }}
               >
                 Retry
@@ -368,7 +406,9 @@ export function TabPage() {
             </div>
           ) : expensesAndSettlements.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
-              No expenses or settlements yet
+              {expenseFilter === "all"
+                ? "No expenses or settlements yet"
+                : "No expenses or settlements match this filter"}
             </p>
           ) : (
             <motion.div
@@ -423,7 +463,7 @@ export function TabPage() {
                                     : "text-foreground"
                                 }`}
                               >
-                                ${formatAmount(item.amount)}
+                                {formatAmount(item.amount, tabCurrency)}
                               </span>
                             </div>
                             <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
@@ -476,7 +516,7 @@ export function TabPage() {
                                         currentUserId,
                                       )}{" "}
                                       <span className={amountClass}>
-                                        ${formatAmount(s.amount)}
+                                        {formatAmount(s.amount, tabCurrency)}
                                       </span>
                                     </span>
                                   );
@@ -504,7 +544,7 @@ export function TabPage() {
                                 {getDisplayName(item.toUser, currentUserId)}
                               </span>
                               <span className="text-foreground text-sm shrink-0 font-medium">
-                                ${formatAmount(item.amount)}
+                                {formatAmount(item.amount, tabCurrency)}
                               </span>
                             </div>
                             <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1">

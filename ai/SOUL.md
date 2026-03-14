@@ -1,6 +1,6 @@
-# CLAUDE.md
+# SOUL.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance when working with code in this repository.
 
 ## What This Is
 
@@ -88,3 +88,9 @@ The PWA runs over HTTPS by default (needed for service workers). Certs go in `ap
 ```bash
 cd apps/pwa && pnpm generate-https-certs  # requires mkcert
 ```
+
+## UI Conventions
+
+**Mobile first**: PWA and web are designed mobile-first. Optimize for small screens first, then scale up.
+
+**Display names**: When showing avatar names or user names in the UI (e.g. "Parth Koshti"), always display first name + last initial only (e.g. "Parth K"). Exception: in the friends list, display full names.
