@@ -2,7 +2,7 @@
   "name": "tabit",
   "private": true,
   "scripts": {
-    "build": "turbo build",
+    "build": "turbo build --concurrency=1",
     "build:data": "turbo build --filter=data",
     "generate-icons": "node scripts/generate-icons.js",
     "generate-https-certs": "node scripts/generate-https-certs.js",

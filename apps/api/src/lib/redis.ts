@@ -43,3 +43,13 @@ export async function publishNotification(
   await client.publish(channel, JSON.stringify(toPublish));
   log("info", "Notification published", notificationLogData(userId, payload));
 }
+
+export async function publishSubscriptionControl(
+  action: "subscribe" | "unsubscribe",
+  userId: string
+): Promise<void> {
+  const client = getRedis();
+  const channel = "notifications:subscription-control";
+  await client.publish(channel, JSON.stringify({ action, userId }));
+  log("info", "Subscription control published", { action, userId });
+}

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { db, pushSubscription } from "db";
 import { eq, and } from "drizzle-orm";
-import { publishNotification } from "../lib/redis.js";
+import { publishNotification, publishSubscriptionControl } from "../lib/redis.js";
 import { log } from "../lib/logger.js";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
@@ -34,6 +34,9 @@ pushRoutes.post("/subscribe", async (c) => {
   });
 
   log("info", "Push subscription added", { userId });
+  
+  await publishSubscriptionControl("subscribe", userId);
+  
   return c.json({ success: true });
 });
 
@@ -52,6 +55,17 @@ pushRoutes.delete("/subscribe", async (c) => {
     .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, endpoint)));
 
   log("info", "Push subscription removed", { userId });
+  
+  const remainingSubscriptions = await db
+    .select({ id: pushSubscription.id })
+    .from(pushSubscription)
+    .where(eq(pushSubscription.userId, userId))
+    .limit(1);
+  
+  if (remainingSubscriptions.length === 0) {
+    await publishSubscriptionControl("unsubscribe", userId);
+  }
+  
   return c.json({ success: true });
 });
 

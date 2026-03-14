@@ -24,9 +24,12 @@ function log(
 
 const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
 const redis = new Redis(redisUrl);
+const redisSubscriber = new Redis(redisUrl);
 
 redis.on("connect", () => log("info", "Redis connected"));
 redis.on("error", (err) => log("error", "Redis error", { error: String(err) }));
+redisSubscriber.on("connect", () => log("info", "Redis subscriber connected"));
+redisSubscriber.on("error", (err) => log("error", "Redis subscriber error", { error: String(err) }));
 
 const vapidPublicKey = process.env.VAPID_PUBLIC_KEY;
 const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
@@ -47,21 +50,44 @@ if (vapidPublicKey && vapidPrivateKey) {
 const userConnections = new Map<string, Set<WebSocket>>();
 const subscribedUsers = new Set<string>();
 
-function subscribeToUser(userId: string) {
+async function subscribeToUser(userId: string) {
   if (subscribedUsers.has(userId)) return;
   subscribedUsers.add(userId);
-  redis.subscribe(`notifications:user:${userId}`);
+  await redisSubscriber.subscribe(`notifications:user:${userId}`);
   log("info", "Subscribed to user notifications", { userId });
 }
 
-function unsubscribeFromUser(userId: string) {
-  if (!subscribedUsers.has(userId)) return;
-  const connections = userConnections.get(userId);
-  if (!connections || connections.size === 0) {
-    subscribedUsers.delete(userId);
-    redis.unsubscribe(`notifications:user:${userId}`);
-    log("info", "Unsubscribed from user notifications", { userId });
+async function ensureUserSubscribed(userId: string) {
+  if (subscribedUsers.has(userId)) return;
+  
+  const hasPushSubscriptions = await db
+    .select({ id: pushSubscription.id })
+    .from(pushSubscription)
+    .where(eq(pushSubscription.userId, userId))
+    .limit(1);
+  
+  if (hasPushSubscriptions.length > 0) {
+    await subscribeToUser(userId);
   }
+}
+
+async function unsubscribeFromUser(userId: string) {
+  if (!subscribedUsers.has(userId)) return;
+  
+  const hasConnections = userConnections.has(userId) && userConnections.get(userId)!.size > 0;
+  if (hasConnections) return;
+  
+  const hasPushSubscriptions = await db
+    .select({ id: pushSubscription.id })
+    .from(pushSubscription)
+    .where(eq(pushSubscription.userId, userId))
+    .limit(1);
+  
+  if (hasPushSubscriptions.length > 0) return;
+  
+  subscribedUsers.delete(userId);
+  await redisSubscriber.unsubscribe(`notifications:user:${userId}`);
+  log("info", "Unsubscribed from user notifications", { userId });
 }
 
 const appBaseUrl =
@@ -311,7 +337,23 @@ async function sendPushNotifications(
   return { removedInvalidSubscriptions };
 }
 
-redis.on("message", (channel, message) => {
+redisSubscriber.on("message", (channel, message) => {
+  if (channel === "notifications:subscription-control") {
+    try {
+      const { action, userId } = JSON.parse(message);
+      if (action === "subscribe") {
+        ensureUserSubscribed(userId);
+      } else if (action === "unsubscribe") {
+        unsubscribeFromUser(userId);
+      }
+    } catch (err) {
+      log("error", "Subscription control message parse error", {
+        error: String(err),
+      });
+    }
+    return;
+  }
+
   const match = channel.match(/^notifications:user:(.+)$/);
   if (match) {
     const userId = match[1];
@@ -466,7 +508,6 @@ wss.on(
         connections.delete(ws);
         if (connections.size === 0) {
           userConnections.delete(userId);
-          unsubscribeFromUser(userId);
           log("info", "WebSocket client disconnected (last for user)", {
             userId,
           });
@@ -476,7 +517,68 @@ wss.on(
   },
 );
 
+async function subscribeToAllUsersWithPushSubscriptions() {
+  try {
+    const users = await db
+      .selectDistinct({ userId: pushSubscription.userId })
+      .from(pushSubscription);
+    
+    log("info", "Subscribing to users with push subscriptions", {
+      userCount: users.length,
+    });
+
+    for (const { userId } of users) {
+      await subscribeToUser(userId);
+    }
+
+    log("info", "Subscribed to all users with push subscriptions", {
+      subscribedCount: subscribedUsers.size,
+    });
+  } catch (err) {
+    log("error", "Failed to subscribe to users on startup", {
+      error: String(err),
+    });
+  }
+}
+
+async function cleanupStaleSubscriptions() {
+  try {
+    const subscribedUserIds = Array.from(subscribedUsers);
+    
+    for (const userId of subscribedUserIds) {
+      const hasPushSubscriptions = await db
+        .select({ id: pushSubscription.id })
+        .from(pushSubscription)
+        .where(eq(pushSubscription.userId, userId))
+        .limit(1);
+      
+      if (hasPushSubscriptions.length === 0 && !userConnections.has(userId)) {
+        subscribedUsers.delete(userId);
+        await redis.unsubscribe(`notifications:user:${userId}`);
+        log("info", "Unsubscribed from user (no push subscriptions)", { userId });
+      }
+    }
+    
+    log("info", "Cleanup complete", {
+      remainingSubscriptions: subscribedUsers.size,
+    });
+  } catch (err) {
+    log("error", "Cleanup failed", { error: String(err) });
+  }
+}
+
+const CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
 const port = Number(process.env.PORT ?? 3002);
-server.listen(port, () => {
+server.listen(port, async () => {
   log("info", `Notifications WebSocket server listening on port ${port}`);
+  
+  await redisSubscriber.subscribe("notifications:subscription-control");
+  log("info", "Subscribed to subscription control channel");
+  
+  await subscribeToAllUsersWithPushSubscriptions();
+  
+  setInterval(() => {
+    cleanupStaleSubscriptions();
+  }, CLEANUP_INTERVAL_MS);
 });
