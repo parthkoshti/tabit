@@ -31,29 +31,29 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
-      args:
-        - TURBO_TEAM=${TURBO_TEAM}
-        - TURBO_TOKEN=${TURBO_TOKEN}
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=redis://redis:6379
-      - CORS_ORIGIN=${CORS_ORIGIN}
-      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
-      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
-      - BETTER_AUTH_COOKIE_DOMAIN=${BETTER_AUTH_COOKIE_DOMAIN}
-      - BETTER_AUTH_TRUSTED_ORIGINS=${BETTER_AUTH_TRUSTED_ORIGINS}
-      - PLUNK_SECRET_KEY=${PLUNK_SECRET_KEY}
-      - PLUNK_BASE_URL=${PLUNK_BASE_URL}
-      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
-      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
-      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
-      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
-      - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL}
-      - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
-      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
-      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS}
-      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME}
-      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED}
+    #   args:
+    #     - TURBO_TEAM=${TURBO_TEAM}
+    #     - TURBO_TOKEN=${TURBO_TOKEN}
+    # environment:
+    #   - DATABASE_URL=${DATABASE_URL}
+    #   - REDIS_URL=redis://redis:6379
+    #   - CORS_ORIGIN=${CORS_ORIGIN}
+    #   - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+    #   - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+    #   - BETTER_AUTH_COOKIE_DOMAIN=${BETTER_AUTH_COOKIE_DOMAIN}
+    #   - BETTER_AUTH_TRUSTED_ORIGINS=${BETTER_AUTH_TRUSTED_ORIGINS}
+    #   - PLUNK_SECRET_KEY=${PLUNK_SECRET_KEY}
+    #   - PLUNK_BASE_URL=${PLUNK_BASE_URL}
+    #   - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+    #   - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+    #   - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+    #   - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+    #   - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL}
+    #   - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
+    #   - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+    #   - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS}
+    #   - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME}
+    #   - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED}
     expose:
       - "3001"
     depends_on:
@@ -63,7 +63,13 @@ services:
       - tabit
     restart: always
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -75,14 +81,14 @@ services:
       dockerfile: apps/notifications/Dockerfile
     expose:
       - "3002"
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - REDIS_URL=redis://redis:6379
-      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
-      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
-      - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL}
-      - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
-      - APP_URL=${APP_URL}
+    # environment:
+    #   - DATABASE_URL=${DATABASE_URL}
+    #   - REDIS_URL=redis://redis:6379
+    #   - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+    #   - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+    #   - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL}
+    #   - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
+    #   - APP_URL=${APP_URL}
     depends_on:
       redis:
         condition: service_healthy
@@ -96,17 +102,17 @@ services:
       dockerfile: apps/pwa/Dockerfile
     expose:
       - "3003"
-    args:
-        - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL}
-        - NEXT_PUBLIC_DONATE_URL=${NEXT_PUBLIC_DONATE_URL}
-        - VITE_NOTIFICATIONS_WS_URL=${VITE_NOTIFICATIONS_WS_URL}
-        - VITE_VAPID_PUBLIC_KEY=${VITE_VAPID_PUBLIC_KEY}
-        - VITE_QUERY_CACHE_BUSTER=${VITE_QUERY_CACHE_BUSTER}
-        - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
-        - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS}
-        - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME}
-        - TURBO_TEAM=${TURBO_TEAM}
-        - TURBO_TOKEN=${TURBO_TOKEN}
+    # args:
+    #     - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL}
+    #     - NEXT_PUBLIC_DONATE_URL=${NEXT_PUBLIC_DONATE_URL}
+    #     - VITE_NOTIFICATIONS_WS_URL=${VITE_NOTIFICATIONS_WS_URL}
+    #     - VITE_VAPID_PUBLIC_KEY=${VITE_VAPID_PUBLIC_KEY}
+    #     - VITE_QUERY_CACHE_BUSTER=${VITE_QUERY_CACHE_BUSTER}
+    #     - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+    #     - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS}
+    #     - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME}
+    #     - TURBO_TEAM=${TURBO_TEAM}
+    #     - TURBO_TOKEN=${TURBO_TOKEN}
     depends_on:
       api:
         condition: service_healthy
