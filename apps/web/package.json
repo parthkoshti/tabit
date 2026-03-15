@@ -2,10 +2,12 @@
   "name": "web",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.32.1",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "dotenv -e ../../.env -e ../../.env.local -- next dev --turbopack",
-    "dev:http": "dotenv -e ../../.env -e ../../.env.local -- next dev --turbopack",
-    "generate-https-certs": "node ../../scripts/generate-https-certs.js",
     "build": "dotenv -e ../../.env -e ../../.env.local -- next build",
     "start": "dotenv -e ../../.env -e ../../.env.local -- next start",
     "start:prod": "next start",
