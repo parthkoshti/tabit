@@ -9,6 +9,7 @@ Tab It is a Splitwise-alternative for splitting expenses. It's a pnpm + Turborep
 ## Commands
 
 ### Development
+
 ```bash
 pnpm install                          # Install all dependencies
 pnpm run build --filter=models --filter=db --filter=otel  # Build shared packages first (required before dev)
@@ -18,6 +19,7 @@ pnpm dev:web                          # Run only the landing page
 ```
 
 ### Database
+
 ```bash
 cd packages/db && pnpm db:push        # Push schema changes (dev, no migration files)
 cd packages/db && pnpm db:generate    # Generate migration files
@@ -26,6 +28,7 @@ cd packages/db && pnpm db:studio      # Open Drizzle Studio
 ```
 
 ### Type checking & linting
+
 ```bash
 pnpm check                            # TypeScript check across all packages
 pnpm lint                             # ESLint across all packages
@@ -33,6 +36,7 @@ pnpm lint                             # ESLint across all packages
 ```
 
 ### Production
+
 ```bash
 pnpm start:prod                       # Runs db:migrate:prod then starts all services
 ```
@@ -40,6 +44,7 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 ## Architecture
 
 ### Monorepo Structure
+
 - `apps/web` — Next.js 15 landing page (port 3000), uses App Router
 - `apps/pwa` — Vite + React SPA, the main expense-splitting app (port 3003)
 - `apps/api` — Hono REST API (port 3001), the backend for all data operations
@@ -71,7 +76,9 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 **Real-time**: The `apps/notifications` server bridges Redis pub/sub messages (published by the API after mutations) to WebSocket clients and sends web push notifications via `web-push`.
 
 ### Environment Variables
+
 All apps read from a root `.env` / `.env.local` file (via `dotenv-cli`). Key variables:
+
 - `DATABASE_URL` — PostgreSQL connection string
 - `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` — Auth config
 - `PLUNK_SECRET_KEY` — Email provider for magic links
@@ -84,7 +91,9 @@ All apps read from a root `.env` / `.env.local` file (via `dotenv-cli`). Key var
 **OpenTelemetry (optional)**: When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, logs and traces are sent to SigNoz or any OTLP-compatible backend. Variables: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` (e.g. `signoz-ingestion-key=<key>` for SigNoz Cloud), `OTEL_SERVICE_NAME`, `OTEL_SDK_DISABLED`, `OTEL_TRACES_EXPORTER`, `OTEL_LOGS_EXPORTER`.
 
 ### HTTPS for PWA (local dev)
+
 The PWA runs over HTTPS by default (needed for service workers). Certs go in `apps/pwa/certificates/`. Generate with:
+
 ```bash
 cd apps/pwa && pnpm generate-https-certs  # requires mkcert
 ```
@@ -94,3 +103,7 @@ cd apps/pwa && pnpm generate-https-certs  # requires mkcert
 **Mobile first**: PWA and web are designed mobile-first. Optimize for small screens first, then scale up.
 
 **Display names**: When showing avatar names or user names in the UI (e.g. "Parth Koshti"), always display first name + last initial only (e.g. "Parth K"). Exception: in the friends list, display full names.
+
+## Releases
+
+**User-facing changelog**: Release notes in `apps/pwa/public/changelog.json` are shown to users in the UpdateGate modal. Write for users, not developers. Focus on how changes affect them and what new features are available. Avoid implementation details (e.g. "optimistic updates", "picker trigger")—describe benefits and capabilities instead.

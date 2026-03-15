@@ -27,6 +27,8 @@ A running list of features in the app.
 
 - Filter tab expenses by All, I'm involved, I'm owed, I owe
 - AI-powered voice expense creation
+- Emoji reactions on expenses (add, remove, full emoji picker)
+- Notifications when someone reacts to an expense you're part of
 - Expense audit logs
 - Import from Splitwise (CSV)
 

@@ -86,6 +86,21 @@ export const expense = pgTable(
   ],
 );
 
+export const expenseReaction = pgTable(
+  "expense_reaction",
+  {
+    expenseId: text("expenseId")
+      .notNull()
+      .references(() => expense.id, { onDelete: "cascade" }),
+    userId: text("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    emoji: text("emoji").notNull(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.expenseId, t.userId] })],
+);
+
 export const expenseSplit = pgTable("expense_split", {
   id: text("id")
     .primaryKey()

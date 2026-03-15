@@ -8,6 +8,7 @@ import {
   createExpenseDeletedNotificationPayload,
   createExpenseRestoredNotificationPayload,
   createExpensesBulkImportedNotificationPayload,
+  createExpenseReactionNotificationPayload,
 } from "models";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
@@ -837,5 +838,107 @@ expensesRoutes.post("/:expenseId/restore", async (c) => {
   }
 
   log("info", "Expense restored", { userId, tabId, expenseId });
+  return c.json({ success: true });
+});
+
+function isValidEmoji(emoji: string): boolean {
+  if (!emoji || typeof emoji !== "string") return false;
+  const trimmed = emoji.trim();
+  if (trimmed.length === 0 || trimmed.length > 32) return false;
+  return true;
+}
+
+expensesRoutes.post("/:expenseId/reactions", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId")!;
+  const expenseId = c.req.param("expenseId")!;
+
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId)))
+    .limit(1);
+
+  if (!member) {
+    return c.json({ success: false, error: "Not a member" }, 403);
+  }
+
+  const exp = await expense.getById(expenseId);
+  if (!exp || exp.tabId !== tabId) {
+    return c.json({ success: false, error: "Expense not found" }, 404);
+  }
+
+  const body = await c.req.json().catch(() => ({}));
+  const emoji = body.emoji;
+  if (!isValidEmoji(emoji)) {
+    return c.json({ success: false, error: "Invalid emoji" }, 400);
+  }
+
+  await expense.addOrUpdateReaction(expenseId, userId, emoji);
+
+  const [tabRow] = await db
+    .select({ name: tabTable.name, isDirect: tabTable.isDirect })
+    .from(tabTable)
+    .where(eq(tabTable.id, tabId))
+    .limit(1);
+
+  const [fromUser] = await db
+    .select({ name: user.name })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  const participantIds = [
+    exp.paidById,
+    ...exp.splits.map((s) => s.userId),
+  ].filter((id, i, arr) => arr.indexOf(id) === i && id !== userId);
+
+  for (const participantId of participantIds) {
+    const payload = createExpenseReactionNotificationPayload({
+      tabId,
+      expenseId,
+      tabName: tabRow?.name ?? "Tab",
+      isDirect: tabRow?.isDirect ?? false,
+      fromUserId: userId,
+      fromUserName: fromUser?.name ?? null,
+      description: exp.description,
+      amount: exp.amount.toString(),
+      emoji,
+      createdAt: new Date(),
+    });
+    await publishNotification(participantId, payload);
+  }
+
+  log("info", "Expense reaction added", {
+    userId,
+    tabId,
+    expenseId,
+    recipientCount: participantIds.length,
+  });
+  return c.json({ success: true });
+});
+
+expensesRoutes.delete("/:expenseId/reactions", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId")!;
+  const expenseId = c.req.param("expenseId")!;
+
+  const [member] = await db
+    .select()
+    .from(tabMember)
+    .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId)))
+    .limit(1);
+
+  if (!member) {
+    return c.json({ success: false, error: "Not a member" }, 403);
+  }
+
+  const exp = await expense.getById(expenseId);
+  if (!exp || exp.tabId !== tabId) {
+    return c.json({ success: false, error: "Expense not found" }, 404);
+  }
+
+  await expense.removeReaction(expenseId, userId);
+  log("info", "Expense reaction removed", { userId, tabId, expenseId });
   return c.json({ success: true });
 });

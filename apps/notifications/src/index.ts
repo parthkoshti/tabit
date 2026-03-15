@@ -105,6 +105,7 @@ function getPushTitle(payload: {
   count?: number;
   forcePush?: boolean;
   isDirect?: boolean;
+  emoji?: string;
 }): string {
   if (payload.forcePush)
     return payload.type === "tab_invite"
@@ -181,6 +182,16 @@ function getPushTitle(payload: {
     return `${payload.fromUserName} poked you`;
   }
   if (payload.type === "poke") return "Someone poked you";
+  if (payload.type === "expense_reaction" && payload.fromUserName) {
+    const desc = payload.description || "expense";
+    if (payload.isDirect) {
+      return `${payload.fromUserName} reacted ${payload.emoji} to ${desc}`;
+    }
+    return payload.tabName
+      ? `${payload.fromUserName} reacted ${payload.emoji} to ${desc} in ${payload.tabName}`
+      : `${payload.fromUserName} reacted ${payload.emoji} to ${desc}`;
+  }
+  if (payload.type === "expense_reaction") return "New reaction on expense";
   if (payload.type === "friend_request") return "New friend request";
   if (payload.type === "tab_invite") return "New tab invite";
   if (payload.type === "friend_request_accepted")
@@ -191,6 +202,7 @@ function getPushTitle(payload: {
   if (payload.type === "expense_deleted") return "Expense deleted";
   if (payload.type === "expense_restored") return "Expense restored";
   if (payload.type === "expenses_bulk_imported") return "Expenses imported";
+  if (payload.type === "expense_reaction") return "New reaction on expense";
   return "New notification";
 }
 
@@ -204,6 +216,8 @@ function getPushBody(payload: {
   recipientOweAmount?: string;
   descriptionChanged?: boolean;
   amountChanged?: boolean;
+  fromUserName?: string | null;
+  emoji?: string;
 }): string {
   if (payload.forcePush) return "This is a test notification";
   if (payload.type === "friend_request") return "New friend request";
@@ -244,6 +258,10 @@ function getPushBody(payload: {
     return `${payload.count} expense${payload.count !== 1 ? "s" : ""} imported to ${payload.tabName}`;
   }
   if (payload.type === "poke") return "Poke them back!";
+  if (payload.type === "expense_reaction") {
+    const desc = payload.description || "expense";
+    return `${payload.fromUserName ?? "Someone"} reacted ${payload.emoji} to ${desc}`;
+  }
   return "You have a new notification";
 }
 
@@ -264,7 +282,8 @@ function getNavigatePath(payload: {
     (payload.type === "expense_added" ||
       payload.type === "expense_updated" ||
       payload.type === "expense_deleted" ||
-      payload.type === "expense_restored") &&
+      payload.type === "expense_restored" ||
+      payload.type === "expense_reaction") &&
     payload.tabId
   ) {
     return payload.expenseId

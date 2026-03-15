@@ -295,6 +295,21 @@ export const api = {
           method: "POST",
         },
       ),
+    addReaction: (tabId: string, expenseId: string, emoji: string) =>
+      request<{ success: boolean; error?: string }>(
+        `/tabs/${tabId}/expenses/${expenseId}/reactions`,
+        {
+          method: "POST",
+          body: { emoji },
+        },
+      ),
+    removeReaction: (tabId: string, expenseId: string) =>
+      request<{ success: boolean; error?: string }>(
+        `/tabs/${tabId}/expenses/${expenseId}/reactions`,
+        {
+          method: "DELETE",
+        },
+      ),
   },
   settlements: {
     list: (tabId: string) =>

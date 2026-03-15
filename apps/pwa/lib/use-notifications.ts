@@ -63,6 +63,7 @@ export function useNotifications(enabled: boolean): ConnectionState {
           payload.type === "expense_updated" ||
           payload.type === "expense_deleted" ||
           payload.type === "expense_restored" ||
+          payload.type === "expense_reaction" ||
           payload.type === "expenses_bulk_imported"
         ) {
           if (payload.tabId) {

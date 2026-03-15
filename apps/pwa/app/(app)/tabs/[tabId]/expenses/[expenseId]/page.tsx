@@ -31,6 +31,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { formatAmount } from "@/lib/format-amount";
+import { ExpenseReactions } from "@/components/expense-reactions";
 
 export function ExpensePage() {
   const { tabId, expenseId } = useParams<{
@@ -296,6 +297,25 @@ export function ExpensePage() {
               </>
             )}
           </div>
+
+          {!expense.deletedAt && (
+            <div className="pt-2">
+              <ExpenseReactions
+                expenseId={expenseIdOrEmpty}
+                tabId={tabIdOrEmpty}
+                reactions={expense.reactions ?? []}
+                currentUserId={currentUserId}
+                getDisplayName={(userId) =>
+                  getDisplayName(
+                    tab?.members?.find((m) => m.userId === userId)?.user ?? {
+                      id: userId,
+                    },
+                    currentUserId,
+                  )
+                }
+              />
+            </div>
+          )}
 
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground pt-2">
             {expense.splits

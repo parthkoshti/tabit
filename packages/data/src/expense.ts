@@ -2,10 +2,17 @@ import {
   db,
   expense as expenseTable,
   expenseAuditLog,
+  expenseReaction,
   expenseSplit,
   user,
 } from "db";
-import { eq, desc, sql, or, and } from "drizzle-orm";
+import { eq, desc, sql, or, and, inArray } from "drizzle-orm";
+
+export type ExpenseReaction = {
+  emoji: string;
+  count: number;
+  userIds: string[];
+};
 
 export type ExpenseFilter = "all" | "involved" | "owed" | "owe";
 
@@ -35,6 +42,7 @@ export type GetExpensesForTabResult = {
       amount: number;
       user: { id: string };
     }>;
+    reactions: ExpenseReaction[];
   }>;
   total: number;
 };
@@ -57,6 +65,7 @@ type FlatRow = {
 
 function buildExpensesFromFlatRows(
   rows: FlatRow[],
+  reactionsByExpenseId: Map<string, ExpenseReaction[]>,
 ): GetExpensesForTabResult["expenses"] {
   const byExpenseId = new Map<string, FlatRow[]>();
   for (const row of rows) {
@@ -87,8 +96,51 @@ function buildExpensesFromFlatRows(
       deletedAt: first.deletedAt ?? null,
       paidBy: { id: first.paidById },
       splits,
+      reactions: reactionsByExpenseId.get(expenseId) ?? [],
     };
   });
+}
+
+async function getReactionsForExpenseIds(
+  expenseIds: string[],
+): Promise<Map<string, ExpenseReaction[]>> {
+  if (expenseIds.length === 0) return new Map();
+  const rows = await db
+    .select({
+      expenseId: expenseReaction.expenseId,
+      emoji: expenseReaction.emoji,
+      userId: expenseReaction.userId,
+    })
+    .from(expenseReaction)
+    .where(inArray(expenseReaction.expenseId, expenseIds));
+  const byExpense = new Map<string, Map<string, { count: number; userIds: string[] }>>();
+  for (const r of rows) {
+    let emojiMap = byExpense.get(r.expenseId);
+    if (!emojiMap) {
+      emojiMap = new Map();
+      byExpense.set(r.expenseId, emojiMap);
+    }
+    const existing = emojiMap.get(r.emoji);
+    if (existing) {
+      existing.count += 1;
+      existing.userIds.push(r.userId);
+    } else {
+      emojiMap.set(r.emoji, { count: 1, userIds: [r.userId] });
+    }
+  }
+  const result = new Map<string, ExpenseReaction[]>();
+  for (const expenseId of expenseIds) {
+    const emojiMap = byExpense.get(expenseId);
+    const reactions: ExpenseReaction[] = emojiMap
+      ? Array.from(emojiMap.entries()).map(([emoji, { count, userIds }]) => ({
+          emoji,
+          count,
+          userIds,
+        }))
+      : [];
+    result.set(expenseId, reactions);
+  }
+  return result;
 }
 
 export type CreateExpenseInput = {
@@ -141,6 +193,7 @@ export type Expense = {
       username?: string | null;
     };
   }>;
+  reactions: ExpenseReaction[];
 };
 
 /** Return type of getAuditLog. Use string | Date for JSON API responses. */
@@ -184,19 +237,24 @@ export const expense = {
 
     if (!row) return null;
 
-    const splits = await db
-      .select({
-        id: expenseSplit.id,
-        expenseId: expenseSplit.expenseId,
-        userId: expenseSplit.userId,
-        amount: expenseSplit.amount,
-        userEmail: user.email,
-        userName: user.name,
-        userUsername: user.username,
-      })
-      .from(expenseSplit)
-      .innerJoin(user, eq(expenseSplit.userId, user.id))
-      .where(eq(expenseSplit.expenseId, row.id));
+    const [splits, reactionsByExpenseId] = await Promise.all([
+      db
+        .select({
+          id: expenseSplit.id,
+          expenseId: expenseSplit.expenseId,
+          userId: expenseSplit.userId,
+          amount: expenseSplit.amount,
+          userEmail: user.email,
+          userName: user.name,
+          userUsername: user.username,
+        })
+        .from(expenseSplit)
+        .innerJoin(user, eq(expenseSplit.userId, user.id))
+        .where(eq(expenseSplit.expenseId, row.id)),
+      getReactionsForExpenseIds([row.id]),
+    ]);
+
+    const reactions = reactionsByExpenseId.get(row.id) ?? [];
 
     return {
       ...row,
@@ -220,7 +278,36 @@ export const expense = {
           username: s.userUsername,
         },
       })),
+      reactions,
     };
+  },
+
+  addOrUpdateReaction: async (
+    expenseId: string,
+    userId: string,
+    emoji: string,
+  ): Promise<void> => {
+    await db
+      .insert(expenseReaction)
+      .values({ expenseId, userId, emoji })
+      .onConflictDoUpdate({
+        target: [expenseReaction.expenseId, expenseReaction.userId],
+        set: { emoji },
+      });
+  },
+
+  removeReaction: async (
+    expenseId: string,
+    userId: string,
+  ): Promise<void> => {
+    await db
+      .delete(expenseReaction)
+      .where(
+        and(
+          eq(expenseReaction.expenseId, expenseId),
+          eq(expenseReaction.userId, userId),
+        ),
+      );
   },
 
   getAuditLog: async (expenseId: string) => {
@@ -336,7 +423,12 @@ export const expense = {
     ]);
 
     const total = countResult[0]?.count ?? 0;
-    const expenses = buildExpensesFromFlatRows(rows as FlatRow[]);
+    const expenseIds = [...new Set((rows as FlatRow[]).map((r) => r.id))];
+    const reactionsByExpenseId = await getReactionsForExpenseIds(expenseIds);
+    const expenses = buildExpensesFromFlatRows(
+      rows as FlatRow[],
+      reactionsByExpenseId,
+    );
 
     return { expenses, total };
   },

@@ -11,6 +11,7 @@ export const notificationTypeSchema = z.enum([
   "expense_restored",
   "expenses_bulk_imported",
   "poke",
+  "expense_reaction",
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
@@ -162,6 +163,23 @@ export type PokeNotificationPayload = z.infer<
   typeof pokeNotificationPayloadSchema
 >;
 
+export const expenseReactionNotificationPayloadSchema = z.object({
+  type: z.literal("expense_reaction"),
+  tabId: z.string(),
+  expenseId: z.string(),
+  tabName: z.string(),
+  isDirect: z.boolean().optional(),
+  fromUserId: z.string(),
+  fromUserName: z.string().nullable(),
+  description: z.string(),
+  amount: z.string(),
+  emoji: z.string(),
+  createdAt: z.string(),
+});
+export type ExpenseReactionNotificationPayload = z.infer<
+  typeof expenseReactionNotificationPayloadSchema
+>;
+
 export const notificationPayloadSchema = z.discriminatedUnion("type", [
   friendRequestNotificationPayloadSchema,
   tabInviteNotificationPayloadSchema,
@@ -173,6 +191,7 @@ export const notificationPayloadSchema = z.discriminatedUnion("type", [
   expenseRestoredNotificationPayloadSchema,
   expensesBulkImportedNotificationPayloadSchema,
   pokeNotificationPayloadSchema,
+  expenseReactionNotificationPayloadSchema,
 ]);
 export type NotificationPayload = z.infer<typeof notificationPayloadSchema>;
 
@@ -398,6 +417,33 @@ export function createPokeNotificationPayload(data: {
     fromUserId: data.fromUserId,
     fromUserName: data.fromUserName,
     fromUserUsername: data.fromUserUsername,
+    createdAt: data.createdAt.toISOString(),
+  };
+}
+
+export function createExpenseReactionNotificationPayload(data: {
+  tabId: string;
+  expenseId: string;
+  tabName: string;
+  isDirect?: boolean;
+  fromUserId: string;
+  fromUserName: string | null;
+  description: string;
+  amount: string;
+  emoji: string;
+  createdAt: Date;
+}): ExpenseReactionNotificationPayload {
+  return {
+    type: "expense_reaction",
+    tabId: data.tabId,
+    expenseId: data.expenseId,
+    tabName: data.tabName,
+    isDirect: data.isDirect,
+    fromUserId: data.fromUserId,
+    fromUserName: data.fromUserName,
+    description: data.description,
+    amount: data.amount,
+    emoji: data.emoji,
     createdAt: data.createdAt.toISOString(),
   };
 }

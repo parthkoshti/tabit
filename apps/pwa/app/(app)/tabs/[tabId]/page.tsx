@@ -36,6 +36,7 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { formatAmount } from "@/lib/format-amount";
+import { ExpenseReactions } from "@/components/expense-reactions";
 
 export function TabPage() {
   const { tabId } = useParams<{ tabId: string }>();
@@ -487,40 +488,57 @@ export function TabPage() {
                                 )}
                               </span>
                             </p>
-                            <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                              {item.splits
-                                .filter((s) => s.userId !== item.paidById)
-                                .map((s) => {
-                                  const owesCurrentUser =
-                                    item.paidById === currentUserId;
-                                  const currentUserOwes =
-                                    s.userId === currentUserId;
-                                  const amountClass = owesCurrentUser
-                                    ? "text-positive"
-                                    : currentUserOwes
-                                      ? "text-negative"
-                                      : "text-muted-foreground";
-                                  return (
-                                    <span
-                                      key={s.userId}
-                                      className="inline-flex items-center gap-1.5"
-                                    >
-                                      <UserAvatar userId={s.userId} size="xs" />
-                                      {getDisplayName(
-                                        getMemberUser(s.userId),
-                                        currentUserId,
-                                      )}{" "}
-                                      {currentUserOwes ? "owe" : "owes"}{" "}
-                                      {getDisplayName(
-                                        getMemberUser(item.paidById),
-                                        currentUserId,
-                                      )}{" "}
-                                      <span className={amountClass}>
-                                        {formatAmount(s.amount, tabCurrency)}
+                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                              <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                {item.splits
+                                  .filter((s) => s.userId !== item.paidById)
+                                  .map((s) => {
+                                    const owesCurrentUser =
+                                      item.paidById === currentUserId;
+                                    const currentUserOwes =
+                                      s.userId === currentUserId;
+                                    const amountClass = owesCurrentUser
+                                      ? "text-positive"
+                                      : currentUserOwes
+                                        ? "text-negative"
+                                        : "text-muted-foreground";
+                                    return (
+                                      <span
+                                        key={s.userId}
+                                        className="inline-flex items-center gap-1.5"
+                                      >
+                                        <UserAvatar userId={s.userId} size="xs" />
+                                        {getDisplayName(
+                                          getMemberUser(s.userId),
+                                          currentUserId,
+                                        )}{" "}
+                                        {currentUserOwes ? "owe" : "owes"}{" "}
+                                        {getDisplayName(
+                                          getMemberUser(item.paidById),
+                                          currentUserId,
+                                        )}{" "}
+                                        <span className={amountClass}>
+                                          {formatAmount(s.amount, tabCurrency)}
+                                        </span>
                                       </span>
-                                    </span>
-                                  );
-                                })}
+                                    );
+                                  })}
+                              </div>
+                              {!item.deletedAt && (
+                                <ExpenseReactions
+                                  expenseId={item.id}
+                                  tabId={tabIdOrEmpty}
+                                  reactions={item.reactions ?? []}
+                                  currentUserId={currentUserId}
+                                  compact
+                                  getDisplayName={(userId) =>
+                                    getDisplayName(
+                                      getMemberUser(userId),
+                                      currentUserId,
+                                    )
+                                  }
+                                />
+                              )}
                             </div>
                           </CardContent>
                         </Card>

@@ -161,6 +161,61 @@ body {
   }
 }
 
+/* Emoji picker - match app design tokens, constrain to container */
+.emoji-picker-app-theme {
+  max-width: 100%;
+  overflow: hidden;
+}
+.emoji-picker-app-theme .EmojiPickerReact {
+  max-width: 100%;
+  width: 100% !important;
+  --epr-bg-color: var(--card);
+  --epr-text-color: var(--foreground);
+  --epr-hover-bg-color: var(--accent);
+  --epr-hover-bg-color-reduced-opacity: var(--accent);
+  --epr-focus-bg-color: var(--accent);
+  --epr-picker-border-color: var(--border);
+  --epr-picker-border-radius: var(--radius-lg);
+  --epr-category-label-bg-color: var(--muted);
+  --epr-category-label-text-color: var(--foreground);
+  --epr-category-icon-active-color: var(--primary);
+  --epr-highlight-color: var(--primary);
+  --epr-search-input-bg-color: var(--muted);
+  --epr-search-input-bg-color-active: var(--muted);
+  --epr-search-input-text-color: var(--foreground);
+  --epr-search-input-placeholder-color: var(--muted-foreground);
+  --epr-search-border-color: var(--border);
+  --epr-search-border-color-active: var(--ring);
+  --epr-preview-text-color: var(--muted-foreground);
+  --epr-preview-border-color: var(--border);
+  --epr-emoji-variation-picker-bg-color: var(--card);
+  --epr-skin-tone-picker-menu-color: var(--card);
+  --epr-skin-tone-inner-border-color: var(--border);
+  --epr-skin-tone-outer-border-color: var(--border);
+}
+.emoji-picker-app-theme .epr-emoji-category-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.emoji-picker-app-theme .EmojiPickerReact.epr-dark-theme {
+  /* --epr-dark-bg-color: var(--card); */
+  --epr-dark-text-color: var(--foreground);
+  --epr-dark-hover-bg-color: var(--accent);
+  --epr-dark-hover-bg-color-reduced-opacity: var(--accent);
+  --epr-dark-focus-bg-color: var(--accent);
+  --epr-dark-picker-border-color: var(--border);
+  --epr-dark-category-label-bg-color: var(--muted);
+  --epr-dark-category-icon-active-color: var(--primary);
+  --epr-dark-highlight-color: var(--primary);
+  --epr-dark-search-input-bg-color: var(--muted);
+  --epr-dark-search-input-bg-color-active: var(--muted);
+  --epr-dark-emoji-variation-picker-bg-color: var(--card);
+  --epr-dark-skin-tone-picker-menu-color: var(--card);
+  --epr-dark-skin-tone-inner-border-color: var(--border);
+  --epr-dark-skin-tone-outer-border-color: var(--border);
+}
+
 .dark {
   /* Linear dark mode palette */
   --background: #08090a;

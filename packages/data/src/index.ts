@@ -7,6 +7,7 @@ export type {
   Expense,
   ExpenseAuditLogEntry,
   ExpenseFilter,
+  ExpenseReaction,
 } from "./expense.js";
 
 export { tab } from "./tab.js";
