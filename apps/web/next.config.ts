@@ -2,7 +2,6 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   transpilePackages: ["models", "db"],
-  serverExternalPackages: ["otel"],
   async rewrites() {
     return [
       {
