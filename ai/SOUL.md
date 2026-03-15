@@ -13,9 +13,9 @@ Tab It is a Splitwise-alternative for splitting expenses. It's a pnpm + Turborep
 ```bash
 pnpm install                          # Install all dependencies
 pnpm run build --filter=models --filter=db --filter=otel  # Build shared packages first (required before dev)
-pnpm dev                              # Run all apps concurrently (web, pwa, api, notifications)
+pnpm dev                              # Run all apps concurrently (pwa, api, notifications; web excluded)
 pnpm dev:pwa                          # Run only the PWA
-pnpm dev:web                          # Run only the landing page
+pnpm dev:web                          # Run only the landing page (independent of turbo)
 ```
 
 ### Database
@@ -45,7 +45,7 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 
 ### Monorepo Structure
 
-- `apps/web` — Next.js 15 landing page (port 3000), uses App Router
+- `apps/web` — Next.js 15 landing page (port 3000), uses App Router; independent app (not in turbo)
 - `apps/pwa` — Vite + React SPA, the main expense-splitting app (port 3003)
 - `apps/api` — Hono REST API (port 3001), the backend for all data operations
 - `apps/notifications` — WebSocket server (port 3002), uses Redis pub/sub + web-push
