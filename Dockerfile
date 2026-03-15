@@ -1,6 +1,6 @@
 # Stage 1: Prepare - prune monorepo for target workspaces
 FROM node:24-alpine AS prepare
-RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 WORKDIR /app
@@ -13,7 +13,7 @@ RUN turbo prune web pwa api notifications --docker
 
 # Stage 2: Install dependencies (only when package.json/lockfile change)
 FROM node:24-alpine AS builder
-RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
 
 # Copy pruned package.json files and lockfile first (better layer caching)
@@ -57,7 +57,7 @@ RUN pnpm build
 
 # Stage 3: Production
 FROM node:24-alpine AS prod
-RUN corepack enable && corepack prepare pnpm@9.14.2 --activate
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
 
 ENV NODE_ENV=production
