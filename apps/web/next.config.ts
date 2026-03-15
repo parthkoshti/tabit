@@ -1,12 +1,13 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["models", "db"],
+  transpilePackages: ["models", "db", "next-mdx-remote"],
   async rewrites() {
+    const apiUrl = process.env.API_URL ?? "http://localhost:3001";
     return [
       {
         source: "/api-backend/:path*",
-        destination: "http://localhost:3001/:path*",
+        destination: `${apiUrl}/:path*`,
       },
     ];
   },

@@ -1,0 +1,121 @@
+# Multi-container deployment (platform-agnostic)
+# Web app is hosted on Vercel; this compose runs api, pwa, notifications, redis
+# Option B: no env_file - set vars in deployment UI or .env for substitution
+# Configure routing, TLS, and domains in your platform (Dokploy, Traefik, etc.)
+#
+# Required env vars: DATABASE_URL, BETTER_AUTH_SECRET, BETTER_AUTH_URL, CORS_ORIGIN,
+#   NEXT_PUBLIC_PWA_URL, NEXT_PUBLIC_WEB_URL, VITE_NOTIFICATIONS_WS_URL, VITE_VAPID_PUBLIC_KEY
+# Optional: PLUNK_*, VAPID_*, GOOGLE_GENERATIVE_AI_API_KEY, DISCORD_WEBHOOK_URL, OTEL_*
+#
+# Reverse proxy: PWA needs /api-backend and /api/auth proxied to api:3001.
+# Notifications WebSocket: route wss:// to notifications:3002 if exposing real-time.
+
+services:
+  redis:
+    image: redis:7.4-alpine
+    expose:
+      - "6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - tabit
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      args:
+        - TURBO_TEAM=${TURBO_TEAM}
+        - TURBO_TOKEN=${TURBO_TOKEN}
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - CORS_ORIGIN=${CORS_ORIGIN}
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET}
+      - BETTER_AUTH_URL=${BETTER_AUTH_URL}
+      - BETTER_AUTH_COOKIE_DOMAIN=${BETTER_AUTH_COOKIE_DOMAIN}
+      - BETTER_AUTH_TRUSTED_ORIGINS=${BETTER_AUTH_TRUSTED_ORIGINS}
+      - PLUNK_SECRET_KEY=${PLUNK_SECRET_KEY}
+      - PLUNK_BASE_URL=${PLUNK_BASE_URL}
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
+      - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL}
+      - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+      - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS}
+      - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME}
+      - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED}
+    expose:
+      - "3001"
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - tabit
+    restart: always
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  notifications:
+    build:
+      context: .
+      dockerfile: apps/notifications/Dockerfile
+    expose:
+      - "3002"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=redis://redis:6379
+      - VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}
+      - VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}
+      - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL}
+      - NEXT_PUBLIC_WEB_URL=${NEXT_PUBLIC_WEB_URL}
+      - APP_URL=${APP_URL}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - tabit
+    restart: always
+
+  pwa:
+    build:
+      context: .
+      dockerfile: apps/pwa/Dockerfile
+    expose:
+      - "3003"
+    args:
+        - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL}
+        - NEXT_PUBLIC_DONATE_URL=${NEXT_PUBLIC_DONATE_URL}
+        - VITE_NOTIFICATIONS_WS_URL=${VITE_NOTIFICATIONS_WS_URL}
+        - VITE_VAPID_PUBLIC_KEY=${VITE_VAPID_PUBLIC_KEY}
+        - VITE_QUERY_CACHE_BUSTER=${VITE_QUERY_CACHE_BUSTER}
+        - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
+        - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS}
+        - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME}
+        - TURBO_TEAM=${TURBO_TEAM}
+        - TURBO_TOKEN=${TURBO_TOKEN}
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - tabit
+    restart: always
+
+networks:
+  tabit:
+
+volumes:
+  redis-data:
