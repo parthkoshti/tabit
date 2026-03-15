@@ -14,7 +14,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, CircleCheck, CircleX, Smartphone } from "lucide-react";
+import {
+  Loader2,
+  CircleCheck,
+  CircleX,
+  Smartphone,
+  Share,
+  SquarePlus,
+  Bell,
+} from "lucide-react";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{5,12}$/;
 
@@ -24,6 +32,14 @@ function getPlatform(): Platform {
   if (typeof window === "undefined") return "web";
   const ua = navigator.userAgent;
   if (/iPad|iPhone|iPod/.test(ua)) return "ios";
+  // iPadOS 13+ Safari reports "Macintosh" instead of "iPad" in user agent
+  if (
+    /Macintosh/.test(ua) &&
+    navigator.maxTouchPoints > 1 &&
+    !/Android/.test(ua)
+  ) {
+    return "ios";
+  }
   if (/Android/.test(ua)) return "android";
   return "web";
 }
@@ -60,8 +76,13 @@ export function OnboardingPage() {
   } | null>(null);
   const [platform, setPlatform] = useState<Platform>("web");
   const [installed, setInstalled] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState<
+    "idle" | "loading" | "enabled" | "unsupported"
+  >("idle");
+  const [notificationLoading, setNotificationLoading] = useState(false);
   const checkIdRef = useRef(0);
 
+  const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
   const DISABLE_REDIRECT = false; // TODO: remove - temp disable to view page
 
   useEffect(() => {
@@ -89,6 +110,29 @@ export function OnboardingPage() {
     window.addEventListener("appinstalled", handler);
     return () => window.removeEventListener("appinstalled", handler);
   }, []);
+
+  useEffect(() => {
+    if (!installed || !vapidKey || !("serviceWorker" in navigator)) return;
+    let cancelled = false;
+    navigator.serviceWorker.ready
+      .then((reg) => {
+        if (cancelled) return;
+        const hasPushSupport = "PushManager" in window || "pushManager" in reg;
+        if (!hasPushSupport) {
+          setNotificationStatus("unsupported");
+          return;
+        }
+        return reg.pushManager.getSubscription();
+      })
+      .then((sub) => {
+        if (cancelled) return;
+        setNotificationStatus(sub ? "enabled" : "idle");
+      })
+      .catch(() => setNotificationStatus("unsupported"));
+    return () => {
+      cancelled = true;
+    };
+  }, [installed, vapidKey]);
 
   useEffect(() => {
     if (session?.user?.name) setName(session.user.name);
@@ -163,6 +207,39 @@ export function OnboardingPage() {
     if (!deferredPrompt) return;
     await deferredPrompt.prompt();
     setDeferredPrompt(null);
+  }
+
+  async function handleEnableNotifications() {
+    if (!vapidKey || !("serviceWorker" in navigator)) return;
+    setNotificationLoading(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const hasPushSupport = "PushManager" in window || "pushManager" in reg;
+      if (!hasPushSupport) {
+        setNotificationStatus("unsupported");
+        return;
+      }
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        setNotificationStatus("enabled");
+        return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== "granted") {
+        setNotificationLoading(false);
+        return;
+      }
+      const newSub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: vapidKey,
+      });
+      await api.push.subscribe(newSub.toJSON());
+      setNotificationStatus("enabled");
+    } catch {
+      setNotificationStatus("unsupported");
+    } finally {
+      setNotificationLoading(false);
+    }
   }
 
   if (sessionPending || !session?.user) {
@@ -276,34 +353,91 @@ export function OnboardingPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           {installed ? (
-            <p className="text-center text-sm text-muted-foreground">
-              You have the app installed. You are all set.
-            </p>
+            <div className="space-y-4">
+              {vapidKey &&
+              notificationStatus !== "enabled" &&
+              notificationStatus !== "unsupported" ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Bell className="h-5 w-5 text-primary" />
+                    <p className="text-sm font-medium text-foreground">
+                      Turn on notifications
+                    </p>
+                  </div>
+                  <p className="text-sm text-muted-foreground">
+                    Get notified when you receive friend requests or tab invites
+                  </p>
+                  <Button
+                    variant="default"
+                    className="w-full"
+                    onClick={handleEnableNotifications}
+                    disabled={notificationLoading}
+                  >
+                    {notificationLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Enabling...
+                      </>
+                    ) : (
+                      <>
+                        <Bell className="mr-2 h-4 w-4" />
+                        Enable notifications
+                      </>
+                    )}
+                  </Button>
+                </div>
+              ) : notificationStatus === "enabled" ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CircleCheck className="h-5 w-5 shrink-0 text-positive" />
+                  <p>Notifications are on. You are all set.</p>
+                </div>
+              ) : (
+                <p className="text-center text-sm text-muted-foreground">
+                  You have the app installed. You are all set.
+                </p>
+              )}
+            </div>
           ) : platform === "ios" ? (
-            <div className="space-y-3 text-sm">
-              <p className="font-medium">iPhone / iPad (Safari):</p>
-              <ol className="list-decimal space-y-2 pl-4 text-muted-foreground">
-                <li>
-                  Tap the{" "}
-                  <span className="font-medium text-foreground">
-                    Share button
-                  </span>{" "}
-                  button (square with arrow) at the bottom
-                </li>
-                <li>
-                  Scroll down and tap{" "}
-                  <span className="font-medium text-foreground">
-                    Add to Home Screen
-                  </span>
-                </li>
-                <li>
-                  <span className="font-medium text-foreground">Tap Add</span>{" "}
-                  in the top right
-                </li>
-              </ol>
-              <p className="text-xs text-muted-foreground">
-                Make sure you are in Safari, not another browser.
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-foreground">
+                iPhone / iPad (Safari)
               </p>
+              <div className="space-y-2">
+                <div className="flex gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                    1
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    Tap the{" "}
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 font-medium text-foreground shadow-sm">
+                      <Share className="h-3.5 w-3.5 text-primary" />
+                      Share
+                    </span>{" "}
+                    button at the bottom
+                  </p>
+                </div>
+                <div className="flex gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                    2
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    Scroll down and tap{" "}
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-0.5 font-medium text-foreground shadow-sm">
+                      <SquarePlus className="h-3.5 w-3.5 text-primary" />
+                      Add to Home Screen
+                    </span>
+                  </p>
+                </div>
+                <div className="flex gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                    3
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Tap Add</span>{" "}
+                    in the top right
+                  </p>
+                </div>
+              </div>
             </div>
           ) : platform === "android" ? (
             <div className="space-y-3">
@@ -365,9 +499,9 @@ export function OnboardingPage() {
             </div>
           )}
           <Button
-            variant={installed || deferredPrompt ? "default" : "outline"}
+            variant={installed || deferredPrompt ? "default" : "ghost"}
             onClick={handleStep2Continue}
-            className="w-full"
+            className="w-full font-normal text-muted-foreground"
           >
             {installed ? "Continue" : "Continue without installing"}
           </Button>

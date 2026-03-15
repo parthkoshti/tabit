@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { AuthForm } from "@/app/auth/auth-form";
 import { Spinner } from "@/components/ui/spinner";
 
-export function LoginPage() {
+export function SignupPage() {
   return (
     <Suspense
       fallback={
@@ -11,7 +11,7 @@ export function LoginPage() {
         </main>
       }
     >
-      <AuthForm mode="login" />
+      <AuthForm mode="signup" />
     </Suspense>
   );
 }

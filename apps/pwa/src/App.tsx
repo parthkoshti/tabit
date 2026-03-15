@@ -4,6 +4,7 @@ import { UpdateGate } from "@/components/update-gate";
 import { Toaster } from "@/components/ui/sonner";
 import { AppLayout } from "./routes/AppLayout";
 import { LoginPage } from "@/app/login/page";
+import { SignupPage } from "@/app/signup/page";
 import { InvitePage } from "@/app/invite/page";
 import { AppPage } from "@/app/(app)/page";
 import { OnboardingPage } from "@/app/(app)/onboarding/page";
@@ -29,6 +30,7 @@ export function App() {
           <div className="min-h-screen bg-background font-sans text-foreground">
             <Routes>
               <Route path="/login" element={<LoginPage />} />
+              <Route path="/signup" element={<SignupPage />} />
               <Route path="/invite" element={<InvitePage />} />
               <Route path="*" element={<AppLayout />}>
                 <Route index element={<AppPage />} />

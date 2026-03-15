@@ -48,7 +48,7 @@ function InviteContent() {
     if (isTabInvite) {
       if (!session?.user) {
         const returnTo = `/invite?type=tab&token=${encodeURIComponent(tokenParam!)}`;
-        navigate(`/login?callbackURL=${encodeURIComponent(returnTo)}`, {
+        navigate(`/signup?callbackURL=${encodeURIComponent(returnTo)}`, {
           replace: true,
         });
         return;
@@ -72,7 +72,7 @@ function InviteContent() {
     if (qrParam) {
       if (!session?.user) {
         const returnTo = `/invite?user=${encodeURIComponent(userParam ?? "")}&qr=${encodeURIComponent(qrParam)}`;
-        navigate(`/login?callbackURL=${encodeURIComponent(returnTo)}`, {
+        navigate(`/signup?callbackURL=${encodeURIComponent(returnTo)}`, {
           replace: true,
         });
         return;
@@ -176,9 +176,14 @@ function InviteContent() {
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
           {error}
         </div>
-        <Button variant="link" asChild className="mt-4">
-          <Link to="/login">Sign in</Link>
-        </Button>
+        <div className="mt-4 flex gap-4">
+          <Button variant="link" asChild>
+            <Link to="/login">Sign in</Link>
+          </Button>
+          <Button variant="link" asChild>
+            <Link to="/signup">Sign up</Link>
+          </Button>
+        </div>
       </main>
     );
   }

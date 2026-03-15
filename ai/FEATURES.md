@@ -5,6 +5,7 @@ A running list of features in the app.
 ## Platform
 
 - PWA on iOS, Android, web, macOS, Windows
+- Sign up page (email OTP, works with tab and friend invite flows)
 
 ## Real-time
 
