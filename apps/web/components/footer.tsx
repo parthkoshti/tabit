@@ -93,7 +93,7 @@ export function Footer() {
           </div>
 
           <FooterSection title="Product">
-            <FooterLink href="/why">Why Tab?</FooterLink>
+            <FooterLink href="/blog/why">Why Tab?</FooterLink>
           </FooterSection>
 
           <FooterSection title="Connect">

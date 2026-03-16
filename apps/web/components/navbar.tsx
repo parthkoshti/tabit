@@ -30,7 +30,7 @@ export function Navbar() {
             Blog
           </TransitionLink>
           <TransitionLink
-            href="/why"
+            href="/blog/why"
             className="hidden sm:inline-flex text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Why?

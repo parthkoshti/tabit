@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import { Link as TransitionLink } from "next-view-transitions";
-import { MDXRemote } from "next-mdx-remote";
 import { format } from "date-fns";
 import type { Metadata } from "next";
 import { getPostBySlug, getAllPosts } from "@/lib/blog";
-import { mdxComponents } from "@/components/blog/mdx-components";
+import { MDXContent } from "@/components/blog/mdx-content";
 import { appConfig } from "@/app/config";
 
 interface BlogPostPageProps {
@@ -56,7 +55,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   return (
     <>
-      <section className="px-6 pt-32 pb-24 sm:px-8 sm:pt-40 sm:pb-32 lg:px-12">
+      <section className="px-6 pt-32 pb-10 sm:px-8 sm:pt-40 sm:pb-12 lg:px-12">
         <div className="mx-auto max-w-2xl">
           <TransitionLink
             href="/blog"
@@ -75,13 +74,18 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               {format(new Date(post.date), "MMMM d, yyyy")}
             </time>
           ) : null}
+          {post.description ? (
+            <p className="mt-4 text-lg text-muted-foreground">
+              {post.description}
+            </p>
+          ) : null}
         </div>
       </section>
 
-      <section className="border-t border-border/50 px-6 py-16 sm:px-8 sm:py-24 lg:px-12">
+      <section className="border-t border-border/50 px-6 py-10 sm:px-8 sm:py-12 lg:px-12">
         <article className="mx-auto max-w-2xl">
           <div className="prose prose-neutral dark:prose-invert max-w-none">
-            <MDXRemote {...post.mdxSource} components={mdxComponents} />
+            <MDXContent source={post.mdxSource} />
           </div>
         </article>
       </section>
