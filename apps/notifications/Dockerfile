@@ -20,7 +20,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY --from=prepare /app/out/full/ .
 
-RUN pnpm build
+RUN pnpm exec turbo build --filter=notifications...
 
 # Stage 3: Production
 FROM node:24-alpine AS prod

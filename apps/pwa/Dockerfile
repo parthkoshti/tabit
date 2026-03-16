@@ -43,7 +43,7 @@ ARG TURBO_TOKEN
 ENV TURBO_TEAM=$TURBO_TEAM
 ENV TURBO_TOKEN=$TURBO_TOKEN
 
-RUN pnpm build
+RUN pnpm exec turbo build --filter=pwa...
 
 # Stage 3: Production
 FROM node:24-alpine AS prod
