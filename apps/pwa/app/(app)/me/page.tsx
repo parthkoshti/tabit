@@ -33,6 +33,7 @@ import {
   Heart,
   ExternalLink,
   Mic,
+  RefreshCw,
 } from "lucide-react";
 import {
   useSpeechRecognitionSettings,
@@ -55,6 +56,7 @@ import {
 } from "@/components/ui/accordion";
 import QRCode from "qrcode";
 import { CURATED_CURRENCIES, getCurrency, formatAmount } from "shared";
+import { useBustCache } from "@/lib/use-bust-cache";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{5,12}$/;
 
@@ -420,6 +422,8 @@ export function MePage() {
         <SupportSection />
 
         <InviteSection />
+
+        <BustCacheSection />
       </div>
     </div>
   );
@@ -737,6 +741,25 @@ function SupportSection() {
             </div>
           )}
         </div>
+      </div>
+    </section>
+  );
+}
+
+function BustCacheSection() {
+  const bustCache = useBustCache();
+
+  return (
+    <section className="space-y-4">
+      <div className="rounded-xl border border-border bg-card/50 p-4">
+        <h2 className="text-sm font-medium mb-1">Bust cache</h2>
+        <p className="text-[11px] text-muted-foreground mb-4">
+          Clear all cached data and reload the app. Use if you see stale data.
+        </p>
+        <Button variant="outline" onClick={bustCache} className="gap-2 w-full">
+          <RefreshCw className="h-4 w-4" />
+          Bust Cache (Reloads App)
+        </Button>
       </div>
     </section>
   );

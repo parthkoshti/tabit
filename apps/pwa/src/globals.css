@@ -70,6 +70,32 @@
   transform: translateZ(0); /* Force own compositing layer */
 }
 
+/* Stronger frosted glass for navbar - more blur, lighter tint */
+.frosted-glass-nav {
+  -webkit-backdrop-filter: blur(20px) saturate(10%);
+  backdrop-filter: blur(20px) saturate(180%);
+  transform: translateZ(0);
+}
+
+/* Grainy glass - frosted glass with subtle noise texture overlay */
+.grainy-glass {
+  position: relative;
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  transform: translateZ(0);
+}
+.grainy-glass::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  opacity: 0.15;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
 @property --ray-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -80,15 +106,15 @@
     --ray-angle: 360deg;
   }
 }
-.navbar-border-reconnecting {
+.navbar-ring-reconnecting {
   position: relative;
   overflow: visible;
 }
-.navbar-border-reconnecting::before {
+.navbar-ring-reconnecting::before {
   --ray-angle: 0deg;
   content: "";
   position: absolute;
-  inset: 0;
+  inset: -4px;
   border-radius: 9999px;
   padding: 1px;
   background: conic-gradient(

@@ -47,7 +47,7 @@ export function TabPage() {
   const setNavTitle = useNavTitle();
 
   const [expenseFilter, setExpenseFilter] = useState<
-    "all" | "involved" | "owed" | "owe"
+    "all" | "involved" | "owed" | "owe" | "settlements"
   >("all");
 
   const { data: tab, isLoading: tabLoading } = useQuery({
@@ -72,7 +72,7 @@ export function TabPage() {
       const r = await api.expenses.list(tabIdOrEmpty, {
         limit: 50,
         offset: pageParam,
-        filter: expenseFilter,
+        filter: expenseFilter === "settlements" ? "all" : expenseFilter,
       });
       return r.success
         ? { expenses: r.expenses ?? [], total: r.total ?? 0 }
@@ -92,7 +92,8 @@ export function TabPage() {
         ? loaded
         : undefined;
     },
-    enabled: !!tabIdOrEmpty && !!session?.user,
+    enabled:
+      !!tabIdOrEmpty && !!session?.user && expenseFilter !== "settlements",
   });
   const rawExpenses = useMemo(
     () => expensesData?.pages.flatMap((p) => p?.expenses ?? []) ?? [],
@@ -100,13 +101,15 @@ export function TabPage() {
   );
 
   const expenses = useMemo(() => {
+    if (expenseFilter === "settlements") return [];
     if (expenseFilter === "all") return rawExpenses;
     return rawExpenses.filter((e) => {
       const isPayer = e.paidById === currentUserId;
-      const isInSplits = e.splits?.some((s) => s.userId === currentUserId) ?? false;
+      const isInSplits =
+        e.splits?.some((s) => s.userId === currentUserId) ?? false;
       if (expenseFilter === "involved") return isPayer || isInSplits;
       if (expenseFilter === "owed") return isPayer;
-      if (expenseFilter === "owe") return isInSplits;
+      if (expenseFilter === "owe") return isInSplits && !isPayer;
       return true;
     });
   }, [rawExpenses, expenseFilter, currentUserId]);
@@ -133,7 +136,8 @@ export function TabPage() {
 
   const [infiniteRef] = useInfiniteScroll({
     loading: isLoadingMoreExpenses,
-    hasNextPage: hasMoreExpenses ?? false,
+    hasNextPage:
+      expenseFilter === "settlements" ? false : (hasMoreExpenses ?? false),
     onLoadMore: fetchNextExpenses,
     rootMargin: "0px 0px 200px 0px",
   });
@@ -178,12 +182,12 @@ export function TabPage() {
 
   const filteredSettlements = useMemo(() => {
     const list = settlements ?? [];
+    if (expenseFilter === "owed" || expenseFilter === "owe") return [];
+    if (expenseFilter === "settlements") return list;
     if (expenseFilter === "all") return list;
     return list.filter((s) => {
       if (expenseFilter === "involved")
         return s.fromUserId === currentUserId || s.toUserId === currentUserId;
-      if (expenseFilter === "owed") return s.toUserId === currentUserId;
-      if (expenseFilter === "owe") return s.fromUserId === currentUserId;
       return true;
     });
   }, [settlements, expenseFilter, currentUserId]);
@@ -341,22 +345,26 @@ export function TabPage() {
           </Card>
         </section>
 
-        <section>
-          <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-3 mb-4">
-            <div>
-              <h2 className="text-base font-medium mb-0.5">Expenses</h2>
-              <p className="text-xs text-muted-foreground">
+        <section className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h2 className="text-base font-semibold text-foreground">
+                Expenses
+              </h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 All expenses and settlements in this tab
               </p>
             </div>
             <Select
               value={expenseFilter}
               onValueChange={(v) =>
-                setExpenseFilter(v as "all" | "involved" | "owed" | "owe")
+                setExpenseFilter(
+                  v as "all" | "involved" | "owed" | "owe" | "settlements",
+                )
               }
             >
-              <SelectTrigger className="shrink-0 w-fit h-9">
-                <Filter className="h-4 w-4 shrink-0 opacity-70 mr-2" />
+              <SelectTrigger className="shrink-0 w-fit max-w-34 h-8 text-xs">
+                <Filter className="h-4 w-4 shrink-0 opacity-70 mr-1" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -364,6 +372,7 @@ export function TabPage() {
                 <SelectItem value="involved">I'm involved</SelectItem>
                 <SelectItem value="owed">I'm owed</SelectItem>
                 <SelectItem value="owe">I owe</SelectItem>
+                <SelectItem value="settlements">Settlements</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -409,13 +418,16 @@ export function TabPage() {
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
               {expenseFilter === "all"
                 ? "No expenses or settlements yet"
-                : "No expenses or settlements match this filter"}
+                : expenseFilter === "settlements"
+                  ? "No settlements yet"
+                  : "No expenses or settlements match this filter"}
             </p>
           ) : (
             <motion.div
+              key={expenseFilter}
               className="flex flex-col gap-4"
               variants={staggerContainer}
-              initial={false}
+              initial="initial"
               animate="animate"
             >
               {expensesAndSettlements.map((item, i) => {
@@ -507,7 +519,10 @@ export function TabPage() {
                                         key={s.userId}
                                         className="inline-flex items-center gap-1.5"
                                       >
-                                        <UserAvatar userId={s.userId} size="xs" />
+                                        <UserAvatar
+                                          userId={s.userId}
+                                          size="xs"
+                                        />
                                         {getDisplayName(
                                           getMemberUser(s.userId),
                                           currentUserId,

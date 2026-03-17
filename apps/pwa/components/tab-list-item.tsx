@@ -47,14 +47,10 @@ export function TabListItem({
 }: TabListItemProps) {
   const isDirect = item.type === "direct";
 
-  const allMemberIds =
-    item.type === "group" ? (item.memberUserIds ?? []) : [];
+  const allMemberIds = item.type === "group" ? (item.memberUserIds ?? []) : [];
   const currentUserFirst =
     allMemberIds.length > 0
-      ? [
-          currentUserId,
-          ...allMemberIds.filter((id) => id !== currentUserId),
-        ]
+      ? [currentUserId, ...allMemberIds.filter((id) => id !== currentUserId)]
       : [];
   const hasExtra = currentUserFirst.length > 3;
   const displayMemberIds = hasExtra

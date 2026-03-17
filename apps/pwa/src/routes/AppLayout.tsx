@@ -82,8 +82,8 @@ function AppLayoutWithBanner({
       <main className="app-layout-safe-bottom app-scroll-hide min-h-0 flex-1 overflow-auto overscroll-none pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))]">
         <PageTransition />
       </main>
-      {!isOnboarding && <BottomNavbar connectionState={"reconnecting"} />}
-      {/* {!isOnboarding && <BottomNavbar connectionState={connectionState} />} */}
+      {!isOnboarding && <BottomNavbar connectionState={connectionState} />}
+      {/* {!isOnboarding && <BottomNavbar connectionState={"reconnecting"} />} */}
     </div>
   );
 }

@@ -132,7 +132,7 @@ export function ActivityPage() {
             <motion.div
               className="flex flex-col gap-3"
               variants={staggerContainer}
-              initial={false}
+              initial="initial"
               animate="animate"
             >
               {items.map((item, i) => {
@@ -201,28 +201,32 @@ export function ActivityPage() {
                   >
                     <Link to={`/tabs/${item.tabId}/settlements/${item.id}`}>
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
-                        <div className="flex items-center gap-2">
-                          <UserAvatar userId={item.fromUserId} size="sm" />
-                          <span className="font-medium">
-                            {getDisplayName(
-                              {
-                                id: item.fromUserId,
-                                username: item.fromUserUsername,
-                                name: item.fromUserName,
-                                email: item.fromUserEmail,
-                              },
-                              currentUserId,
-                            )}{" "}
-                            paid{" "}
-                            {getDisplayName(
-                              {
-                                id: item.toUserId,
-                                username: item.toUserUsername,
-                                name: item.toUserName,
-                                email: item.toUserEmail,
-                              },
-                              currentUserId,
-                            )}{" "}
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <UserAvatar userId={item.fromUserId} size="sm" />
+                            <span className="font-medium truncate">
+                              {getDisplayName(
+                                {
+                                  id: item.fromUserId,
+                                  username: item.fromUserUsername,
+                                  name: item.fromUserName,
+                                  email: item.fromUserEmail,
+                                },
+                                currentUserId,
+                              )}{" "}
+                              paid{" "}
+                              {getDisplayName(
+                                {
+                                  id: item.toUserId,
+                                  username: item.toUserUsername,
+                                  name: item.toUserName,
+                                  email: item.toUserEmail,
+                                },
+                                currentUserId,
+                              )}
+                            </span>
+                          </div>
+                          <span className="text-sm font-medium shrink-0">
                             {formatAmount(item.amount, item.tabCurrency)}
                           </span>
                         </div>

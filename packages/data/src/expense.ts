@@ -6,7 +6,7 @@ import {
   expenseSplit,
   user,
 } from "db";
-import { eq, desc, sql, or, and, inArray } from "drizzle-orm";
+import { eq, ne, desc, sql, or, and, inArray } from "drizzle-orm";
 
 export type ExpenseReaction = {
   emoji: string;
@@ -365,6 +365,7 @@ export const expense = {
         filterWhere =
           and(
             baseWhere,
+            ne(expenseTable.paidById, userId),
             sql`${expenseTable.id} IN (SELECT "expenseId" FROM "expense_split" WHERE "userId" = ${userId})`,
           ) ?? baseWhere;
       } else if (filter === "involved") {

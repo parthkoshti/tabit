@@ -7,7 +7,7 @@ import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
-import { AddExpenseFAB } from "@/app/(app)/components/add-expense-fab";
+import { AddExpenseButton } from "@/app/(app)/components/add-expense-button";
 import type { ConnectionState } from "@/lib/notification-manager";
 
 type BottomNavbarProps = {
@@ -44,15 +44,10 @@ export function BottomNavbar({ connectionState }: BottomNavbarProps) {
   const { needRefresh } = useUpdateBanner();
 
   const isReconnecting = connectionState === "reconnecting";
-  const borderClass = isReconnecting
-    ? "border-0"
-    : connectionState === "disconnected"
-      ? "border-2 border-amber-500/60"
-      : "border border-border/60";
 
   const navbarContent = (
     <div
-      className={`frosted-glass flex h-14 w-full max-w-sm items-center overflow-visible rounded-full bg-background/95 px-1 py-2 shadow-lg ${borderClass}`}
+      className={`frosted-glass grid grid-cols-5 h-14 w-full max-w-sm items-center justify-evenly overflow-visible rounded-full bg-background/70 px-1 py-2 shadow-lg ${!isReconnecting ? "ring-1 ring-border-subtle" : ""}`}
     >
       {tabs.slice(0, 2).map(({ href, label, icon: Icon }) => {
         const isActive =
@@ -117,7 +112,7 @@ export function BottomNavbar({ connectionState }: BottomNavbarProps) {
           </Button>
         );
       })}
-      <AddExpenseFAB placement="navbar" />
+      <AddExpenseButton />
       {tabs.slice(2).map(({ href, label, icon: Icon }) => {
         const isActive =
           pathname === href ||
@@ -184,15 +179,13 @@ export function BottomNavbar({ connectionState }: BottomNavbarProps) {
     </div>
   );
 
+  const wrapperClass = isReconnecting
+    ? "navbar-ring-reconnecting w-full max-w-sm overflow-visible rounded-full"
+    : "w-full max-w-sm overflow-visible rounded-full";
+
   return (
     <nav className="bottom-nav-safe fixed bottom-8 left-0 right-0 z-40 flex justify-center overflow-visible px-4 pb-4 pt-2">
-      {isReconnecting ? (
-        <div className="navbar-border-reconnecting w-full max-w-sm overflow-visible rounded-full bg-background p-[2px]">
-          {navbarContent}
-        </div>
-      ) : (
-        navbarContent
-      )}
+      <div className={wrapperClass}>{navbarContent}</div>
     </nav>
   );
 }
