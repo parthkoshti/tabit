@@ -46,17 +46,15 @@ ENV TURBO_TOKEN=$TURBO_TOKEN
 RUN pnpm exec turbo build --filter=pwa...
 
 # Stage 3: Production
-FROM node:24-alpine AS prod
-RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
-WORKDIR /app
+FROM nginx:1.27-alpine AS prod
+WORKDIR /usr/share/nginx/html
 
-ENV NODE_ENV=production
+# Copy built assets from builder stage
+COPY --from=builder /app/apps/pwa/dist .
 
-COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/turbo.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps ./apps
-COPY --from=builder /app/packages ./packages
+# Copy nginx configuration
+COPY apps/pwa/nginx.conf /etc/nginx/conf.d/default.conf
 
 EXPOSE 3003
 
-CMD ["pnpm", "--filter=pwa", "start:prod"]
+CMD ["nginx", "-g", "daemon off;"]
