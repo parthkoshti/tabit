@@ -6,11 +6,13 @@ import { useNotifications } from "@/lib/use-notifications";
 import { useAppBadge } from "@/lib/use-app-badge";
 import { usePeriodicSync } from "@/lib/use-periodic-sync";
 import { PushResubscriptionProvider } from "@/app/(app)/context/push-resubscription-context";
+import { UpdateBannerProvider } from "@/app/(app)/context/update-banner-context";
 import { TopNavbar } from "@/app/(app)/components/top-navbar";
-import { ConnectionBanner } from "@/app/(app)/components/connection-banner";
 import { BottomNavbar } from "@/app/(app)/components/bottom-navbar";
+import { VersionMismatchBanner } from "@/components/version-mismatch-banner";
 import { LoadingScreen } from "@/app/(app)/components/loading-screen";
 import { PageTransition } from "@/components/motion/page-transition";
+import type { ConnectionState } from "@/lib/notification-manager";
 
 function AppLayoutContent() {
   const navigate = useNavigate();
@@ -57,17 +59,31 @@ function AppLayoutContent() {
   const isOnboarding = pathname === "/onboarding";
 
   return (
-    <div className="fixed inset-0 flex flex-col overflow-clip">
-      {!isOnboarding && (
-        <>
-          <ConnectionBanner connectionState={connectionState} />
-          <TopNavbar />
-        </>
-      )}
+    <UpdateBannerProvider>
+      <AppLayoutWithBanner
+        isOnboarding={isOnboarding}
+        connectionState={connectionState}
+      />
+    </UpdateBannerProvider>
+  );
+}
+
+function AppLayoutWithBanner({
+  isOnboarding,
+  connectionState,
+}: {
+  isOnboarding: boolean;
+  connectionState: ConnectionState;
+}) {
+  return (
+    <div className="fixed inset-0 flex flex-col">
+      {!isOnboarding && <TopNavbar />}
+      {!isOnboarding && <VersionMismatchBanner />}
       <main className="app-layout-safe-bottom app-scroll-hide min-h-0 flex-1 overflow-auto overscroll-none pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))] pt-[calc(3.5rem+env(safe-area-inset-top,0px))]">
         <PageTransition />
       </main>
-      {!isOnboarding && <BottomNavbar />}
+      {!isOnboarding && <BottomNavbar connectionState={"reconnecting"} />}
+      {/* {!isOnboarding && <BottomNavbar connectionState={connectionState} />} */}
     </div>
   );
 }

@@ -1,21 +1,11 @@
-import { ChangelogMarkdown } from "@/components/changelog-markdown";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { ChangelogContent } from "@/components/changelog-content";
 import { useChangelog } from "@/lib/use-changelog";
-
-function formatReleaseDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 type ChangelogDialogProps = {
   open: boolean;
@@ -44,25 +34,7 @@ export function ChangelogDialog({ open, onOpenChange }: ChangelogDialogProps) {
           )}
         </DialogHeader>
         <div className="flex max-h-96 flex-col gap-3 overflow-auto">
-          {releases.length === 0 ? (
-            <p className="text-muted-foreground text-sm">Loading...</p>
-          ) : (
-            releases.map((release, i) => (
-              <div
-                key={`${release.version}-${release.date}`}
-                className="rounded-xl border border-border bg-card/50 p-4 prose prose-invert prose-sm"
-              >
-                {(release.version || release.date) && (
-                  <div className="mb-2 text-sm font-medium text-foreground">
-                    {release.version && `v${release.version}`}
-                    {release.version && release.date && " on "}
-                    {release.date && formatReleaseDate(release.date)}
-                  </div>
-                )}
-                <ChangelogMarkdown>{release.content}</ChangelogMarkdown>
-              </div>
-            ))
-          )}
+          <ChangelogContent enabled={open} className="flex flex-col gap-3" />
         </div>
       </DialogContent>
     </Dialog>

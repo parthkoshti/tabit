@@ -49,7 +49,7 @@ export function AddExpenseFAB({ placement = "floating" }: AddExpenseFABProps) {
         variant="default"
         className={
           placement === "navbar"
-            ? "h-14 w-14 rounded-full border border-border/40 p-0 shadow-md ring-2 ring-background transition-all duration-200 hover:shadow-lg [&_svg]:size-7"
+            ? "size-18 rounded-full border border-border/40 p-0 shadow-md ring-2 ring-background transition-all duration-200 hover:shadow-lg [&_svg]:size-7"
             : "h-12 gap-2 rounded-full px-4 shadow-lg"
         }
         asChild
@@ -81,7 +81,7 @@ export function AddExpenseFAB({ placement = "floating" }: AddExpenseFABProps) {
               </Button>
             </div>
           )}
-          <div className="flex flex-1 items-end justify-center px-1">
+          <div className="flex flex-1 items-center justify-center px-1">
             <div className="">{fabButton}</div>
           </div>
         </>

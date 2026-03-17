@@ -5,12 +5,14 @@ A running list of features in the app.
 ## Platform
 
 - PWA on iOS, Android, web, macOS, Windows
+- Release mismatch banner: When a new version is available, a banner appears with changelog and Update button
 - Blog (MDX file-based, routes /blog and /blog/[slug])
 - Sign up page (email OTP, works with tab and friend invite flows)
 
 ## Real-time
 
 - Real-time notifications
+- Connection state (disconnected/reconnecting) shown on bottom navbar via border styling
 
 ## Social
 

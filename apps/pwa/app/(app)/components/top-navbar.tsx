@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Link } from "react-router-dom";
-import { useRegisterSW } from "virtual:pwa-register/react";
 import {
   ArrowLeft,
   Plus,
@@ -10,6 +9,7 @@ import {
   CircleFadingArrowUp,
   Settings,
 } from "lucide-react";
+import { useUpdateBanner } from "@/app/(app)/context/update-banner-context";
 import { AnimatePresence, motion } from "framer-motion";
 import { appConfig } from "@/src/config";
 import { useNavTitleConfig } from "../context/nav-title-context";
@@ -48,28 +48,12 @@ export function TopNavbar() {
   const [changelogOpen, setChangelogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const {
-    needRefresh: [needRefresh],
+    needRefresh,
+    showBanner,
     updateServiceWorker,
-  } = useRegisterSW({
-    onRegisteredSW(swUrl, registration) {
-      if (!registration) return;
-      setInterval(
-        async () => {
-          if (registration.installing || !navigator.onLine) return;
-          try {
-            const resp = await fetch(swUrl, {
-              cache: "no-store",
-              headers: { "Cache-Control": "no-cache" },
-            });
-            if (resp?.status === 200) await registration.update();
-          } catch {
-            // ignore
-          }
-        },
-        15 * 60 * 1000,
-      );
-    },
-  });
+  } = useUpdateBanner();
+
+  const showUpdateButton = needRefresh && !showBanner;
 
   return (
     <header className="top-nav-safe fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]">
@@ -126,7 +110,7 @@ export function TopNavbar() {
             </div>
           </div>
           <div className="relative z-10 flex shrink-0 justify-end w-20 gap-1">
-            {needRefresh && (
+            {showUpdateButton && (
               <Button
                 variant="default"
                 size="sm"
@@ -164,7 +148,7 @@ export function TopNavbar() {
         </div>
       )}
       {!navPage &&
-        (needRefresh ? (
+        (showUpdateButton ? (
           <div className="relative z-10 flex shrink-0 justify-end">
             <Button
               variant="default"
@@ -219,7 +203,7 @@ export function TopNavbar() {
           <SignOutButton />
         </div>
       )}
-      {needRefresh && (
+      {showUpdateButton && (
         <UpdateDialog
           open={updateDialogOpen}
           onOpenChange={setUpdateDialogOpen}

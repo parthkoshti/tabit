@@ -6,23 +6,25 @@ import {
 } from "@/components/ui/dialog";
 import { ChangelogContent } from "@/components/changelog-content";
 import { useChangelog } from "@/lib/use-changelog";
+import { useUpdateBanner } from "@/app/(app)/context/update-banner-context";
 
-type UpdateDialogProps = {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onUpdate: () => void;
-};
+export function VersionMismatchBanner() {
+  const { showBanner, updateServiceWorker } = useUpdateBanner();
+  const releases = useChangelog(showBanner);
 
-export function UpdateDialog({
-  open,
-  onOpenChange,
-  onUpdate,
-}: UpdateDialogProps) {
-  const releases = useChangelog(open);
+  const handleUpdate = async () => {
+    updateServiceWorker(true);
+    window.location.reload();
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] flex flex-col">
+    <Dialog open={showBanner} onOpenChange={() => {}}>
+      <DialogContent
+        className="max-h-[85vh] max-w-[90vw] flex flex-col rounded-lg"
+        showCloseButton={false}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle>New Version Available</DialogTitle>
           <p className="text-sm text-muted-foreground">
@@ -36,11 +38,14 @@ export function UpdateDialog({
           </p>
         </DialogHeader>
         <div className="flex max-h-96 flex-col gap-3 overflow-auto">
-          <ChangelogContent enabled={open} className="flex flex-col gap-3" />
+          <ChangelogContent
+            enabled={showBanner}
+            className="flex flex-col gap-3"
+          />
         </div>
         <button
           type="button"
-          onClick={onUpdate}
+          onClick={handleUpdate}
           className="mt-4 w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground"
         >
           Update App

@@ -70,6 +70,47 @@
   transform: translateZ(0); /* Force own compositing layer */
 }
 
+@property --ray-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes border-ray-spin {
+  to {
+    --ray-angle: 360deg;
+  }
+}
+.navbar-border-reconnecting {
+  position: relative;
+  overflow: visible;
+}
+.navbar-border-reconnecting::before {
+  --ray-angle: 0deg;
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--ray-angle),
+    transparent 0%,
+    var(--primary) 5%,
+    var(--primary) 15%,
+    transparent 25%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask-composite: exclude;
+  animation: border-ray-spin 1.5s linear infinite;
+  pointer-events: none;
+}
+
 /* Hide scrollbars in app layout - scroll still works */
 .app-scroll-hide {
   scrollbar-width: none;
