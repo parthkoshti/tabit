@@ -8,7 +8,7 @@ import { getLastCheckTime, setLastCheckTime } from "../lib/periodic-sync-store";
 
 declare let self: ServiceWorkerGlobalScope;
 
-const API_BASE = "/api-backend";
+const API_BASE = "/api";
 const PERIODIC_SYNC_TAG = "check-notifications";
 
 self.skipWaiting();

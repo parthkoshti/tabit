@@ -13,9 +13,9 @@ Tab It is a Splitwise-alternative for splitting expenses. It's a pnpm + Turborep
 ```bash
 pnpm install                          # Install all dependencies
 pnpm run build --filter=models --filter=db --filter=otel  # Build shared packages first (required before dev)
-pnpm dev                              # Run all apps concurrently (web, pwa, api, notifications)
+pnpm dev                              # Run all apps concurrently (pwa, api, notifications; web excluded)
 pnpm dev:pwa                          # Run only the PWA
-pnpm dev:web                          # Run only the landing page
+pnpm dev:web                          # Run only the landing page (independent of turbo)
 ```
 
 ### Database
@@ -45,7 +45,7 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 
 ### Monorepo Structure
 
-- `apps/web` — Next.js 15 landing page (port 3000), uses App Router
+- `apps/web` — Next.js 15 landing page (port 3000), uses App Router; independent app (not in turbo)
 - `apps/pwa` — Vite + React SPA, the main expense-splitting app (port 3003)
 - `apps/api` — Hono REST API (port 3001), the backend for all data operations
 - `apps/notifications` — WebSocket server (port 3002), uses Redis pub/sub + web-push
@@ -59,7 +59,7 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 
 ### Key Architectural Patterns
 
-**API proxy in PWA dev**: The PWA (Vite) proxies `/api-backend` → `http://localhost:3001` and `/api/auth` → `http://localhost:3001`. In production, this must be configured at the reverse proxy level. All API calls in `apps/pwa/lib/api-client.ts` go through `/api-backend`.
+**API proxy in PWA**: The PWA proxies `/api/auth` → `api:3001/api/auth` (pass-through) and `/api/*` → `api:3001/v1/*` (rewrite). All API calls in `apps/pwa/lib/api-client.ts` use base `/api`. Backend app routes live under `/v1`.
 
 **Auth**: Better Auth handles sessions. The `packages/auth` package exports a configured `auth` instance used by both the API (at `/api/auth/*`) and server-side in `apps/web`. The PWA uses `better-auth/react` via `apps/pwa/lib/auth-client.ts`.
 

@@ -1,15 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["models", "db"],
-  async rewrites() {
-    return [
-      {
-        source: "/api-backend/:path*",
-        destination: "http://localhost:3001/:path*",
-      },
-    ];
-  },
+  transpilePackages: ["models", "db", "next-mdx-remote"],
   async headers() {
     return [
       {

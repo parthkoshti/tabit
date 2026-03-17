@@ -1,6 +1,6 @@
 const configuredWsUrl =
   import.meta.env.VITE_NOTIFICATIONS_WS_URL ?? "ws://localhost:3002";
-const apiUrl = "/api-backend";
+const apiUrl = "/api";
 
 const TOKEN_LIFETIME_MS = 5 * 60 * 1000; // 5 minutes
 const TOKEN_REFRESH_BEFORE_MS = 60 * 1000; // Refresh 1 min before expiry

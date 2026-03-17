@@ -10,6 +10,12 @@ export const notificationsRoutes = new Hono<{
 
 notificationsRoutes.use("*", authMiddleware);
 
+notificationsRoutes.get("/token", async (c) => {
+  const { userId } = c.get("auth");
+  const token = Buffer.from(`${userId}:${Date.now()}`).toString("base64url");
+  return c.json({ token });
+});
+
 notificationsRoutes.get("/missed", async (c) => {
   const { userId } = c.get("auth");
   const sinceParam = c.req.query("since");

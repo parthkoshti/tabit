@@ -67,7 +67,7 @@ export default defineConfig({
         ],
       },
       workbox: {
-        navigateFallbackDenylist: [/^\/api-backend/, /^\/api\/auth/],
+        navigateFallbackDenylist: [/^\/api/],
       },
       includeAssets: ["favicon.ico", "icon-192x192.png", "icon-512x512.png", "offline.html"],
     }),
@@ -84,14 +84,14 @@ export default defineConfig({
   server: {
     https: isProd ? undefined : https,
     proxy: {
-      "/api-backend": {
-        target: "http://localhost:3001",
-        changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api-backend/, ""),
-      },
       "/api/auth": {
         target: "http://localhost:3001",
         changeOrigin: true,
+      },
+      "/api": {
+        target: "http://localhost:3001",
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api/, "/v1"),
       },
     },
   },
