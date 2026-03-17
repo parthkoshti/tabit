@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,7 +26,8 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { PokeIcon } from "@/components/icons/poke-icon";
-import { formatAmount } from "@/lib/format-amount";
+import { TabListItem } from "@/components/tab-list-item";
+import { authClient } from "@/lib/auth-client";
 import { SortDesc } from "lucide-react";
 
 type FriendSort = "expenses" | "recent" | "name";
@@ -52,6 +52,8 @@ export function FriendsPage() {
   const [sortBy, setSortBy] = useState<FriendSort>("expenses");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { data: session } = authClient.useSession();
+  const currentUserId = session?.user?.id ?? "";
   const { data: friendsData, isLoading } = useQuery({
     queryKey: ["friends"],
     queryFn: async () => {
@@ -287,64 +289,24 @@ export function FriendsPage() {
             >
               {sortedFriends.map((f) => (
                 <motion.div key={f.id} variants={staggerItem}>
-                  <Link to={`/tabs/${f.id}`}>
-                    <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex min-w-0 items-start gap-3">
-                          <UserAvatar
-                            userId={f.friend.id}
-                            size="sm"
-                            className="shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate font-medium">
-                              {getDisplayName(f.friend, undefined, {
-                                useFullName: true,
-                              })}
-                            </div>
-                            {f.friend.username && (
-                              <div className="truncate text-sm text-muted-foreground">
-                                @{f.friend.username}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        <span
-                          className={`shrink-0 ${
-                            f.balance > 0
-                              ? "text-sm font-medium text-positive"
-                              : f.balance < 0
-                                ? "text-sm font-medium text-negative"
-                                : "text-sm text-muted-foreground"
-                          }`}
-                        >
-                          {f.balance > 0
-                            ? `Owes you ${formatAmount(f.balance, f.currency)}`
-                            : f.balance < 0
-                              ? `You owe ${formatAmount(Math.abs(f.balance), f.currency)}`
-                              : "Settled up"}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-muted-foreground">
-                          {f.expenseCount === 0
-                            ? "No expenses yet"
-                            : `${f.expenseCount} expense${f.expenseCount === 1 ? "" : "s"}`}
-                          {f.lastExpenseDate && (
-                            <>
-                              {" "}
-                              &middot;{" "}
-                              {new Date(f.lastExpenseDate).toLocaleDateString(
-                                undefined,
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                },
-                              )}
-                            </>
-                          )}
-                        </span>
+                  <AnimatedCard>
+                    <TabListItem
+                      item={{
+                        type: "direct",
+                        id: f.id,
+                        displayName: getDisplayName(f.friend, undefined, {
+                          useFullName: true,
+                        }),
+                        username: f.friend.username,
+                        balance: f.balance,
+                        currency: f.currency ?? "USD",
+                        expenseCount: f.expenseCount,
+                        lastExpenseDate: f.lastExpenseDate,
+                        friendId: f.friend.id,
+                      }}
+                      currentUserId={currentUserId}
+                      href={`/tabs/${f.id}`}
+                      renderActions={() => (
                         <Button
                           size="default"
                           variant="outline"
@@ -354,9 +316,9 @@ export function FriendsPage() {
                           <PokeIcon className="h-5 w-5 stroke-3 text-negative" />{" "}
                           Poke
                         </Button>
-                      </div>
-                    </AnimatedCard>
-                  </Link>
+                      )}
+                    />
+                  </AnimatedCard>
                 </motion.div>
               ))}
             </motion.div>

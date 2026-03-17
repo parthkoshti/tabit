@@ -4,13 +4,13 @@ import { VitePWA } from "vite-plugin-pwa";
 import path from "node:path";
 import fs from "node:fs";
 
-const certDir = path.resolve(__dirname, "certificates");
+const certDir = path.resolve(__dirname, "../../certs");
 const https =
-  fs.existsSync(path.join(certDir, "localhost.pem")) &&
-  fs.existsSync(path.join(certDir, "localhost-key.pem"))
+  fs.existsSync(path.join(certDir, "cert.pem")) &&
+  fs.existsSync(path.join(certDir, "key.pem"))
     ? {
-        cert: fs.readFileSync(path.join(certDir, "localhost.pem")),
-        key: fs.readFileSync(path.join(certDir, "localhost-key.pem")),
+        cert: fs.readFileSync(path.join(certDir, "cert.pem")),
+        key: fs.readFileSync(path.join(certDir, "key.pem")),
       }
     : undefined;
 

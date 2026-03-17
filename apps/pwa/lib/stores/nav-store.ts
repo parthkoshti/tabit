@@ -12,6 +12,7 @@ export type NavTitleConfig = {
 /** Pre-known nav configs for tab-level routes. Prevents flash when route's useEffect hasn't run yet. */
 const TAB_ROUTE_NAV_CONFIG: Record<string, NavTitleConfig | null> = {
   "/me": { title: "Profile", backHref: "/tabs" },
+  "/expense/new": { title: "Log Expense", backHref: "/tabs" },
   "/friends": null,
   "/friends/": null,
   "/tabs": null,
@@ -21,6 +22,7 @@ const TAB_ROUTE_NAV_CONFIG: Record<string, NavTitleConfig | null> = {
 
 function getDefaultNavConfig(pathname: string): NavTitleConfig | null {
   if (pathname === "/me") return TAB_ROUTE_NAV_CONFIG["/me"];
+  if (pathname === "/expense/new") return TAB_ROUTE_NAV_CONFIG["/expense/new"];
   if (pathname === "/friends" || pathname === "/friends/")
     return TAB_ROUTE_NAV_CONFIG["/friends"];
   if (pathname === "/tabs" || pathname === "/tabs/")

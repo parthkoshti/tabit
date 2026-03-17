@@ -8,7 +8,7 @@ out
 .env.*
 !.env.example
 apps/mcp
-apps/web/certificates
+certs
 apps/web/scripts/dev-https.js
 .cursor
 *.md

@@ -376,6 +376,19 @@ export const api = {
         body: data,
       }),
   },
+  preferences: {
+    get: () =>
+      request<{
+        success: boolean;
+        addExpensePreference?: "ai" | "manual";
+        error?: string;
+      }>("/preferences"),
+    update: (data: { addExpensePreference?: "ai" | "manual" }) =>
+      request<{ success: boolean; error?: string }>("/preferences", {
+        method: "PATCH",
+        body: data,
+      }),
+  },
   username: {
     check: (username: string) =>
       request<{ available: boolean }>(

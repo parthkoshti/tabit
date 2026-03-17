@@ -92,10 +92,10 @@ All apps read from a root `.env` / `.env.local` file (via `dotenv-cli`). Key var
 
 ### HTTPS for PWA (local dev)
 
-The PWA runs over HTTPS by default (needed for service workers). Certs go in `apps/pwa/certificates/`. Generate with:
+The PWA runs over HTTPS by default (needed for service workers). Certs go in `certs/` at repo root and are shared by PWA and notifications. Generate with:
 
 ```bash
-cd apps/pwa && pnpm generate-https-certs  # requires mkcert
+pnpm generate-https-certs  # requires mkcert
 ```
 
 ## UI Conventions

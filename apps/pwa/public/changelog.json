@@ -1,6 +1,11 @@
 {
   "releases": [
     {
+      "version": "0.1.5",
+      "date": "2026-03-17",
+      "content": "- Unified tab list: Single scrollable, searchable list for group tabs and direct friends when adding expenses\n- Reusable tab cards across add expense, friends, and tabs pages\n- Loading animations when selecting tabs\n- Full-width tab cards\n- Group tabs show your avatar first in the member stack"
+    },
+    {
       "version": "0.1.4",
       "date": "2026-03-15",
       "content": "- React to expenses with emojis: Add, change, or remove your reaction anytime\n- Get notified when someone reacts to an expense you're part of\n- Tap your reaction to change it or remove it quickly"

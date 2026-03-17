@@ -28,6 +28,8 @@ A running list of features in the app.
 ## Expenses
 
 - Filter tab expenses by All, I'm involved, I'm owed, I owe
+- Log Expense page (/expense/new) with AI/Manual pill slider; bottom nav plus opens page
+- Unified add-expense flow with AI/Manual tabs; preference persisted in user preferences
 - AI-powered voice expense creation
 - Emoji reactions on expenses (add, remove, full emoji picker)
 - Notifications when someone reacts to an expense you're part of

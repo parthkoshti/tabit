@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generate HTTPS certs for local dev (web + pwa) including your network IP.
+ * Generate HTTPS certs for local dev (PWA + notifications) including your network IP.
  * Requires mkcert: brew install mkcert && mkcert -install
  *
  * Run: pnpm generate-https-certs
@@ -12,10 +12,9 @@ const os = require("node:os");
 const path = require("node:path");
 
 const rootDir = path.join(__dirname, "..");
-const webCertDir = path.join(rootDir, "apps/web/certificates");
-const pwaCertDir = path.join(rootDir, "apps/pwa/certificates");
-const webKeyPath = path.join(webCertDir, "key.pem");
-const webCertPath = path.join(webCertDir, "cert.pem");
+const certDir = path.join(rootDir, "certs");
+const keyPath = path.join(certDir, "key.pem");
+const certPath = path.join(certDir, "cert.pem");
 
 function getLocalIP() {
   if (process.env.LOCAL_IP) return process.env.LOCAL_IP;
@@ -46,12 +45,12 @@ function main() {
     console.log("Could not detect local IP. Use LOCAL_IP=192.168.0.120 if needed.");
   }
 
-  if (!fs.existsSync(webCertDir)) fs.mkdirSync(webCertDir, { recursive: true });
+  if (!fs.existsSync(certDir)) fs.mkdirSync(certDir, { recursive: true });
 
-  console.log("Generating certificates for web...");
+  console.log("Generating certificates...");
   const result = spawnSync(
     "mkcert",
-    ["-key-file", webKeyPath, "-cert-file", webCertPath, ...names],
+    ["-key-file", keyPath, "-cert-file", certPath, ...names],
     { stdio: "inherit" }
   );
 
@@ -60,11 +59,7 @@ function main() {
     process.exit(1);
   }
 
-  if (!fs.existsSync(pwaCertDir)) fs.mkdirSync(pwaCertDir, { recursive: true });
-  fs.copyFileSync(webKeyPath, path.join(pwaCertDir, "localhost-key.pem"));
-  fs.copyFileSync(webCertPath, path.join(pwaCertDir, "localhost.pem"));
-
-  console.log("Done. Certs saved to apps/web/certificates/ and apps/pwa/certificates/");
+  console.log("Done. Certs saved to certs/");
 }
 
 main();

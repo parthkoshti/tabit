@@ -2,7 +2,6 @@ import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
-import { Link } from "react-router-dom";
 import { ReceiptText, ArrowDownAZ } from "lucide-react";
 import {
   Select,
@@ -17,7 +16,7 @@ import { authClient } from "@/lib/auth-client";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
-import { formatAmount } from "@/lib/format-amount";
+import { TabListItem } from "@/components/tab-list-item";
 
 type TabSort = "expenses" | "recent" | "name";
 
@@ -210,77 +209,26 @@ export function TabsPage() {
               initial="initial"
               animate="animate"
             >
-              {sortedTabs.map((t) => {
-                const otherMemberIds =
-                  t.memberUserIds?.filter((id) => id !== currentUserId) ?? [];
-                const hasExtra = otherMemberIds.length > 3;
-                const displayMembers = hasExtra
-                  ? otherMemberIds.slice(0, 2)
-                  : otherMemberIds.slice(0, 3);
-                const extraCount = hasExtra ? otherMemberIds.length - 2 : 0;
-                return (
-                  <motion.div key={t.id} variants={staggerItem}>
-                    <Link to={`/tabs/${t.id}`}>
-                      <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
-                        <div className="flex items-start justify-between gap-2">
-                          <span className="font-medium">{t.name}</span>
-                          <span
-                            className={
-                              (t.balance ?? 0) > 0
-                                ? "text-sm font-medium text-positive shrink-0"
-                                : (t.balance ?? 0) < 0
-                                  ? "text-sm font-medium text-negative shrink-0"
-                                  : "text-sm text-muted-foreground shrink-0"
-                            }
-                          >
-                            {(t.balance ?? 0) > 0
-                              ? `+${formatAmount(t.balance ?? 0, t.currency)}`
-                              : (t.balance ?? 0) < 0
-                                ? `-${formatAmount(Math.abs(t.balance ?? 0), t.currency)}`
-                                : "Settled"}
-                          </span>
-                        </div>
-                        {displayMembers.length > 0 && (
-                          <div className="flex -space-x-2">
-                            {displayMembers.map((userId) => (
-                              <UserAvatar
-                                key={userId}
-                                userId={userId}
-                                size="xs"
-                                className="ring-2 ring-background"
-                              />
-                            ))}
-                            {extraCount > 0 && (
-                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
-                                +{extraCount}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        <span className="text-xs text-muted-foreground">
-                          {(t.expenseCount ?? 0) === 0
-                            ? "No expenses yet"
-                            : `${t.expenseCount} expense${(t.expenseCount ?? 0) === 1 ? "" : "s"}`}
-                          {t.lastExpenseDate && (
-                            <>
-                              {" "}
-                              &middot;{" "}
-                              {new Date(t.lastExpenseDate).toLocaleDateString(
-                                undefined,
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                },
-                              )}
-                            </>
-                          )}
-                        </span>
-                      </AnimatedCard>
-                    </Link>
-                  </motion.div>
-                );
-              })}
+              {sortedTabs.map((t) => (
+                <motion.div key={t.id} variants={staggerItem}>
+                  <AnimatedCard>
+                    <TabListItem
+                      item={{
+                        type: "group",
+                        id: t.id,
+                        name: t.name,
+                        balance: t.balance ?? 0,
+                        currency: t.currency ?? "USD",
+                        expenseCount: t.expenseCount ?? 0,
+                        lastExpenseDate: t.lastExpenseDate,
+                        memberUserIds: t.memberUserIds,
+                      }}
+                      currentUserId={currentUserId}
+                      href={`/tabs/${t.id}`}
+                    />
+                  </AnimatedCard>
+                </motion.div>
+              ))}
             </motion.div>
           )}
         </section>

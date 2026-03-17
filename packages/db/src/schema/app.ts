@@ -224,3 +224,16 @@ export const pushSubscription = pgTable("push_subscription", {
   userAgent: text("userAgent"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
+
+export const userPreference = pgTable(
+  "user_preference",
+  {
+    userId: text("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.key] })],
+);

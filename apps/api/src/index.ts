@@ -15,6 +15,7 @@ import { activityRoutes } from "./routes/activity.js";
 import { pushRoutes } from "./routes/push.js";
 import { aiRoutes } from "./routes/ai.js";
 import { notificationsRoutes } from "./routes/notifications.js";
+import { preferencesRoutes } from "./routes/preferences.js";
 import { authMiddleware } from "./auth.js";
 
 const app = new Hono<{ Variables: { auth: AuthContext } }>();
@@ -61,6 +62,7 @@ v1.route("/activity", activityRoutes);
 v1.route("/push", pushRoutes);
 v1.route("/ai", aiRoutes);
 v1.route("/notifications", notificationsRoutes);
+v1.route("/preferences", preferencesRoutes);
 
 app.route("/v1", v1);
 

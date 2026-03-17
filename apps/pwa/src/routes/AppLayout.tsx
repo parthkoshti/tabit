@@ -9,7 +9,6 @@ import { PushResubscriptionProvider } from "@/app/(app)/context/push-resubscript
 import { TopNavbar } from "@/app/(app)/components/top-navbar";
 import { ConnectionBanner } from "@/app/(app)/components/connection-banner";
 import { BottomNavbar } from "@/app/(app)/components/bottom-navbar";
-import { AddExpenseFAB } from "@/app/(app)/components/add-expense-fab";
 import { LoadingScreen } from "@/app/(app)/components/loading-screen";
 import { PageTransition } from "@/components/motion/page-transition";
 
@@ -69,7 +68,6 @@ function AppLayoutContent() {
         <PageTransition />
       </main>
       {!isOnboarding && <BottomNavbar />}
-      {!isOnboarding && <AddExpenseFAB />}
     </div>
   );
 }

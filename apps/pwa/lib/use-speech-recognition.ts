@@ -66,6 +66,11 @@ export function useSpeechRecognition(options?: {
           } else if (event.error === "no-speech") {
             setError("No speech detected");
             onErrorRef.current?.("No speech detected");
+          } else if (event.error === "network") {
+            const msg =
+              "Voice input failed. Try disabling ad blockers or VPN, or use the text field instead.";
+            setError(msg);
+            onErrorRef.current?.(msg);
           } else {
             setError(event.error);
             onErrorRef.current?.(event.error);
@@ -85,12 +90,14 @@ export function useSpeechRecognition(options?: {
     // Pre-request mic permission via getUserMedia before starting speech recognition.
     // Browsers persist getUserMedia grants but may re-prompt on every SpeechRecognition.start()
     // call without this. Stopping the tracks immediately — we only need the permission grant.
+    // Small delay before starting recognition helps avoid "network" errors on Mac/Chrome when
+    // the recognition service connects to Google before the mic stream is fully released.
     if (navigator.mediaDevices?.getUserMedia) {
       navigator.mediaDevices
         .getUserMedia({ audio: true })
         .then((stream) => {
           stream.getTracks().forEach((track) => track.stop());
-          startRecognition();
+          setTimeout(() => startRecognition(), 150);
         })
         .catch(() => {
           startRecognition();

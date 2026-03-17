@@ -1,6 +1,6 @@
 {
   "name": "pwa",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "scripts": {
     "dev": "dotenv -e ../../.env -e ../../.env.local -- sh -c 'vite --port 3003 --host'",

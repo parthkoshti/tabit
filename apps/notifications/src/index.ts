@@ -462,7 +462,7 @@ redisSubscriber.on("message", (channel, message) => {
 });
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const certDir = join(__dirname, "../../web/certificates");
+const certDir = join(__dirname, "../../../certs");
 const certPath =
   process.env.NOTIFICATIONS_WS_HTTPS_CERT ?? join(certDir, "cert.pem");
 const keyPath =
