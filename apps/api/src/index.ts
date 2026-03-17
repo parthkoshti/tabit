@@ -50,27 +50,24 @@ app.get("/health", (c) => c.json({ status: "ok" }));
 
 app.on(["GET", "POST"], "/api/auth/*", async (c) => auth.handler(c.req.raw));
 
-app.get("/notifications/token", authMiddleware, async (c) => {
-  const { userId } = c.get("auth");
-  const token = Buffer.from(`${userId}:${Date.now()}`).toString("base64url");
-  return c.json({ token });
-});
+const v1 = new Hono<{ Variables: { auth: AuthContext } }>();
+v1.route("/friends", friendsRoutes);
+v1.route("/tab-invites", tabInvitesRoutes);
+v1.route("/tabs", tabsRoutes);
+v1.route("/profile", profileRoutes);
+v1.route("/username", usernameRoutes);
+v1.route("/api-keys", apiKeysRoutes);
+v1.route("/activity", activityRoutes);
+v1.route("/push", pushRoutes);
+v1.route("/ai", aiRoutes);
+v1.route("/notifications", notificationsRoutes);
+
+app.route("/v1", v1);
 
 app.onError((err, c) => {
   log("error", "Unhandled error", { error: String(err), path: c.req.path });
   return c.json({ error: "Internal server error" }, 500);
 });
-
-app.route("/friends", friendsRoutes);
-app.route("/tab-invites", tabInvitesRoutes);
-app.route("/tabs", tabsRoutes);
-app.route("/profile", profileRoutes);
-app.route("/username", usernameRoutes);
-app.route("/api-keys", apiKeysRoutes);
-app.route("/activity", activityRoutes);
-app.route("/push", pushRoutes);
-app.route("/ai", aiRoutes);
-app.route("/notifications", notificationsRoutes);
 
 const port = Number(process.env.PORT ?? 3001);
 log("info", `API server listening on port ${port}`, { corsOrigins: origins });

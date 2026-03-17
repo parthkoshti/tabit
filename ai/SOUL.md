@@ -59,7 +59,7 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 
 ### Key Architectural Patterns
 
-**API proxy in PWA dev**: The PWA (Vite) proxies `/api-backend` → `http://localhost:3001` and `/api/auth` → `http://localhost:3001`. In production, this must be configured at the reverse proxy level. All API calls in `apps/pwa/lib/api-client.ts` go through `/api-backend`.
+**API proxy in PWA**: The PWA proxies `/api/auth` → `api:3001/api/auth` (pass-through) and `/api/*` → `api:3001/v1/*` (rewrite). All API calls in `apps/pwa/lib/api-client.ts` use base `/api`. Backend app routes live under `/v1`.
 
 **Auth**: Better Auth handles sessions. The `packages/auth` package exports a configured `auth` instance used by both the API (at `/api/auth/*`) and server-side in `apps/web`. The PWA uses `better-auth/react` via `apps/pwa/lib/auth-client.ts`.
 

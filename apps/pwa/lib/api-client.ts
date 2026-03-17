@@ -11,7 +11,7 @@ import type {
 } from "data";
 
 function getApiUrl(): string {
-  return "/api-backend";
+  return "/api";
 }
 
 const baseUrl = getApiUrl();

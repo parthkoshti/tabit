@@ -2,7 +2,7 @@
 # Web app is hosted on Vercel; this compose runs api, pwa, notifications, redis
 # Set env vars in Dokploy UI; Compose substitutes ${VAR} from .env when parsing.
 #
-# Reverse proxy: PWA needs /api-backend and /api/auth proxied to api:3001.
+# PWA nginx proxies /api/auth and /api/* to api:3001 (auth pass-through, app routes -> /v1).
 # Notifications WebSocket: route wss:// to notifications:3002 if exposing real-time.
 
 services:
