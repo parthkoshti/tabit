@@ -6,7 +6,7 @@ Tab is a Splitwise alternative that puts you in control. Your data stays on your
 
 ## Hosted Version
 
-**A fully free**, donations-supported instance is available at [TabIt.in](https://tabit.in). No paywalls, no paid-only features. Free forever, as a way of giving back to the open source community. If it helps you, consider [supporting](https://paypal.me/parthk).
+**A fully free**, donations-supported instance is available at [TabIt.in](https://tabit.in). No paywalls, no paid-only features. Free forever, as a way of giving back to the open source community. If it helps you, consider [supporting](https://tabit.in/support).
 
 ## Why Tab?
 
