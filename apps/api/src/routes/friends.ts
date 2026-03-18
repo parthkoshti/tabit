@@ -1,27 +1,7 @@
 import { Hono } from "hono";
-import {
-  db,
-  tab as tabTable,
-  tabMember,
-  user,
-  friendRequest,
-  pendingFriend,
-} from "db";
-import { eq, and, ne, desc, ilike, inArray, sql } from "drizzle-orm";
-import { createShortId } from "shared";
 import { authMiddleware, type AuthContext } from "../auth.js";
 import { log } from "../lib/logger.js";
-import { publishNotification } from "../lib/redis.js";
-import {
-  createFriendRequestNotificationPayload,
-  createFriendRequestAcceptedNotificationPayload,
-  createPokeNotificationPayload,
-} from "models";
-import { tab } from "data";
-
-function secureToken(): string {
-  return createShortId();
-}
+import { friendService } from "services";
 
 export const friendsRoutes = new Hono<{ Variables: { auth: AuthContext } }>();
 
@@ -29,162 +9,25 @@ friendsRoutes.use("*", authMiddleware);
 
 friendsRoutes.get("/requests/pending", async (c) => {
   const { userId } = c.get("auth");
-
-  const requests = await db
-    .select({
-      id: friendRequest.id,
-      fromUserId: friendRequest.fromUserId,
-      toUserId: friendRequest.toUserId,
-      status: friendRequest.status,
-      createdAt: friendRequest.createdAt,
-      fromUserUsername: user.username,
-      fromUserName: user.name,
-    })
-    .from(friendRequest)
-    .innerJoin(user, eq(friendRequest.fromUserId, user.id))
-    .where(
-      and(
-        eq(friendRequest.toUserId, userId),
-        eq(friendRequest.status, "pending"),
-      ),
-    )
-    .orderBy(desc(friendRequest.createdAt));
-
-  log("info", "Friend requests pending fetched", { userId, count: requests.length });
-  return c.json({
-    success: true,
-    requests: requests.map((r) => ({
-      id: r.id,
-      fromUserId: r.fromUserId,
-      fromUserUsername: r.fromUserUsername,
-      fromUserName: r.fromUserName,
-      createdAt: r.createdAt,
-    })),
+  const result = await friendService.getPendingRequests(userId);
+  log("info", "Friend requests pending fetched", {
+    userId,
+    count: result.data.requests.length,
   });
+  return c.json({ success: true, requests: result.data.requests });
 });
 
 friendsRoutes.post("/requests", async (c) => {
   const { userId } = c.get("auth");
-
   const body = await c.req.json().catch(() => ({}));
   const username = body.username;
 
-  if (typeof username !== "string" || !username.trim()) {
-    return c.json({ success: false, error: "Username is required" }, 400);
+  const result = await friendService.sendRequest(userId, username ?? "");
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
   }
 
-  const [targetUser] = await db
-    .select()
-    .from(user)
-    .where(eq(user.username, username.trim().toLowerCase()))
-    .limit(1);
-
-  if (!targetUser) {
-    return c.json({ success: false, error: "User not found" }, 404);
-  }
-
-  if (targetUser.id === userId) {
-    return c.json({ success: false, error: "You cannot add yourself" }, 400);
-  }
-
-  const directTabs = await db
-    .select({ id: tabTable.id })
-    .from(tabTable)
-    .innerJoin(tabMember, eq(tabTable.id, tabMember.tabId))
-    .where(and(eq(tabTable.isDirect, true), eq(tabMember.userId, userId)));
-
-  for (const t of directTabs) {
-    const [otherMember] = await db
-      .select()
-      .from(tabMember)
-      .where(
-        and(eq(tabMember.tabId, t.id), eq(tabMember.userId, targetUser.id)),
-      )
-      .limit(1);
-    if (otherMember) {
-      return c.json(
-        { success: false, error: "You are already friends with this person" },
-        400,
-      );
-    }
-  }
-
-  const [existingRequest] = await db
-    .select()
-    .from(friendRequest)
-    .where(
-      and(
-        eq(friendRequest.fromUserId, userId),
-        eq(friendRequest.toUserId, targetUser.id),
-        eq(friendRequest.status, "pending"),
-      ),
-    )
-    .limit(1);
-
-  if (existingRequest) {
-    return c.json(
-      { success: false, error: "Friend request already sent" },
-      400,
-    );
-  }
-
-  const [reverseRequest] = await db
-    .select()
-    .from(friendRequest)
-    .where(
-      and(
-        eq(friendRequest.fromUserId, targetUser.id),
-        eq(friendRequest.toUserId, userId),
-        eq(friendRequest.status, "pending"),
-      ),
-    )
-    .limit(1);
-
-  if (reverseRequest) {
-    return c.json(
-      {
-        success: false,
-        error: "You have a pending request from this person - accept it from your friend requests",
-      },
-      400,
-    );
-  }
-
-  const [inserted] = await db
-    .insert(friendRequest)
-    .values({
-      fromUserId: userId,
-      toUserId: targetUser.id,
-      status: "pending",
-    })
-    .returning({
-      id: friendRequest.id,
-      createdAt: friendRequest.createdAt,
-    });
-
-  const [sender] = await db
-    .select({ name: user.name, username: user.username })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-
-  await publishNotification(
-    targetUser.id,
-    createFriendRequestNotificationPayload({
-      requestId: inserted!.id,
-      fromUserId: userId,
-      fromUserName: sender?.name ?? null,
-      fromUserUsername: sender?.username ?? null,
-      createdAt: inserted!.createdAt,
-    }),
-  );
-
-  log("info", "Friend request created", {
-    requestId: inserted!.id,
-    fromUserId: userId,
-    toUserId: targetUser.id,
-    toUsername: targetUser.username,
-  });
+  log("info", "Friend request created", { userId });
   return c.json({ success: true });
 });
 
@@ -192,76 +35,27 @@ friendsRoutes.post("/requests/:id/accept", async (c) => {
   const { userId } = c.get("auth");
   const requestId = c.req.param("id");
 
-  const [req] = await db
-    .select()
-    .from(friendRequest)
-    .where(
-      and(
-        eq(friendRequest.id, requestId),
-        eq(friendRequest.toUserId, userId),
-        eq(friendRequest.status, "pending"),
-      ),
-    )
-    .limit(1);
-
-  if (!req) {
-    return c.json(
-      { success: false, error: "Request not found or already handled" },
-      404,
-    );
+  const result = await friendService.acceptRequest(requestId, userId);
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
   }
-
-  await db
-    .update(friendRequest)
-    .set({ status: "accepted" })
-    .where(eq(friendRequest.id, requestId));
-
-  const [accepterUser] = await db
-    .select({ defaultCurrency: user.defaultCurrency })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-  const currency = accepterUser?.defaultCurrency ?? "USD";
-
-  const friendTabId = await tab.createDirect(userId, req.fromUserId, currency);
-
-  const [accepter] = await db
-    .select({ name: user.name, username: user.username })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-
-  await publishNotification(
-    req.fromUserId,
-    createFriendRequestAcceptedNotificationPayload({
-      requestId,
-      friendTabId,
-      fromUserId: userId,
-      fromUserName: accepter?.name ?? null,
-      fromUserUsername: accepter?.username ?? null,
-      createdAt: new Date(),
-    }),
-  );
 
   log("info", "Friend request accepted", {
     requestId,
     accepterUserId: userId,
-    fromUserId: req.fromUserId,
-    friendTabId,
+    friendTabId: result.data.friendTabId,
   });
-  return c.json({ success: true, friendTabId });
+  return c.json({ success: true, friendTabId: result.data.friendTabId });
 });
 
 friendsRoutes.post("/requests/:id/reject", async (c) => {
   const { userId } = c.get("auth");
   const requestId = c.req.param("id");
 
-  await db
-    .update(friendRequest)
-    .set({ status: "rejected" })
-    .where(
-      and(eq(friendRequest.id, requestId), eq(friendRequest.toUserId, userId)),
-    );
+  const result = await friendService.rejectRequest(requestId, userId);
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
+  }
 
   log("info", "Friend request rejected", { requestId, userId });
   return c.json({ success: true });
@@ -270,138 +64,42 @@ friendsRoutes.post("/requests/:id/reject", async (c) => {
 friendsRoutes.get("/token", async (c) => {
   const { userId } = c.get("auth");
 
-  const [sessionUser] = await db
-    .select({ username: user.username })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-
-  const username = sessionUser?.username;
-  if (!username) {
+  const result = await friendService.getInviteToken(userId);
+  if (!result.success) {
     return c.json(
-      { success: false, error: "Set a username first", token: null, url: null },
-      400,
+      { success: false, error: result.error, token: null, url: null },
+      result.status as 400 | 403 | 404,
     );
   }
 
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 30);
-
-  const [existing] = await db
-    .select()
-    .from(pendingFriend)
-    .where(
-      and(
-        eq(pendingFriend.userId, userId),
-        sql`${pendingFriend.expiresAt} > NOW()`,
-      ),
-    )
-    .limit(1);
-
-  let token: string;
-  if (existing && existing.token.length <= 8) {
-    token = existing.token;
-  } else {
-    if (existing) {
-      await db.delete(pendingFriend).where(eq(pendingFriend.id, existing.id));
-    }
-    token = secureToken();
-    for (let i = 0; i < 5; i++) {
-      try {
-        await db.insert(pendingFriend).values({
-          token,
-          userId,
-          expiresAt,
-        });
-        break;
-      } catch {
-        token = secureToken();
-        if (i === 4) throw new Error("Failed to generate invite token");
-      }
-    }
-  }
-
-  const baseUrl =
-    process.env.NEXT_PUBLIC_PWA_URL ??
-    process.env.NEXT_PUBLIC_WEB_URL ??
-    process.env.APP_URL ??
-    "http://localhost:3003";
-  const url = `${baseUrl}/invite?user=${encodeURIComponent(username)}&qr=${encodeURIComponent(token)}`;
-
-  log("info", "Invite token generated", { userId, username });
-  return c.json({ success: true, token, url });
+  log("info", "Invite token generated", { userId });
+  return c.json({
+    success: true,
+    token: result.data.token,
+    url: result.data.url,
+  });
 });
 
 friendsRoutes.post("/add-by-token", async (c) => {
   const { userId } = c.get("auth");
-
   const body = await c.req.json().catch(() => ({}));
   const token = body.token;
 
-  if (!token?.trim()) {
-    return c.json({ success: false, error: "Invalid token" }, 400);
+  const result = await friendService.addByToken(userId, token ?? "");
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
   }
-
-  const [pending] = await db
-    .select()
-    .from(pendingFriend)
-    .where(
-      and(
-        eq(pendingFriend.token, token.trim()),
-        sql`${pendingFriend.expiresAt} > NOW()`,
-      ),
-    )
-    .limit(1);
-
-  if (!pending) {
-    return c.json({ success: false, error: "Invalid or expired link" }, 400);
-  }
-
-  if (pending.userId === userId) {
-    return c.json({ success: false, error: "You cannot add yourself" }, 400);
-  }
-
-  const directTabs = await db
-    .select({ id: tabTable.id })
-    .from(tabTable)
-    .innerJoin(tabMember, eq(tabTable.id, tabMember.tabId))
-    .where(and(eq(tabTable.isDirect, true), eq(tabMember.userId, userId)));
-
-  for (const t of directTabs) {
-    const [otherMember] = await db
-      .select()
-      .from(tabMember)
-      .where(
-        and(eq(tabMember.tabId, t.id), eq(tabMember.userId, pending.userId)),
-      )
-      .limit(1);
-    if (otherMember) {
-      await db.delete(pendingFriend).where(eq(pendingFriend.id, pending.id));
-      log("info", "Friend added by token (already friends)", {
-        userId,
-        addedUserId: pending.userId,
-        friendTabId: t.id,
-      });
-      return c.json({ success: true, friendTabId: t.id, alreadyFriends: true });
-    }
-  }
-
-  const [adderUser] = await db
-    .select({ defaultCurrency: user.defaultCurrency })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-  const currency = adderUser?.defaultCurrency ?? "USD";
-
-  const friendTabId = await tab.createDirect(userId, pending.userId, currency);
-  await db.delete(pendingFriend).where(eq(pendingFriend.id, pending.id));
 
   log("info", "Friend added by token", {
     userId,
-    addedUserId: pending.userId,
-    friendTabId,
+    friendTabId: result.data.friendTabId,
+    alreadyFriends: result.data.alreadyFriends,
   });
-  return c.json({ success: true, friendTabId });
+  return c.json({
+    success: true,
+    friendTabId: result.data.friendTabId,
+    alreadyFriends: result.data.alreadyFriends,
+  });
 });
 
 friendsRoutes.get("/search", async (c) => {
@@ -409,122 +107,39 @@ friendsRoutes.get("/search", async (c) => {
   const query = c.req.query("q") ?? "";
   const includeFriends = c.req.query("includeFriends") === "true";
 
-  const trimmed = query.trim().toLowerCase();
-  if (trimmed.length < 3) {
-    return c.json({ success: true, users: [] });
+  const result = await friendService.searchUsers(userId, query, includeFriends);
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
   }
 
-  const friendIdSet = new Set<string>();
-  if (!includeFriends) {
-    const directTabIds = await db
-      .select({ tabId: tabMember.tabId })
-      .from(tabTable)
-      .innerJoin(tabMember, eq(tabTable.id, tabMember.tabId))
-      .where(and(eq(tabTable.isDirect, true), eq(tabMember.userId, userId)));
-
-    if (directTabIds.length > 0) {
-      const tabIds = directTabIds.map((d) => d.tabId);
-      const otherMembers = await db
-        .select({ userId: tabMember.userId })
-        .from(tabMember)
-        .where(
-          and(inArray(tabMember.tabId, tabIds), ne(tabMember.userId, userId)),
-        );
-      otherMembers.forEach((m) => friendIdSet.add(m.userId));
-    }
-  }
-
-  const users = await db
-    .select({
-      id: user.id,
-      username: user.username,
-      name: user.name,
-    })
-    .from(user)
-    .where(ilike(user.username, `%${trimmed}%`))
-    .limit(10);
-
-  const filtered = users.filter((u) => u.id !== userId && !friendIdSet.has(u.id));
-  log("info", "User search", { userId, query: trimmed, resultCount: filtered.length });
-  return c.json({
-    success: true,
-    users: filtered,
+  log("info", "User search", {
+    userId,
+    query: query.trim().toLowerCase(),
+    resultCount: result.data.length,
   });
+  return c.json({ success: true, users: result.data });
 });
 
 friendsRoutes.get("/", async (c) => {
   const { userId } = c.get("auth");
-  const friends = await tab.getDirectTabsForUser(userId);
-  log("info", "Friends list fetched", { userId, count: friends.length });
-  return c.json({ success: true, friends });
+  const result = await friendService.getFriends(userId);
+  log("info", "Friends list fetched", {
+    userId,
+    count: result.data.friends.length,
+  });
+  return c.json({ success: true, friends: result.data.friends });
 });
 
 friendsRoutes.post("/poke", async (c) => {
   const { userId } = c.get("auth");
-
   const body = await c.req.json().catch(() => ({}));
   const friendTabId = body.friendTabId;
 
-  if (typeof friendTabId !== "string" || !friendTabId.trim()) {
-    return c.json({ success: false, error: "friendTabId is required" }, 400);
+  const result = await friendService.poke(userId, friendTabId ?? "");
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
   }
 
-  const [directTab] = await db
-    .select()
-    .from(tabTable)
-    .innerJoin(tabMember, eq(tabTable.id, tabMember.tabId))
-    .where(
-      and(
-        eq(tabTable.id, friendTabId.trim()),
-        eq(tabTable.isDirect, true),
-        eq(tabMember.userId, userId),
-      ),
-    )
-    .limit(1);
-
-  if (!directTab) {
-    return c.json(
-      { success: false, error: "Tab not found or you are not a member" },
-      404,
-    );
-  }
-
-  const [friendMember] = await db
-    .select({ userId: tabMember.userId })
-    .from(tabMember)
-    .where(
-      and(
-        eq(tabMember.tabId, friendTabId.trim()),
-        ne(tabMember.userId, userId),
-      ),
-    )
-    .limit(1);
-
-  if (!friendMember) {
-    return c.json({ success: false, error: "Friend not found" }, 404);
-  }
-
-  const [sender] = await db
-    .select({ name: user.name, username: user.username })
-    .from(user)
-    .where(eq(user.id, userId))
-    .limit(1);
-
-  await publishNotification(
-    friendMember.userId,
-    createPokeNotificationPayload({
-      friendTabId: friendTabId.trim(),
-      fromUserId: userId,
-      fromUserName: sender?.name ?? null,
-      fromUserUsername: sender?.username ?? null,
-      createdAt: new Date(),
-    }),
-  );
-
-  log("info", "User poked", {
-    fromUserId: userId,
-    targetUserId: friendMember.userId,
-    friendTabId: friendTabId.trim(),
-  });
+  log("info", "User poked", { fromUserId: userId, friendTabId: friendTabId?.trim() });
   return c.json({ success: true });
 });

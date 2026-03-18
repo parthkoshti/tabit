@@ -1,11 +1,7 @@
 import { Hono } from "hono";
-import { db, user } from "db";
-import { eq } from "drizzle-orm";
-import { CURRENCY_CODES } from "shared";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
-
-const NAME_MAX_LENGTH = 64;
+import { userService } from "services";
 
 export const profileRoutes = new Hono<{ Variables: { auth: AuthContext } }>();
 
@@ -13,40 +9,29 @@ profileRoutes.use("*", authMiddleware);
 
 profileRoutes.patch("/", async (c) => {
   const { userId } = c.get("auth");
-
   const body = await c.req.json().catch(() => ({}));
-  const updates: { name?: string | null; defaultCurrency?: string | null; updatedAt: Date } = {
-    updatedAt: new Date(),
-  };
 
+  const updates: { name?: string | null; defaultCurrency?: string | null } = {};
   if ("name" in body) {
-    const name = typeof body.name === "string" ? body.name.trim() || null : null;
-    if (name && name.length > NAME_MAX_LENGTH) {
-      return c.json(
-        { success: false, error: `Name must be at most ${NAME_MAX_LENGTH} characters` },
-        400
-      );
-    }
-    updates.name = name;
+    updates.name =
+      body.name === null || body.name === undefined
+        ? null
+        : typeof body.name === "string"
+          ? body.name.trim() || null
+          : null;
   }
-
   if ("defaultCurrency" in body) {
-    const defaultCurrency =
-      body.defaultCurrency === null
+    updates.defaultCurrency =
+      body.defaultCurrency === null || body.defaultCurrency === undefined
         ? null
         : typeof body.defaultCurrency === "string"
           ? body.defaultCurrency.trim() || null
           : null;
-    if (defaultCurrency !== null && !CURRENCY_CODES.includes(defaultCurrency)) {
-      return c.json(
-        { success: false, error: "Invalid currency code" },
-        400
-      );
-    }
-    updates.defaultCurrency = defaultCurrency;
   }
 
-  await db.update(user).set(updates).where(eq(user.id, userId));
-
+  const result = await userService.updateProfile(userId, updates);
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
+  }
   return c.json({ success: true });
 });

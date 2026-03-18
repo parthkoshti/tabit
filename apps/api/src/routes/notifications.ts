@@ -1,6 +1,5 @@
 import { Hono } from "hono";
-import { db, friendRequest, tabInviteRequest, user, tab } from "db";
-import { eq, and, desc, gt } from "drizzle-orm";
+import { friend, tabInvite } from "data";
 import { authMiddleware, type AuthContext } from "../auth.js";
 import { log } from "../lib/logger.js";
 
@@ -28,46 +27,8 @@ notificationsRoutes.get("/missed", async (c) => {
   const sinceDate = new Date(since);
 
   const [friendRequests, tabInvites] = await Promise.all([
-    db
-      .select({
-        id: friendRequest.id,
-        fromUserId: friendRequest.fromUserId,
-        fromUserUsername: user.username,
-        fromUserName: user.name,
-        createdAt: friendRequest.createdAt,
-      })
-      .from(friendRequest)
-      .innerJoin(user, eq(friendRequest.fromUserId, user.id))
-      .where(
-        and(
-          eq(friendRequest.toUserId, userId),
-          eq(friendRequest.status, "pending"),
-          gt(friendRequest.createdAt, sinceDate),
-        ),
-      )
-      .orderBy(desc(friendRequest.createdAt)),
-
-    db
-      .select({
-        id: tabInviteRequest.id,
-        tabId: tabInviteRequest.tabId,
-        tabName: tab.name,
-        fromUserId: tabInviteRequest.fromUserId,
-        fromUserUsername: user.username,
-        fromUserName: user.name,
-        createdAt: tabInviteRequest.createdAt,
-      })
-      .from(tabInviteRequest)
-      .innerJoin(tab, eq(tabInviteRequest.tabId, tab.id))
-      .innerJoin(user, eq(tabInviteRequest.fromUserId, user.id))
-      .where(
-        and(
-          eq(tabInviteRequest.toUserId, userId),
-          eq(tabInviteRequest.status, "pending"),
-          gt(tabInviteRequest.createdAt, sinceDate),
-        ),
-      )
-      .orderBy(desc(tabInviteRequest.createdAt)),
+    friend.getMissedFriendRequests(userId, sinceDate),
+    tabInvite.getMissedTabInvites(userId, sinceDate),
   ]);
 
   log("info", "Missed notifications fetched", {

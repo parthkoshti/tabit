@@ -1,6 +1,5 @@
 import { Hono } from "hono";
-import { db, pushSubscription } from "db";
-import { eq, and } from "drizzle-orm";
+import { push as pushData } from "data";
 import { publishNotification, publishSubscriptionControl } from "../lib/redis.js";
 import { log } from "../lib/logger.js";
 import type { AuthContext } from "../auth.js";
@@ -25,7 +24,7 @@ pushRoutes.post("/subscribe", async (c) => {
 
   const userAgent = c.req.header("User-Agent") ?? null;
 
-  await db.insert(pushSubscription).values({
+  await pushData.insert({
     userId,
     endpoint,
     p256dh,
@@ -34,9 +33,9 @@ pushRoutes.post("/subscribe", async (c) => {
   });
 
   log("info", "Push subscription added", { userId });
-  
+
   await publishSubscriptionControl("subscribe", userId);
-  
+
   return c.json({ success: true });
 });
 
@@ -50,22 +49,16 @@ pushRoutes.delete("/subscribe", async (c) => {
     return c.json({ error: "endpoint required" }, 400);
   }
 
-  await db
-    .delete(pushSubscription)
-    .where(and(eq(pushSubscription.userId, userId), eq(pushSubscription.endpoint, endpoint)));
+  await pushData.deleteByUserAndEndpoint(userId, endpoint);
 
   log("info", "Push subscription removed", { userId });
-  
-  const remainingSubscriptions = await db
-    .select({ id: pushSubscription.id })
-    .from(pushSubscription)
-    .where(eq(pushSubscription.userId, userId))
-    .limit(1);
-  
-  if (remainingSubscriptions.length === 0) {
+
+  const remainingCount = await pushData.countByUserId(userId);
+
+  if (remainingCount === 0) {
     await publishSubscriptionControl("unsubscribe", userId);
   }
-  
+
   return c.json({ success: true });
 });
 

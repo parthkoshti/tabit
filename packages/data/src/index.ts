@@ -28,6 +28,25 @@ export type {
   GetActivityForUserResult,
 } from "./activity.js";
 
+export { user } from "./user.js";
+export type { User } from "./user.js";
+
+export { friend } from "./friend.js";
+export type { FriendRequest, PendingFriend } from "./friend.js";
+
+export { preference } from "./preference.js";
+
+export { apiKeyData } from "./api-key.js";
+export type { ApiKeySummary, ApiKeyCreated } from "./api-key.js";
+
+export { push } from "./push.js";
+export { tabInvite } from "./tab-invite.js";
+export type {
+  PendingTabInviteByToken,
+  TabInviteRequestRow,
+  TabInviteRequestWithDetails,
+} from "./tab-invite.js";
+
 // Backward compatibility - re-export as flat functions
 import { expense } from "./expense.js";
 import { tab } from "./tab.js";

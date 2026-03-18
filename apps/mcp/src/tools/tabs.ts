@@ -1,14 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { tabService, settlementService, expenseService } from "services";
 
-type Api = {
-  get: (path: string) => Promise<unknown>;
-  post: (path: string, body?: unknown) => Promise<unknown>;
-  patch: (path: string, body: unknown) => Promise<unknown>;
-  delete: (path: string) => Promise<unknown>;
-};
-
-export function registerTabsTools(server: McpServer, api: Api): void {
+export function registerTabsTools(server: McpServer, userId: string): void {
   server.registerTool(
     "list_tabs",
     {
@@ -16,15 +10,12 @@ export function registerTabsTools(server: McpServer, api: Api): void {
       inputSchema: {},
     },
     async () => {
-      const data = (await api.get("/tabs")) as {
-        success: boolean;
-        tabs: unknown[];
-      };
+      const result = await tabService.getTabsForUser(userId);
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(data.tabs, null, 2),
+            text: JSON.stringify(result.data.tabs, null, 2),
           },
         ],
       };
@@ -40,19 +31,15 @@ export function registerTabsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ name }) => {
-      const data = (await api.post("/tabs", { name })) as {
-        success: boolean;
-        tabId: string;
-        error?: string;
-      };
-      if (!data.success && data.error) {
-        throw new Error(data.error);
+      const result = await tabService.create(name, userId);
+      if (!result.success) {
+        throw new Error(result.error);
       }
       return {
         content: [
           {
             type: "text" as const,
-            text: `Tab created with ID: ${data.tabId}`,
+            text: `Tab created with ID: ${result.data.tabId}`,
           },
         ],
       };
@@ -68,19 +55,15 @@ export function registerTabsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ tabId }) => {
-      const data = (await api.get(`/tabs/${tabId}`)) as {
-        success: boolean;
-        tab: unknown;
-        error?: string;
-      };
-      if (!data.success && data.error) {
-        throw new Error(data.error);
+      const result = await tabService.getWithMembers(tabId, userId);
+      if (!result.success) {
+        throw new Error(result.error);
       }
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(data.tab, null, 2),
+            text: JSON.stringify(result.data, null, 2),
           },
         ],
       };
@@ -96,19 +79,15 @@ export function registerTabsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ tabId }) => {
-      const data = (await api.get(`/tabs/${tabId}/expenses`)) as {
-        success: boolean;
-        expenses: unknown[];
-        error?: string;
-      };
-      if (!data.success && data.error) {
-        throw new Error(data.error);
+      const result = await expenseService.getForTab(tabId, userId);
+      if (!result.success) {
+        throw new Error(result.error);
       }
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(data.expenses, null, 2),
+            text: JSON.stringify(result.data.expenses, null, 2),
           },
         ],
       };
@@ -131,26 +110,25 @@ export function registerTabsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ tabId, amount, description, paidById }) => {
-      const body: Record<string, unknown> = {
-        tabId,
-        amount,
-        description,
-        splitType: "equal",
-      };
-      if (paidById) body.paidById = paidById;
-      const data = (await api.post(`/tabs/${tabId}/expenses`, body)) as {
-        success: boolean;
-        expenseId: string;
-        error?: string;
-      };
-      if (!data.success && data.error) {
-        throw new Error(data.error);
+      const result = await expenseService.create(
+        {
+          tabId,
+          amount,
+          description,
+          paidById: paidById ?? userId,
+          splitType: "equal",
+          expenseDate: new Date(),
+        },
+        userId,
+      );
+      if (!result.success) {
+        throw new Error(result.error);
       }
       return {
         content: [
           {
             type: "text" as const,
-            text: `Expense added with ID: ${data.expenseId}`,
+            text: `Expense added with ID: ${result.data.expenseId}`,
           },
         ],
       };
@@ -167,7 +145,10 @@ export function registerTabsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ tabId, expenseId }) => {
-      await api.delete(`/tabs/${tabId}/expenses/${expenseId}`);
+      const result = await expenseService.delete(tabId, expenseId, userId);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
       return {
         content: [
           {
@@ -191,14 +172,15 @@ export function registerTabsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ tabId, fromUserId, toUserId, amount }) => {
-      const data = (await api.post(`/tabs/${tabId}/settlements`, {
+      const result = await settlementService.record(
         tabId,
         fromUserId,
         toUserId,
         amount,
-      })) as { success: boolean; error?: string };
-      if (!data.success && data.error) {
-        throw new Error(data.error);
+        userId,
+      );
+      if (!result.success) {
+        throw new Error(result.error);
       }
       return {
         content: [
@@ -220,19 +202,15 @@ export function registerTabsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ tabId }) => {
-      const data = (await api.get(`/tabs/${tabId}/balances`)) as {
-        success: boolean;
-        balances: unknown;
-        error?: string;
-      };
-      if (!data.success && data.error) {
-        throw new Error(data.error);
+      const result = await tabService.getBalancesForTab(tabId, userId);
+      if (!result.success) {
+        throw new Error(result.error);
       }
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(data.balances, null, 2),
+            text: JSON.stringify(result.data, null, 2),
           },
         ],
       };

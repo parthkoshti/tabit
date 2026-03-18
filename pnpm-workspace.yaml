@@ -1,6 +1,7 @@
 packages:
   - "apps/web"
   - "apps/api"
+  - "apps/mcp"
   - "apps/notifications"
   - "apps/pwa"
   - "packages/*"

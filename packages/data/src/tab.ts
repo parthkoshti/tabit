@@ -7,7 +7,7 @@ import {
   settlement as settlementTable,
   user,
 } from "db";
-import { eq, desc, inArray, and, sql, isNull } from "drizzle-orm";
+import { eq, desc, inArray, and, sql, isNull, ne } from "drizzle-orm";
 
 export type TabWithBalance = {
   id: string;
@@ -437,6 +437,81 @@ export const tab = {
       .where(
         and(eq(tabMember.tabId, tabId), eq(tabMember.userId, targetUserId)),
       );
+  },
+
+  isMember: async (tabId: string, userId: string): Promise<boolean> => {
+    const [member] = await db
+      .select({ userId: tabMember.userId })
+      .from(tabMember)
+      .where(and(eq(tabMember.tabId, tabId), eq(tabMember.userId, userId)))
+      .limit(1);
+    return !!member;
+  },
+
+  getMembers: async (
+    tabId: string,
+  ): Promise<Array<{ userId: string; role: string }>> => {
+    const rows = await db
+      .select({ userId: tabMember.userId, role: tabMember.role })
+      .from(tabMember)
+      .where(eq(tabMember.tabId, tabId));
+    return rows;
+  },
+
+  getCurrency: async (tabId: string): Promise<string | null> => {
+    const [row] = await db
+      .select({ currency: tabTable.currency })
+      .from(tabTable)
+      .where(eq(tabTable.id, tabId))
+      .limit(1);
+    return row?.currency ?? null;
+  },
+
+  getTabInfoForNotifications: async (
+    tabId: string,
+    forUserId: string,
+  ): Promise<{
+    name: string;
+    isDirect: boolean;
+    currency: string;
+    displayName: string;
+  } | null> => {
+    const [tabRow] = await db
+      .select({
+        name: tabTable.name,
+        isDirect: tabTable.isDirect,
+        currency: tabTable.currency,
+      })
+      .from(tabTable)
+      .where(eq(tabTable.id, tabId))
+      .limit(1);
+    if (!tabRow) return null;
+    let displayName = tabRow.name ?? "Tab";
+    if (tabRow.isDirect) {
+      const [otherUser] = await db
+        .select({ name: user.name, username: user.username })
+        .from(tabMember)
+        .innerJoin(user, eq(tabMember.userId, user.id))
+        .where(
+          and(
+            eq(tabMember.tabId, tabId),
+            ne(tabMember.userId, forUserId),
+          ),
+        )
+        .limit(1);
+      if (otherUser) {
+        displayName =
+          otherUser.name ??
+          (otherUser.username ? `@${otherUser.username}` : null) ??
+          displayName;
+      }
+    }
+    return {
+      name: tabRow.name ?? "Tab",
+      isDirect: tabRow.isDirect ?? false,
+      currency: tabRow.currency ?? "USD",
+      displayName,
+    };
   },
 
   createDirect: async (

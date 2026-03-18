@@ -1,8 +1,6 @@
 import { createMiddleware } from "hono/factory";
 import { auth } from "auth";
-import { db, apiKey } from "db";
-import { eq } from "drizzle-orm";
-import { createHash } from "node:crypto";
+import { apiKeyData } from "data";
 import { log } from "./lib/logger.js";
 
 export type AuthContext = {
@@ -18,20 +16,9 @@ export const authMiddleware = createMiddleware<{
     c.req.header("X-API-Key");
 
   if (apiKeyHeader) {
-    const keyHash = createHash("sha256").update(apiKeyHeader).digest("hex");
-
-    const [key] = await db
-      .select()
-      .from(apiKey)
-      .where(eq(apiKey.keyHash, keyHash))
-      .limit(1);
-
-    if (key) {
-      if (key.expiresAt && new Date(key.expiresAt) < new Date()) {
-        log("warn", "API key rejected: expired");
-        return c.json({ error: "API key expired" }, 401);
-      }
-      c.set("auth", { userId: key.userId, authType: "api_key" });
+    const userId = await apiKeyData.getUserIdByKey(apiKeyHeader);
+    if (userId) {
+      c.set("auth", { userId, authType: "api_key" });
       return next();
     }
   }

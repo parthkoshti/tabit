@@ -1,12 +1,8 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { friendService } from "services";
 
-type Api = {
-  get: (path: string) => Promise<unknown>;
-  post: (path: string, body?: unknown) => Promise<unknown>;
-};
-
-export function registerFriendsTools(server: McpServer, api: Api): void {
+export function registerFriendsTools(server: McpServer, userId: string): void {
   server.registerTool(
     "list_friends",
     {
@@ -14,16 +10,16 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
       inputSchema: {},
     },
     async () => {
-      const data = (await api.get("/friends")) as { success: boolean; friends: unknown[] };
+      const result = await friendService.getFriends(userId);
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(data.friends, null, 2),
+            text: JSON.stringify(result.data.friends, null, 2),
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -35,12 +31,9 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ username }) => {
-      const data = (await api.post("/friends/requests", { username })) as {
-        success: boolean;
-        error?: string;
-      };
-      if (!data.success && data.error) {
-        throw new Error(data.error);
+      const result = await friendService.sendRequest(userId, username);
+      if (!result.success) {
+        throw new Error(result.error);
       }
       return {
         content: [
@@ -50,7 +43,7 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -60,19 +53,16 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
       inputSchema: {},
     },
     async () => {
-      const data = (await api.get("/friends/requests/pending")) as {
-        success: boolean;
-        requests: unknown[];
-      };
+      const result = await friendService.getPendingRequests(userId);
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify(data.requests, null, 2),
+            text: JSON.stringify(result.data.requests, null, 2),
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -84,12 +74,9 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ requestId }) => {
-      const data = (await api.post(`/friends/requests/${requestId}/accept`)) as {
-        success: boolean;
-        error?: string;
-      };
-      if (!data.success && data.error) {
-        throw new Error(data.error);
+      const result = await friendService.acceptRequest(requestId, userId);
+      if (!result.success) {
+        throw new Error(result.error);
       }
       return {
         content: [
@@ -99,7 +86,7 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -111,7 +98,7 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ requestId }) => {
-      await api.post(`/friends/requests/${requestId}/reject`);
+      await friendService.rejectRequest(requestId, userId);
       return {
         content: [
           {
@@ -120,7 +107,7 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 
   server.registerTool(
@@ -132,12 +119,9 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
       },
     },
     async ({ token }) => {
-      const data = (await api.post("/friends/add-by-token", { token })) as {
-        success: boolean;
-        error?: string;
-      };
-      if (!data.success && data.error) {
-        throw new Error(data.error);
+      const result = await friendService.addByToken(userId, token);
+      if (!result.success) {
+        throw new Error(result.error);
       }
       return {
         content: [
@@ -147,6 +131,6 @@ export function registerFriendsTools(server: McpServer, api: Api): void {
           },
         ],
       };
-    }
+    },
   );
 }
