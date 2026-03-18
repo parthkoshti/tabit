@@ -8,19 +8,22 @@
     "build": "tsc",
     "start": "dotenv -e ../../.env -e ../../.env.local -- node dist/index.js",
     "start:prod": "node dist/index.js",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "otel": "workspace:*",
     "@ai-sdk/google": "^3.0.0",
     "@hono/node-server": "^1.13.0",
     "ai": "^6.0.116",
     "auth": "workspace:*",
     "data": "workspace:*",
-    "services": "workspace:*",
     "hono": "^4.6.0",
     "ioredis": "^5.4.1",
     "models": "workspace:*",
+    "otel": "workspace:*",
+    "services": "workspace:*",
     "shared": "workspace:*",
     "zod": "^3.25.76"
   },
@@ -28,6 +31,7 @@
     "@types/node": "^22.0.0",
     "dotenv-cli": "^7.4.2",
     "tsx": "^4.19.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "vitest": "^3.2.4"
   }
 }

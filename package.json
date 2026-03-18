@@ -18,6 +18,8 @@
     "start:prod": "pnpm --filter=db db:migrate:prod && concurrently -n api,notifications,web,pwa -c blue,green,magenta,yellow \"pnpm --filter=api start\" \"pnpm --filter=notifications start\" \"pnpm -C apps/web start:prod\" \"pnpm --filter=pwa start:prod\"",
     "check": "turbo check --filter=!web",
     "lint": "turbo lint --filter=!web",
+    "test": "turbo run test",
+    "test:watch": "turbo run test:watch",
     "build:db": "turbo build --filter=db",
     "build:shared": "turbo build --filter=shared",
     "db:generate": "turbo db:generate",
@@ -30,7 +32,8 @@
     "@types/qrcode": "^1.5.6",
     "concurrently": "^9.1.0",
     "sharp": "^0.34.5",
-    "turbo": "^2.3.0"
+    "turbo": "^2.3.0",
+    "vitest": "^3.2.4"
   },
   "packageManager": "pnpm@10.32.1",
   "engines": {
