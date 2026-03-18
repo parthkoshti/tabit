@@ -6,7 +6,7 @@ import PlunkModule from "@plunk/node";
 import { db, user, session, account, verification } from "db";
 import { sendDiscordWebhook } from "shared";
 
-const appName = process.env.APP_NAME ?? "Tab It";
+const appName = process.env.APP_NAME ?? "Tab";
 const plunkSecret = process.env.PLUNK_SECRET_KEY;
 const plunkBaseUrl = process.env.PLUNK_BASE_URL;
 

@@ -10,6 +10,10 @@ export const appConfig = {
   appUrl: process.env.NEXT_PUBLIC_WEB_URL ?? "https://tabit.in",
   githubUrl: "https://github.com/parthkoshti/tabit",
   donateUrl: process.env.NEXT_PUBLIC_DONATE_URL ?? "",
+  support: {
+    paypalUrl: "https://paypal.me/parthkoshti",
+    venmoUrl: "https://venmo.com/pVader",
+  },
   pwaUrl: process.env.NEXT_PUBLIC_PWA_URL ?? "https://localhost:3003",
   creator: {
     name: "Parth Koshti",

@@ -42,3 +42,8 @@ A running list of features in the app.
 
 - Invite friends with QR code
 - Invite to tabs with QR code
+
+## Testing
+
+- Comprehensive service layer tests (103 tests across expense, tab, settlement, friend, user, tab-invite)
+- Vitest with mocked data layer; authorization, validation, and business logic coverage

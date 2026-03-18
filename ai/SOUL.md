@@ -4,7 +4,7 @@ This file provides guidance when working with code in this repository.
 
 ## What This Is
 
-Tab It is a Splitwise-alternative for splitting expenses. It's a pnpm + Turborepo monorepo requiring Node >=24.
+Tab is a Splitwise-alternative for splitting expenses. It's a pnpm + Turborepo monorepo requiring Node >=24.
 
 ## Commands
 
@@ -35,6 +35,14 @@ pnpm lint                             # ESLint across all packages
 # Per-package: cd apps/pwa && pnpm check
 ```
 
+### Testing
+
+```bash
+pnpm test                             # Run all tests (Vitest, via Turbo)
+pnpm test:watch                       # Watch mode
+pnpm --filter services test           # Run only services package tests
+```
+
 ### Production
 
 ```bash
@@ -55,7 +63,8 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 - `packages/auth` — Better Auth configuration (magic link / email OTP only, emails via Plunk)
 - `packages/shared` — Shared utilities (e.g. `createId`)
 - `packages/otel` — OpenTelemetry setup (logs + traces to OTLP/SigNoz)
-- `packages/data` — Data access layer (query functions used by both `api` and `web`)
+- `packages/services` — Business logic layer (expense, tab, settlement, friend, user, tab-invite); used by `api` and `mcp`
+- `packages/data` — Data access layer (query functions used by `services`, `api`, and `web`)
 
 ### Key Architectural Patterns
 
@@ -64,6 +73,8 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 **Auth**: Better Auth handles sessions. The `packages/auth` package exports a configured `auth` instance used by both the API (at `/api/auth/*`) and server-side in `apps/web`. The PWA uses `better-auth/react` via `apps/pwa/lib/auth-client.ts`.
 
 **Database**: Drizzle ORM with PostgreSQL. Schema is split into `schema/auth.ts` (Better Auth managed tables) and `schema/app.ts` (application tables: tabs, expenses, settlements, friends, etc.). The `packages/data` package contains query logic organized into `tab`, `expense`, `settlement`, and `activity` namespaces.
+
+**Services layer**: The API and MCP use `packages/services` for business logic (validation, authorization, notifications). Services call `packages/data` for persistence. Service tests mock the data layer and cover auth, validation, and success paths.
 
 **PWA data flow**: TanStack Query for server state with IndexedDB (`idb-keyval`) persistence. Zustand for client UI state (`lib/stores/ui-store.ts`, `lib/stores/nav-store.ts`). Query keys are defined in `lib/query-keys.ts`.
 

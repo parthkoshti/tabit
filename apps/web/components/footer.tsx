@@ -94,6 +94,7 @@ export function Footer() {
 
           <FooterSection title="Product">
             <FooterLink href="/blog/why">Why Tab?</FooterLink>
+            <FooterLink href="/support">Donate $5</FooterLink>
           </FooterSection>
 
           <FooterSection title="Connect">

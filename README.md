@@ -1,104 +1,294 @@
-# Tab It - Split expenses with friends
+# Tab
 
-A Splitwise alternative built with Next.js 15, PWA, PostgreSQL, Drizzle, Better Auth (magic link), TanStack Query, Zustand, and IndexedDB-backed query cache.
+Split expenses with friends. Open source, self-hostable, and built for the long run.
 
-## Project structure
+Tab is a Splitwise alternative that puts you in control. Your data stays on your server. No paywalls, no feature limits, no surprises. Run it yourself or contribute to make it better.
 
-- `apps/web` - Landing page (tabit.in), port 3000
-- `apps/pwa` - Main expense splitting app (apps.tabit.in), port 3003
-- `apps/api` - Hono REST API, port 3001
-- `apps/notifications` - WebSocket server for real-time notifications, port 3002
-- `apps/mcp` - MCP server (tools for tabs, friends)
-- `packages/db` - Drizzle schema, client, migrations
-- `packages/models` - Shared Zod schemas and types
-- `packages/auth` - Better Auth configuration
-- `packages/shared` - Shared utilities
-- `packages/data` - Data layer
+## Hosted Version
 
-## Setup
+**A fully free**, donations-supported instance is available at [TabIt.in](https://tabit.in). No paywalls, no paid-only features. Free forever, as a way of giving back to the open source community. If it helps you, consider [supporting](https://paypal.me/parthk).
 
-1. Copy `apps/web/.env.example` to `.env` or `.env.local` at the project root and fill in:
-   - `DATABASE_URL` - PostgreSQL connection string
-   - `NEXT_PUBLIC_WEB_URL` - Landing URL (e.g. http://localhost:3000)
-   - `NEXT_PUBLIC_PWA_URL` - PWA app URL (e.g. https://localhost:3003)
-   - `BETTER_AUTH_SECRET` - Secret for Better Auth (min 32 chars)
-   - `BETTER_AUTH_URL` - Same as NEXT_PUBLIC_PWA_URL when developing PWA
-   - `PLUNK_SECRET_KEY` - Plunk API key for magic link emails
-   - `API_URL` - API base URL (e.g. http://localhost:3001)
-   - `REDIS_URL` - Redis connection string (for API and notifications)
-   - `NOTIFICATIONS_WS_URL` / `VITE_NOTIFICATIONS_WS_URL` - WebSocket URL for notifications
-   - `CORS_ORIGIN` - Comma-separated origins for API (use https when using PWA with HTTPS)
+## Why Tab?
 
-2. Install dependencies and build packages:
+Commercial expense-splitting apps can change the rules overnight. Free tiers get restricted. Features move behind paywalls. Your years of expense history become leverage.
+
+**Tab is different.**
+
+- **Your data, your server** - Self-host and your expenses never leave your infrastructure. No third party has access to your financial data.
+
+- **No vendor lock-in** - Open source means you are never at the mercy of pricing changes or policy shifts. The code is yours to run, fork, and modify.
+
+- **Transparency** - You can read the code, audit the logic, and know exactly what is running. No black boxes.
+
+- **Community-driven** - Features are built by users, for users. Report issues, suggest improvements, or contribute code. The project improves when the community contributes.
+
+- **Run it forever** - Even if the maintainers move on, the source remains. You or any developer can keep it running. No one can take it away.
+
+## Features
+
+### Core Splitting
+
+- [x] 1-on-1 and group expense tracking
+- [ ] Multiple split types: equal, custom amounts, percentages
+- [ ] Multi-currency support per tab
+- [x] Splitwise CSV import
+- [x] Expense audit logs
+
+### Modern Experience
+
+- [x] Progressive Web App (install on iOS, Android, desktop)
+- [x] AI-powered voice expense entry
+- [x] Real-time notifications via WebSocket
+- [x] Offline-first with IndexedDB persistence
+- [x] Emoji reactions on expenses
+
+### Social and Collaboration
+
+- [x] QR code invites for friends and tabs
+- [x] Poke friends for fun
+- [x] Sort friends and tabs by name, recency, or activity
+
+### Privacy and Control
+
+- [x] Self-hostable
+- [x] Magic link authentication (no passwords to manage)
+- [x] Your data stays on your server
+
+## Quick Start
+
+For local development:
+
+**Prerequisites:** Node.js 24+, pnpm, PostgreSQL, Redis
 
 ```bash
+# 1. Install dependencies
 pnpm install
-pnpm run build --filter=models --filter=db
-```
 
-3. Run database migrations:
+# 2. Build shared packages
+pnpm build --filter=models --filter=db
 
-```bash
+# 3. Configure environment
+cp .env.example .env
+# Edit .env with DATABASE_URL, BETTER_AUTH_SECRET, PLUNK_SECRET_KEY, CORS_ORIGIN, etc.
+
+# 4. Run migrations
 cd packages/db && pnpm db:push
-```
 
-Or with migrations:
-
-```bash
-cd packages/db && pnpm db:migrate
-```
-
-4. Generate PWA icons (optional - placeholders are included):
-
-```bash
-pnpm generate-icons
-```
-
-5. Start the app:
-
-```bash
+# 5. Start dev servers
 pnpm dev
+
+# 6. Run tests
+pnpm test
 ```
 
-This runs web, pwa, api, and notifications concurrently. For production:
+The app runs at:
+
+- PWA: http://localhost:3003
+- API: http://localhost:3001
+- Notifications WebSocket: ws://localhost:3002
+
+## Self-Hosting with Docker Compose
+
+Deploy Tab on your own infrastructure. You provide PostgreSQL; Docker Compose runs the rest.
+
+### Prerequisites
+
+- Docker and Docker Compose
+- PostgreSQL database (managed service like Neon, Supabase, or self-hosted)
+- Email service for magic links (Plunk, Resend, or similar)
+- Domain name (optional but recommended for production)
+
+### Step 1: Clone and Configure
 
 ```bash
-pnpm start:prod
+git clone https://github.com/parthkoshti/tabit.git
+cd tabit
+cp .env.example .env
 ```
 
-## PWA testing with HTTPS locally
+### Step 2: Set Environment Variables
 
-The PWA app uses HTTPS by default for service worker and push notification support. To access from another device on your network (e.g. iPhone), generate certs that include your local IP:
+Edit `.env` with your values. Required variables:
+
+| Variable                    | Description                                    |
+| --------------------------- | ---------------------------------------------- |
+| `DATABASE_URL`              | PostgreSQL connection string                   |
+| `BETTER_AUTH_SECRET`        | Secret for auth (min 32 characters)            |
+| `BETTER_AUTH_URL`           | Your PWA URL (e.g. https://app.yourdomain.com) |
+| `PLUNK_SECRET_KEY`          | Plunk API key for magic link emails            |
+| `PLUNK_BASE_URL`            | Plunk API base URL                             |
+| `CORS_ORIGIN`               | Allowed origins for API (your PWA URL)         |
+| `NEXT_PUBLIC_PWA_URL`       | Public PWA URL (same as BETTER_AUTH_URL)       |
+| `VITE_NOTIFICATIONS_WS_URL` | WebSocket URL (e.g. wss://ws.yourdomain.com)   |
+
+Redis is included in the compose stack. `REDIS_URL` is set automatically for the api and notifications services.
+
+Optional: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` for web push; `GOOGLE_GENERATIVE_AI_API_KEY` for AI expense parsing.
+
+### Step 3: Start the Stack
 
 ```bash
-cd apps/pwa && pnpm generate-https-certs
+docker compose up -d
 ```
 
-Requires [mkcert](https://github.com/FiloSottile/mkcert) (`brew install mkcert && mkcert -install`).
+The API container runs database migrations on startup. Services start in order: Redis, API, notifications, PWA.
 
-**SSL error when using 192.168.x.x:**
+### Step 4: Access the App
 
-1. Install mkcert: `brew install mkcert && mkcert -install`
-2. Generate certs: `cd apps/pwa && pnpm generate-https-certs`
-3. Restart: `pnpm dev`
+The compose file exposes services on an internal network. To access the PWA:
 
-**Accessing from iPhone/another device:** The device must trust the mkcert CA. On your Mac, run `mkcert -CAROOT` to get the CA path. Copy `rootCA.pem` to the device (AirDrop, etc.), install the profile, then Settings > General > About > Certificate Trust Settings > enable trust for the mkcert root.
+**Option A: Reverse proxy (recommended for production)**
 
-## Docker
+Place Caddy or Nginx in front. Route your domain to:
+
+- PWA: `pwa:3003`
+- API: `api:3001` (proxy `/api/auth` and `/api/*`)
+- WebSocket: `notifications:3002` (for `wss://`)
+
+**Option B: Port mapping (local testing)**
+
+Add to `docker-compose.yml` under the `pwa` service:
+
+```yaml
+ports:
+  - "3003:3003"
+```
+
+Then open http://localhost:3003
+
+### Architecture
+
+```mermaid
+graph LR
+    User[User Browser] --> PWA[PWA:3003]
+    PWA --> API[API:3001]
+    PWA --> WS[Notifications:3002]
+    API --> Redis[Redis:6379]
+    API --> DB[(PostgreSQL)]
+    WS --> Redis
+    WS --> DB
+```
+
+### Production Considerations
+
+- Use a reverse proxy (Caddy, Nginx) with SSL/TLS
+- Set `BETTER_AUTH_COOKIE_DOMAIN` and `BETTER_AUTH_TRUSTED_ORIGINS` for your domain
+- Configure backups for PostgreSQL
+- Consider `OTEL_*` variables for observability (SigNoz, etc.)
+
+## Development
+
+### Project Structure
+
+Monorepo (Turborepo):
+
+- `apps/pwa` - Main expense app (Vite + React), port 3003
+- `apps/api` - Hono REST API, port 3001
+- `apps/notifications` - WebSocket server, port 3002
+- `apps/web` - Landing page (hosted separately)
+- `packages/services` - Business logic
+- `packages/data` - Data access layer
+- `packages/db` - Drizzle schema and migrations
+
+See [ai/SOUL.md](ai/SOUL.md) for detailed architecture and conventions.
+
+### Commands
 
 ```bash
-docker build --build-arg TURBO_TEAM=$TURBO_TEAM --build-arg TURBO_TOKEN=$TURBO_TOKEN -t tabit .
-docker run -p 3000:3000 -p 3002:3002 -p 3003:3003 --env-file .env tabit
+pnpm dev              # Start all services
+pnpm test             # Run all tests
+pnpm check            # TypeScript check
+pnpm lint             # ESLint
+pnpm build            # Build for production
 ```
 
-## Tech stack
+### HTTPS for Local PWA
 
-- Next.js 15
-- PostgreSQL + Drizzle ORM
-- Better Auth (magic link only, emails via Plunk)
+```bash
+pnpm generate-https-certs   # Requires mkcert
+```
+
+## Architecture
+
+```mermaid
+graph TB
+    subgraph client [Client Layer]
+        PWA[PWA - Vite + React]
+        Web[Landing - Next.js]
+    end
+
+    subgraph backend [Backend Services]
+        API[API - Hono]
+        Notifications[Notifications - WebSocket]
+    end
+
+    subgraph data [Data Layer]
+        Services[Services Package]
+        Data[Data Package]
+        DB[(PostgreSQL)]
+    end
+
+    subgraph infra [Infrastructure]
+        Redis[Redis]
+    end
+
+    PWA --> API
+    PWA --> Notifications
+    API --> Services
+    Notifications --> Redis
+    API --> Redis
+    Services --> Data
+    Data --> DB
+```
+
+- Service layer for business logic (validation, authorization, notifications)
+- Data layer for database queries
+- Real-time via Redis pub/sub
+- PWA with offline-first IndexedDB cache
+
+## Tech Stack
+
+**Frontend**
+
+- React 18 + Vite
 - TanStack Query + IndexedDB persistence
-- Zustand
-- PWA (manifest, service worker)
-- Hono (API)
-- Redis (caching, notifications)
-- Web Push (optional)
+- Zustand for UI state
+- React Router v7
+- PWA with service workers
+
+**Backend**
+
+- Hono (fast, edge-ready)
+- Better Auth (magic links only)
+- Drizzle ORM + PostgreSQL
+- Redis for caching and pub/sub
+- Web Push notifications
+
+**Infrastructure**
+
+- Docker + Docker Compose
+- Turborepo monorepo
+- Vitest for testing
+- OpenTelemetry (optional)
+
+**Integrations**
+
+- Google Gemini for AI expense parsing
+- Plunk for transactional emails
+
+## Open Source Shoutouts
+
+Tab and related projects (Snitchfeed, Conncord) are built with and deployed using these open source tools:
+
+- [Plunk](https://useplunk.com/) - Open-source email platform for transactional emails, marketing, and automation. Self-hostable, transparent pricing.
+- [SigNoz](https://signoz.io) - Open-source observability platform. Logs, traces, and metrics in one place.
+- [Dokploy](https://dokploy.com) - Self-hosted PaaS for deploying applications with Docker Compose.
+- [Bull Board](https://github.com/felixmosh/bull-board) - Queue background jobs inspector for Bull and BullMQ.
+
+## Contributing
+
+Contributions are welcome. Open an issue to report bugs or suggest features. Pull requests should include tests where applicable.
+
+## License
+
+See the LICENSE file in the repository.

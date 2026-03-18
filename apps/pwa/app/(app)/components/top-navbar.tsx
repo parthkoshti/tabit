@@ -140,7 +140,7 @@ export function TopNavbar() {
           <Link to="/tabs" className="flex items-center gap-2">
             <img
               src={appConfig.icons.sm.src}
-              alt="Tab It Logo"
+              alt="Tab Logo"
               width={52}
               height={52}
             />
