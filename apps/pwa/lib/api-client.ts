@@ -11,7 +11,8 @@ import type {
 } from "data";
 
 function getApiUrl(): string {
-  return "/api";
+  const base = import.meta.env.VITE_BACKEND_URL;
+  return base ? `${base}/v1` : "/api";
 }
 
 const baseUrl = getApiUrl();
@@ -76,10 +77,7 @@ export const api = {
         alreadyFriends?: boolean;
         error?: string;
       }>("/friends/add-by-token", { method: "POST", body: { token } }),
-    search: (
-      q: string,
-      options?: { includeFriends?: boolean },
-    ) =>
+    search: (q: string, options?: { includeFriends?: boolean }) =>
       request<{
         success: boolean;
         users: Array<{
@@ -90,8 +88,7 @@ export const api = {
       }>(
         `/friends/search?q=${encodeURIComponent(q)}${options?.includeFriends ? "&includeFriends=true" : ""}`,
       ),
-    list: () =>
-      request<{ success: boolean; friends: FriendTab[] }>("/friends"),
+    list: () => request<{ success: boolean; friends: FriendTab[] }>("/friends"),
     poke: (friendTabId: string) =>
       request<{ success: boolean; error?: string }>("/friends/poke", {
         method: "POST",
@@ -143,8 +140,7 @@ export const api = {
       ),
   },
   tabs: {
-    list: () =>
-      request<{ success: boolean; tabs: TabWithBalance[] }>("/tabs"),
+    list: () => request<{ success: boolean; tabs: TabWithBalance[] }>("/tabs"),
     get: (tabId: string) =>
       request<{ success: boolean; tab: TabWithMembers | null; error?: string }>(
         `/tabs/${tabId}`,
@@ -158,10 +154,7 @@ export const api = {
         method: "POST",
         body: currency ? { name, currency } : { name },
       }),
-    update: (
-      tabId: string,
-      updates: { name?: string; currency?: string },
-    ) =>
+    update: (tabId: string, updates: { name?: string; currency?: string }) =>
       request<{ success: boolean; error?: string }>(`/tabs/${tabId}`, {
         method: "PATCH",
         body: updates,
@@ -197,18 +190,18 @@ export const api = {
         expenses: Expense[];
         total?: number;
         error?: string;
-      }>(
-        `/tabs/${tabId}/expenses${qs ? `?${qs}` : ""}`,
-      );
+      }>(`/tabs/${tabId}/expenses${qs ? `?${qs}` : ""}`);
     },
     get: (tabId: string, expenseId: string) =>
       request<{ success: boolean; expense: Expense | null; error?: string }>(
         `/tabs/${tabId}/expenses/${expenseId}`,
       ),
     getAuditLog: (tabId: string, expenseId: string) =>
-      request<{ success: boolean; auditLog: ExpenseAuditLogEntry[]; error?: string }>(
-        `/tabs/${tabId}/expenses/${expenseId}/audit-log`,
-      ),
+      request<{
+        success: boolean;
+        auditLog: ExpenseAuditLogEntry[];
+        error?: string;
+      }>(`/tabs/${tabId}/expenses/${expenseId}/audit-log`),
     create: (
       tabId: string,
       body: {
@@ -317,9 +310,11 @@ export const api = {
         `/tabs/${tabId}/settlements`,
       ),
     get: (tabId: string, settlementId: string) =>
-      request<{ success: boolean; settlement: Settlement | null; error?: string }>(
-        `/tabs/${tabId}/settlements/${settlementId}`,
-      ),
+      request<{
+        success: boolean;
+        settlement: Settlement | null;
+        error?: string;
+      }>(`/tabs/${tabId}/settlements/${settlementId}`),
     record: (
       tabId: string,
       fromUserId: string,
@@ -348,9 +343,11 @@ export const api = {
         { method: "DELETE" },
       ),
     getAuditLog: (tabId: string, settlementId: string) =>
-      request<{ success: boolean; auditLog: SettlementAuditLogEntry[]; error?: string }>(
-        `/tabs/${tabId}/settlements/${settlementId}/audit-log`,
-      ),
+      request<{
+        success: boolean;
+        auditLog: SettlementAuditLogEntry[];
+        error?: string;
+      }>(`/tabs/${tabId}/settlements/${settlementId}/audit-log`),
   },
   activity: {
     list: (options?: { limit?: number; offset?: number }) => {
@@ -367,10 +364,7 @@ export const api = {
     },
   },
   profile: {
-    update: (data: {
-      name?: string;
-      defaultCurrency?: string | null;
-    }) =>
+    update: (data: { name?: string; defaultCurrency?: string | null }) =>
       request<{ success: boolean; error?: string }>("/profile", {
         method: "PATCH",
         body: data,

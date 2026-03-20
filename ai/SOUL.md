@@ -91,9 +91,10 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 All apps read from a root `.env` / `.env.local` file (via `dotenv-cli`). Key variables:
 
 - `DATABASE_URL` — PostgreSQL connection string
-- `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL` — Auth config
+- `BETTER_AUTH_SECRET` — Auth secret
+- `VITE_BACKEND_URL` — Backend API URL; used by PWA (client), auth (baseURL), and API container
+- `BETTER_AUTH_COOKIE_DOMAIN` — Optional; e.g. `.tabit.in` for cross-subdomain cookies
 - `PLUNK_SECRET_KEY` — Email provider for magic links
-- `API_URL` — Backend URL (used by `apps/web` server-side)
 - `REDIS_URL` — Used by `apps/api` and `apps/notifications`
 - `CORS_ORIGIN` — Comma-separated origins for the API
 - `NEXT_PUBLIC_PWA_URL` / `NEXT_PUBLIC_WEB_URL` — Public URLs

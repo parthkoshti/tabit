@@ -1,14 +1,24 @@
 /// <reference types="vite/client" />
 
-import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from "workbox-precaching";
+import {
+  cleanupOutdatedCaches,
+  createHandlerBoundToURL,
+  precacheAndRoute,
+} from "workbox-precaching";
 import { clientsClaim } from "workbox-core";
-import { NavigationRoute, registerRoute, setCatchHandler } from "workbox-routing";
+import {
+  NavigationRoute,
+  registerRoute,
+  setCatchHandler,
+} from "workbox-routing";
 import { dequeue, putBack, remove } from "../lib/offline-queue";
 import { getLastCheckTime, setLastCheckTime } from "../lib/periodic-sync-store";
 
 declare let self: ServiceWorkerGlobalScope;
 
-const API_BASE = "/api";
+const API_BASE = import.meta.env.VITE_BACKEND_URL
+  ? `${import.meta.env.VITE_BACKEND_URL}/v1`
+  : "/api";
 const PERIODIC_SYNC_TAG = "check-notifications";
 
 self.skipWaiting();
@@ -28,7 +38,10 @@ const handler = createHandlerBoundToURL("/index.html");
 registerRoute(new NavigationRoute(handler, { allowlist }));
 
 setCatchHandler(async () => {
-  return (await caches.match("/offline.html")) ?? new Response("Offline", { status: 503 });
+  return (
+    (await caches.match("/offline.html")) ??
+    new Response("Offline", { status: 503 })
+  );
 });
 
 self.addEventListener("push", function (event) {
@@ -76,7 +89,10 @@ self.addEventListener("push", function (event) {
           ]
         : undefined;
 
-    const options: NotificationOptions & { renotify?: boolean; vibrate?: number[] } = {
+    const options: NotificationOptions & {
+      renotify?: boolean;
+      vibrate?: number[];
+    } = {
       body,
       icon: "/icon-192x192.png",
       tag,
@@ -241,11 +257,16 @@ self.addEventListener("notificationclick", function (event) {
             payload: { requestId },
           });
           if ("sync" in self.registration) {
-            await (self.registration as ServiceWorkerRegistration & { sync: { register: (tag: string) => Promise<void> } }).sync.register("sync-notifications");
+            await (
+              self.registration as ServiceWorkerRegistration & {
+                sync: { register: (tag: string) => Promise<void> };
+              }
+            ).sync.register("sync-notifications");
           }
         }
 
-        const title = action === "accept" ? "Request accepted" : "Request rejected";
+        const title =
+          action === "accept" ? "Request accepted" : "Request rejected";
         const body = executed
           ? "Done."
           : "Your response will sync when you're back online.";
@@ -256,8 +277,13 @@ self.addEventListener("notificationclick", function (event) {
         });
 
         const url = data.url || new URL("/friends", self.location.origin).href;
-        const targetUrl = url.startsWith("http") ? url : new URL(url, self.location.origin).href;
-        const clientList = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+        const targetUrl = url.startsWith("http")
+          ? url
+          : new URL(url, self.location.origin).href;
+        const clientList = await self.clients.matchAll({
+          type: "window",
+          includeUncontrolled: true,
+        });
         for (const client of clientList) {
           if (client.url.includes(self.location.origin) && "focus" in client) {
             await client.navigate(targetUrl);
@@ -273,8 +299,7 @@ self.addEventListener("notificationclick", function (event) {
     return;
   }
 
-  const url =
-    data.url || new URL("/friends", self.location.origin).href;
+  const url = data.url || new URL("/friends", self.location.origin).href;
   const targetUrl = url.startsWith("http")
     ? url
     : new URL(url, self.location.origin).href;

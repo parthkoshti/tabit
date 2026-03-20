@@ -143,7 +143,7 @@ export const auth = betterAuth({
       expiresIn: 60 * 5,
     }),
   ],
-  baseURL: process.env.BETTER_AUTH_URL ?? "https://localhost:3003",
+  baseURL: process.env.VITE_BACKEND_URL ?? "http://localhost:3001",
   trustedOrigins: [
     process.env.NEXT_PUBLIC_PWA_URL!,
     "https://localhost:3003",

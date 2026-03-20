@@ -114,11 +114,11 @@ Edit `.env` with your values. Required variables:
 | --------------------------- | ---------------------------------------------- |
 | `DATABASE_URL`              | PostgreSQL connection string                   |
 | `BETTER_AUTH_SECRET`        | Secret for auth (min 32 characters)            |
-| `BETTER_AUTH_URL`           | Your PWA URL (e.g. https://app.yourdomain.com) |
+| `VITE_BACKEND_URL`          | Backend API URL (e.g. https://api.yourdomain.com) |
 | `PLUNK_SECRET_KEY`          | Plunk API key for magic link emails            |
 | `PLUNK_BASE_URL`            | Plunk API base URL                             |
 | `CORS_ORIGIN`               | Allowed origins for API (your PWA URL)         |
-| `NEXT_PUBLIC_PWA_URL`       | Public PWA URL (same as BETTER_AUTH_URL)       |
+| `NEXT_PUBLIC_PWA_URL`       | Public PWA URL                                  |
 | `VITE_NOTIFICATIONS_WS_URL` | WebSocket URL (e.g. wss://ws.yourdomain.com)   |
 
 Redis is included in the compose stack. `REDIS_URL` is set automatically for the api and notifications services.

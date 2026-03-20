@@ -14,7 +14,7 @@ export const appConfig = {
     paypalUrl: "https://paypal.me/parthkoshti",
     venmoUrl: "https://venmo.com/pVader",
   },
-  pwaUrl: process.env.NEXT_PUBLIC_PWA_URL ?? "https://localhost:3003",
+  pwaUrl: "https://app.tabit.in",
   creator: {
     name: "Parth Koshti",
     github: "https://github.com/parthkoshti",
