@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -23,10 +23,21 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { CornerDownLeft, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, CornerDownLeft, Trash2 } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { toast } from "sonner";
+import { formatAmount } from "@/lib/format-amount";
+import { formatAbsoluteDate } from "@/lib/format-date";
+import { CURATED_CURRENCIES, getCurrency } from "shared";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
 
 type Member = {
   userId: string;
@@ -45,6 +56,9 @@ type Settlement = {
   fromUserId: string;
   toUserId: string;
   amount: number;
+  currency?: string | null;
+  originalAmount?: number | null;
+  settlementDate?: Date | string;
   createdAt: Date | string;
   fromUser: {
     id: string;
@@ -63,6 +77,7 @@ type Settlement = {
 export function EditSettlementForm({
   settlementId,
   tabId,
+  tabCurrency,
   settlement,
   members,
   currentUserId,
@@ -72,6 +87,7 @@ export function EditSettlementForm({
 }: {
   settlementId: string;
   tabId: string;
+  tabCurrency: string;
   settlement: Settlement;
   members: Member[];
   currentUserId: string;
@@ -80,19 +96,101 @@ export function EditSettlementForm({
   onCancel?: () => void;
 }) {
   const navigate = useNavigate();
+
+  function toDate(d: Date | string | undefined, fallback: Date | string): Date {
+    const raw = d ?? fallback;
+    return typeof raw === "string" ? new Date(raw) : raw;
+  }
+
   const [fromUserId, setFromUserId] = useState(settlement.fromUserId);
   const [toUserId, setToUserId] = useState(settlement.toUserId);
-  const [amount, setAmount] = useState(settlement.amount.toFixed(2));
+  const [settlementDate, setSettlementDate] = useState<Date>(() =>
+    toDate(settlement.settlementDate, settlement.createdAt),
+  );
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [currency, setCurrency] = useState(
+    settlement.currency ?? tabCurrency,
+  );
+  const [amount, setAmount] = useState(() => {
+    const foreign =
+      settlement.currency &&
+      settlement.currency !== tabCurrency &&
+      settlement.originalAmount != null;
+    const displayAmount =
+      foreign && settlement.originalAmount != null
+        ? settlement.originalAmount
+        : settlement.amount;
+    return displayAmount.toFixed(2);
+  });
   const [loading, setLoading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  const [fxPreview, setFxPreview] = useState<{
+    amountTab: number;
+    tabCurrency: string;
+  } | null>(null);
+  const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
 
   function parseAmount(value: string): number | null {
     const num = parseFloat(value);
     if (isNaN(num) || num < 0.01) return null;
     return num;
   }
+
+  useEffect(() => {
+    setCurrency(settlement.currency ?? tabCurrency);
+    setSettlementDate(toDate(settlement.settlementDate, settlement.createdAt));
+    const foreign =
+      settlement.currency &&
+      settlement.currency !== tabCurrency &&
+      settlement.originalAmount != null;
+    const displayAmount =
+      foreign && settlement.originalAmount != null
+        ? settlement.originalAmount
+        : settlement.amount;
+    setAmount(displayAmount.toFixed(2));
+  }, [settlement, tabCurrency]);
+
+  useEffect(() => {
+    const parsed = parseAmount(amount);
+    if (parsed === null || currency === tabCurrency) {
+      setFxPreview(null);
+      setFxPreviewLoading(false);
+      return;
+    }
+
+    setFxPreview(null);
+    setFxPreviewLoading(true);
+
+    let cancelled = false;
+    const t = setTimeout(() => {
+      if (cancelled) return;
+      void (async () => {
+        const r = await api.expenses.fxPreview(tabId, {
+          amount: parsed,
+          currency,
+          expenseDate: settlementDate.toISOString(),
+        });
+        if (cancelled) return;
+        setFxPreviewLoading(false);
+        if (r.success && r.amountTab != null) {
+          setFxPreview({
+            amountTab: r.amountTab,
+            tabCurrency: r.tabCurrency ?? tabCurrency,
+          });
+        } else {
+          setFxPreview(null);
+        }
+      })();
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [amount, currency, tabId, tabCurrency, settlementDate]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -116,6 +214,8 @@ export function EditSettlementForm({
       fromUserId,
       toUserId,
       amount: parsedAmount,
+      settlementDate: settlementDate.toISOString(),
+      ...(currency !== tabCurrency ? { currency } : {}),
     });
 
     if (result.success) {
@@ -123,7 +223,12 @@ export function EditSettlementForm({
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
-      queryClient.invalidateQueries({ queryKey: ["settlement", settlementId] });
+      queryClient.invalidateQueries({
+        queryKey: ["settlement", tabId, settlementId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["settlementAuditLog", tabId, settlementId],
+      });
       toast.success("Settlement updated");
       if (onSuccess) onSuccess();
       else navigate(`/tabs/${tabId}`);
@@ -225,29 +330,97 @@ export function EditSettlementForm({
           </Select>
         </div>
         <div className="space-y-2">
+          <Label>Date</Label>
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={loading}
+                className={cn(
+                  "h-9 w-full justify-start gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
+                  !settlementDate && "text-muted-foreground",
+                )}
+              >
+                <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                {settlementDate ? formatAbsoluteDate(settlementDate) : "Date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-auto min-w-72 rounded-lg border-border p-0 shadow-md overflow-clip"
+              align="start"
+              sideOffset={4}
+            >
+              <Calendar
+                mode="single"
+                selected={settlementDate}
+                className="w-full"
+                onSelect={(date) => {
+                  if (date) {
+                    setSettlementDate(date);
+                    setDatePickerOpen(false);
+                  }
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+        <div className="space-y-2">
           <Label htmlFor="amount">Amount</Label>
-          <div className="flex h-12 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
-            <span className="pl-3 text-base text-muted-foreground">$</span>
-            <Input
-              id="amount"
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={amount}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setAmount(v);
-              }}
-              onBlur={() => {
-                const num = parseFloat(amount);
-                if (!isNaN(num) && num > 0) setAmount(num.toFixed(2));
-              }}
-              placeholder="0.00"
-              required
+          <div className="flex gap-2">
+            <div className="flex h-12 min-w-0 flex-1 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
+              <span className="pl-3 text-base text-muted-foreground">
+                {getCurrency(currency)?.symbol ?? currency}
+              </span>
+              <Input
+                id="amount"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={amount}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setAmount(v);
+                }}
+                onBlur={() => {
+                  const num = parseFloat(amount);
+                  if (!isNaN(num) && num > 0) setAmount(num.toFixed(2));
+                }}
+                placeholder="0.00"
+                required
+                disabled={loading}
+                className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+            <Select
+              value={currency}
+              onValueChange={setCurrency}
               disabled={loading}
-              className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
+            >
+              <SelectTrigger className="h-12 w-16 shrink-0 items-center justify-center">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {CURATED_CURRENCIES.map((code) => (
+                  <SelectItem key={code} value={code}>
+                    {code}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
+          {currency !== tabCurrency &&
+            parseAmount(amount) != null &&
+            (fxPreviewLoading ? (
+              <Skeleton className="mt-0.5 h-4 w-[min(100%,12rem)]" />
+            ) : (
+              fxPreview && (
+                <p className="text-xs text-muted-foreground">
+                  ≈ {formatAmount(fxPreview.amountTab, fxPreview.tabCurrency)}{" "}
+                  in tab currency
+                </p>
+              )
+            ))}
         </div>
         {error && (
           <Alert variant="destructive">

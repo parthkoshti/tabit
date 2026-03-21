@@ -18,7 +18,7 @@ vi.mock("data", () => ({
     isMember: vi.fn(),
     getWithMembers: vi.fn(),
     getMembers: vi.fn(),
-    getCurrency: vi.fn(),
+    getCurrency: vi.fn().mockResolvedValue("USD"),
     getTabInfoForNotifications: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -88,6 +88,10 @@ vi.mock("data", () => ({
     getByUserId: vi.fn(),
     upsert: vi.fn(),
     delete: vi.fn(),
+  },
+  fxRate: {
+    getSnapshot: vi.fn(),
+    upsertSnapshot: vi.fn(),
   },
 }));
 

@@ -1,8 +1,10 @@
 import { Hono } from "hono";
 import { createExpenseSchema } from "models";
+import { CURRENCY_CODES } from "shared";
+import { tab } from "data";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
-import { expenseService } from "services";
+import { convertToTabCurrency, expenseService } from "services";
 import { log } from "../lib/logger.js";
 
 export const expensesRoutes = new Hono<{ Variables: { auth: AuthContext } }>();
@@ -43,6 +45,59 @@ expensesRoutes.get("/", async (c) => {
     filter,
   });
   return c.json({ success: true, expenses: result.data.expenses, total: result.data.total });
+});
+
+/** Preview tab-currency total for an amount in another currency (Frankfurter ECB rates). */
+expensesRoutes.get("/fx-preview", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId")!;
+  const amount = parseFloat(c.req.query("amount") ?? "");
+  const currency = c.req.query("currency")?.trim();
+  const expenseDateRaw = c.req.query("expenseDate");
+
+  if (!currency || !Number.isFinite(amount) || amount <= 0) {
+    return c.json(
+      { success: false, error: "Query params amount and currency are required" },
+      400,
+    );
+  }
+
+  const upper = currency.toUpperCase();
+  if (!(CURRENCY_CODES as readonly string[]).includes(upper)) {
+    return c.json({ success: false, error: "Invalid currency code" }, 400);
+  }
+
+  const expenseDate = expenseDateRaw ? new Date(expenseDateRaw) : new Date();
+  if (Number.isNaN(expenseDate.getTime())) {
+    return c.json({ success: false, error: "Invalid expenseDate" }, 400);
+  }
+
+  const isMember = await tab.isMember(tabId, userId);
+  if (!isMember) {
+    return c.json({ success: false, error: "Not a member" }, 403);
+  }
+
+  const tabCurrency = (await tab.getCurrency(tabId)) ?? "USD";
+  const conv = await convertToTabCurrency({
+    originalAmount: amount,
+    from: upper,
+    tabCurrency,
+    asOfDate: expenseDate,
+  });
+
+  if (!conv.success) {
+    return c.json(
+      { success: false, error: conv.error },
+      conv.status as 400 | 503,
+    );
+  }
+
+  return c.json({
+    success: true,
+    amountTab: conv.data.amountTab,
+    fxRateDate: conv.data.rateDate,
+    tabCurrency,
+  });
 });
 
 expensesRoutes.get("/:expenseId", async (c) => {
@@ -118,6 +173,9 @@ expensesRoutes.post("/", async (c) => {
     description: result.data.description,
     tabName: result.data.tabName,
     currency: result.data.currency,
+    expenseCurrency: result.data.expenseCurrency,
+    originalAmount: result.data.originalAmount,
+    fxRateDate: result.data.fxRateDate,
     participants: result.data.participants,
   });
 });

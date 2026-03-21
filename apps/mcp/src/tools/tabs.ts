@@ -98,22 +98,27 @@ export function registerTabsTools(server: McpServer, userId: string): void {
     "add_expense",
     {
       description:
-        "Add an expense to a tab. Amount in dollars. Description required. paidById defaults to current user.",
+        "Add an expense to a tab. Amount is in `currency` (defaults to tab currency). Description required. paidById defaults to current user.",
       inputSchema: {
         tabId: z.string().describe("ID of the tab"),
-        amount: z.number().describe("Amount in dollars"),
+        amount: z.number().describe("Amount in the given currency"),
         description: z.string().describe("Description of the expense"),
+        currency: z
+          .string()
+          .optional()
+          .describe("ISO 4217 code (defaults to tab currency)"),
         paidById: z
           .string()
           .optional()
           .describe("User ID who paid (defaults to current user)"),
       },
     },
-    async ({ tabId, amount, description, paidById }) => {
+    async ({ tabId, amount, description, currency, paidById }) => {
       const result = await expenseService.create(
         {
           tabId,
           amount,
+          ...(currency ? { currency } : {}),
           description,
           paidById: paidById ?? userId,
           splitType: "equal",
@@ -168,16 +173,44 @@ export function registerTabsTools(server: McpServer, userId: string): void {
         tabId: z.string().describe("ID of the tab"),
         fromUserId: z.string().describe("User ID of the payer"),
         toUserId: z.string().describe("User ID of the payee"),
-        amount: z.number().describe("Amount in dollars"),
+        amount: z
+          .number()
+          .describe("Amount in the given currency (tab currency if omitted)"),
+        currency: z
+          .string()
+          .optional()
+          .describe("ISO currency code when amount is not in tab currency"),
+        originalAmount: z
+          .number()
+          .optional()
+          .describe("Explicit original amount when using currency (optional)"),
+        settlementDate: z
+          .coerce
+          .date()
+          .optional()
+          .describe(
+            "ISO date-time for the payment (FX rate date); defaults to now if omitted",
+          ),
       },
     },
-    async ({ tabId, fromUserId, toUserId, amount }) => {
+    async ({
+      tabId,
+      fromUserId,
+      toUserId,
+      amount,
+      currency,
+      originalAmount,
+      settlementDate,
+    }) => {
       const result = await settlementService.record(
         tabId,
         fromUserId,
         toUserId,
         amount,
         userId,
+        currency,
+        originalAmount,
+        settlementDate,
       );
       if (!result.success) {
         throw new Error(result.error);

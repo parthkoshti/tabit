@@ -5,7 +5,10 @@ export type SplitType = z.infer<typeof splitTypeSchema>;
 
 export const createExpenseSchema = z.object({
   tabId: z.string(),
+  /** Amount in `currency` (tab currency when omitted / same as tab). */
   amount: z.number().positive(),
+  /** ISO 4217 code; defaults to tab currency on the server. */
+  currency: z.string().min(1).max(10).optional(),
   description: z.string().min(1).max(500),
   paidById: z.string(),
   splitType: splitTypeSchema.default("equal"),

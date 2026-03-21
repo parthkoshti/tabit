@@ -13,7 +13,10 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { useMemo } from "react";
-import { formatAmount } from "@/lib/format-amount";
+import {
+  formatAmount,
+  formatAmountWithCurrencyCode,
+} from "@/lib/format-amount";
 import { cn } from "@/lib/utils";
 import { ExpenseYourBalance } from "@/components/expense-your-balance";
 import { formatAppDate } from "@/lib/format-date";
@@ -176,7 +179,8 @@ export function ActivityPage() {
                             {formatAmount(item.amount, item.tabCurrency)}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
                           {getDisplayName(
                             {
                               id: item.paidById,
@@ -227,7 +231,16 @@ export function ActivityPage() {
                               </span>
                             </>
                           )}
-                        </p>
+                          </p>
+                          {item.expenseCurrency !== item.tabCurrency ? (
+                            <span className="text-sm font-normal text-muted-foreground tabular-nums shrink-0 text-right pt-0.5">
+                              {formatAmountWithCurrencyCode(
+                                item.originalAmount,
+                                item.expenseCurrency,
+                              )}
+                            </span>
+                          ) : null}
+                        </div>
                         <div className="flex items-end justify-between gap-3 pt-0.5">
                           <p className="text-xs text-muted-foreground min-w-0">
                             {formatAppDate(item.expenseDate)}
@@ -280,30 +293,44 @@ export function ActivityPage() {
                             {formatAmount(item.amount, item.tabCurrency)}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                          Settlement{" "}
-                          {item.tabIsDirect && item.directOtherUser ? (
-                            <>
-                              — You split with{" "}
-                              <span className="text-foreground">
-                                {getDisplayName(
-                                  item.directOtherUser,
-                                  currentUserId,
-                                )}
-                              </span>
-                            </>
-                          ) : (
-                            <>
-                              in{" "}
-                              <span className="inline-flex items-center gap-1 text-foreground">
-                                <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
-                                {item.tabName}
-                              </span>
-                            </>
-                          )}
-                        </p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap min-w-0">
+                            Settlement{" "}
+                            {item.tabIsDirect && item.directOtherUser ? (
+                              <>
+                                — You split with{" "}
+                                <span className="text-foreground">
+                                  {getDisplayName(
+                                    item.directOtherUser,
+                                    currentUserId,
+                                  )}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                in{" "}
+                                <span className="inline-flex items-center gap-1 text-foreground">
+                                  <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                                  {item.tabName}
+                                </span>
+                              </>
+                            )}
+                          </p>
+                          {item.settlementCurrency &&
+                          item.settlementCurrency !== item.tabCurrency &&
+                          item.originalAmount != null ? (
+                            <span className="text-sm font-normal text-muted-foreground tabular-nums shrink-0 text-right pt-0.5">
+                              {formatAmountWithCurrencyCode(
+                                item.originalAmount,
+                                item.settlementCurrency,
+                              )}
+                            </span>
+                          ) : null}
+                        </div>
                         <p className="text-xs text-muted-foreground">
-                          {formatAppDate(item.createdAt)}
+                          {formatAppDate(
+                            item.settlementDate ?? item.createdAt,
+                          )}
                         </p>
                       </AnimatedCard>
                     </Link>

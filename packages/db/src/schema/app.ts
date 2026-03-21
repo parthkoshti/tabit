@@ -2,11 +2,13 @@ import {
   pgTable,
   text,
   timestamp,
+  date,
   decimal,
   boolean,
   primaryKey,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { createId } from "shared";
 import { user } from "./auth.js";
@@ -73,7 +75,12 @@ export const expense = pgTable(
     paidById: text("paidById")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    /** Tab-currency total (ledger / splits). */
     amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+    /** ISO currency code for the amount the user entered. */
+    currency: text("currency").notNull().default("USD"),
+    /** Amount in `currency` (user input). */
+    originalAmount: decimal("originalAmount", { precision: 12, scale: 2 }).notNull(),
     description: text("description").notNull(),
     splitType: text("splitType").notNull().default("equal"),
     expenseDate: timestamp("expenseDate").notNull().defaultNow(),
@@ -83,6 +90,23 @@ export const expense = pgTable(
   (t) => [
     index("expense_tabId_expenseDate_idx").on(t.tabId, t.expenseDate),
     index("expense_tabId_deletedAt_idx").on(t.tabId, t.deletedAt),
+  ],
+);
+
+/** Cached Frankfurter rate snapshots (ECB date + base). */
+export const fxRateSnapshot = pgTable(
+  "fx_rate_snapshot",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    rateDate: date("rateDate", { mode: "string" }).notNull(),
+    base: text("base").notNull(),
+    rates: jsonb("rates").notNull().$type<Record<string, number>>(),
+    fetchedAt: timestamp("fetchedAt").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("fx_rate_snapshot_rateDate_base_idx").on(t.rateDate, t.base),
   ],
 );
 
@@ -160,6 +184,11 @@ export const settlement = pgTable("settlement", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  /** When set, payment was entered in this currency; `originalAmount` is the entered total. */
+  currency: text("currency"),
+  originalAmount: decimal("originalAmount", { precision: 12, scale: 2 }),
+  /** Calendar date of the payment (used for ordering and FX). */
+  settlementDate: timestamp("settlementDate").notNull(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
@@ -194,6 +223,7 @@ export const settlementAuditLog = pgTable("settlement_audit_log", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   performedAt: timestamp("performedAt").notNull().defaultNow(),
+  changes: jsonb("changes"),
 });
 
 export const apiKey = pgTable("api_key", {

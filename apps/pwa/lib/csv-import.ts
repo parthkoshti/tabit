@@ -128,6 +128,8 @@ export type ParsedCsvRow = {
   date: Date | null;
   description: string;
   cost: number;
+  /** ISO code from Splitwise "Currency" column when present. */
+  currency?: string;
   memberAmounts: Record<string, number>;
   rowIndex: number;
 };
@@ -167,6 +169,7 @@ export function parseCsvFile(content: string): ParsedCsv {
   const dateIdx = findColumnIndex(rawHeaders, "date");
   const descIdx = findColumnIndex(rawHeaders, "description");
   const costIdx = findColumnIndex(rawHeaders, "cost");
+  const currencyIdx = findColumnIndex(rawHeaders, "currency");
 
   if (dateIdx < 0) errors.push("Missing 'Date' column");
   if (descIdx < 0) errors.push("Missing 'Description' column");
@@ -193,6 +196,10 @@ export function parseCsvFile(content: string): ParsedCsv {
     const descVal = descIdx >= 0 ? String(cells[descIdx] ?? "").trim() : "";
     const costVal =
       costIdx >= 0 ? parseNumber(String(cells[costIdx] ?? "")) : null;
+    const currencyVal =
+      currencyIdx >= 0
+        ? String(cells[currencyIdx] ?? "").trim() || undefined
+        : undefined;
 
     if (descVal.toLowerCase() === "total balance") continue;
 
@@ -207,6 +214,7 @@ export function parseCsvFile(content: string): ParsedCsv {
       date: parseDate(dateVal),
       description: descVal,
       cost: costVal ?? 0,
+      currency: currencyVal,
       memberAmounts,
       rowIndex: r + 1,
     });
@@ -303,6 +311,7 @@ export function buildExpensePayload(
   defaultPayerId: string,
 ): {
   amount: number;
+  currency?: string;
   description: string;
   paidById: string;
   splitType: "custom";
@@ -314,6 +323,9 @@ export function buildExpensePayload(
 
   return {
     amount: Math.round(row.cost * 100) / 100,
+    ...(row.currency
+      ? { currency: row.currency.toUpperCase() }
+      : {}),
     description: row.description,
     paidById: payerId,
     splitType: "custom",

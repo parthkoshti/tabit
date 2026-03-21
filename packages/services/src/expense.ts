@@ -1,8 +1,10 @@
 import { expense, tab, user as userData } from "data";
 import type { GetExpensesForTabOptions } from "data";
 import { createExpenseSchema } from "models";
+import { CURRENCY_CODES } from "shared";
 import { ok, err, type Result } from "./types.js";
 import { notificationService } from "./notification.js";
+import { convertToTabCurrency } from "./fx-rate.js";
 
 function roundTo2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -52,7 +54,9 @@ function calculateSplits(
 export type CreateExpenseInput = {
   tabId: string;
   paidById: string;
+  /** Amount in `currency` (defaults to tab currency). */
   amount: number;
+  currency?: string;
   description: string;
   splitType: "equal" | "custom";
   expenseDate: Date;
@@ -63,10 +67,15 @@ export type CreateExpenseInput = {
 export type CreateExpenseSuccess = {
   expenseId: string;
   tabId: string;
+  /** Tab-currency total (splits). */
   amount: number;
   description: string;
   tabName: string;
+  /** Tab ISO code (format split amounts). */
   currency: string;
+  expenseCurrency: string;
+  originalAmount: number;
+  fxRateDate?: string;
   participants: Array<{
     userId: string;
     name: string | null;
@@ -150,8 +159,25 @@ export const expenseService = {
       return err("Payer cannot be the only member of the split", 400);
     }
 
+    const tabCurrency = (await tab.getCurrency(input.tabId)) ?? "USD";
+    const expenseCurrency = (input.currency?.trim() || tabCurrency).toUpperCase();
+    if (!(CURRENCY_CODES as readonly string[]).includes(expenseCurrency)) {
+      return err("Invalid currency code", 400);
+    }
+
+    const conv = await convertToTabCurrency({
+      originalAmount: input.amount,
+      from: expenseCurrency,
+      tabCurrency,
+      asOfDate: input.expenseDate,
+    });
+    if (!conv.success) {
+      return conv;
+    }
+    const amountTab = conv.data.amountTab;
+
     const splits = calculateSplits(
-      input.amount,
+      amountTab,
       members,
       input.splitType,
       input.splits,
@@ -168,7 +194,9 @@ export const expenseService = {
     const expenseId = await expense.create({
       tabId: input.tabId,
       paidById: input.paidById,
-      amount: input.amount,
+      amount: amountTab,
+      currency: expenseCurrency,
+      originalAmount: input.amount,
       description: input.description,
       splitType: input.splitType,
       expenseDate: input.expenseDate,
@@ -195,10 +223,15 @@ export const expenseService = {
         return {
           userId: p.userId,
           name: p.name ?? (p.username ? `@${p.username}` : null),
-          paid: isPayer ? input.amount : undefined,
+          paid: isPayer ? amountTab : undefined,
           owes: !isPayer ? share : undefined,
         };
       });
+
+    const notifyAmount =
+      expenseCurrency !== tabCurrency
+        ? `${input.amount} ${expenseCurrency} (${amountTab} ${tabCurrency})`
+        : String(amountTab);
 
     if (tabInfo) {
       for (const m of members) {
@@ -211,7 +244,7 @@ export const expenseService = {
             fromUserId: performedById,
             fromUserName: fromUser?.name ?? null,
             description: input.description,
-            amount: input.amount.toString(),
+            amount: notifyAmount,
             recipientOweAmount: splitByUser.get(m.userId)?.toString(),
             createdAt: new Date(),
           });
@@ -222,10 +255,14 @@ export const expenseService = {
     return ok({
       expenseId,
       tabId: input.tabId,
-      amount: input.amount,
+      amount: amountTab,
       description: input.description,
       tabName: tabInfo?.displayName ?? "Tab",
-      currency: tabInfo?.currency ?? "USD",
+      currency: tabCurrency,
+      expenseCurrency,
+      originalAmount: input.amount,
+      fxRateDate:
+        expenseCurrency !== tabCurrency ? conv.data.rateDate : undefined,
       participants,
     });
   },
@@ -268,8 +305,25 @@ export const expenseService = {
       return err("Payer cannot be the only member of the split", 400);
     }
 
+    const tabCurrency = (await tab.getCurrency(tabId)) ?? "USD";
+    const expenseCurrency = (input.currency?.trim() || tabCurrency).toUpperCase();
+    if (!(CURRENCY_CODES as readonly string[]).includes(expenseCurrency)) {
+      return err("Invalid currency code", 400);
+    }
+
+    const conv = await convertToTabCurrency({
+      originalAmount: input.amount,
+      from: expenseCurrency,
+      tabCurrency,
+      asOfDate: input.expenseDate,
+    });
+    if (!conv.success) {
+      return conv;
+    }
+    const amountTab = conv.data.amountTab;
+
     const splits = calculateSplits(
-      input.amount,
+      amountTab,
       members,
       input.splitType,
       input.splits,
@@ -288,7 +342,9 @@ export const expenseService = {
       tabId,
       {
         paidById: input.paidById,
-        amount: input.amount,
+        amount: amountTab,
+        currency: expenseCurrency,
+        originalAmount: input.amount,
         description: input.description,
         splitType: input.splitType,
         expenseDate: input.expenseDate,
@@ -300,6 +356,8 @@ export const expenseService = {
         description: existingExp.description,
         paidById: existingExp.paidById,
         expenseDate: existingExp.expenseDate,
+        currency: existingExp.currency,
+        originalAmount: existingExp.originalAmount.toString(),
       },
       existingExp.splits.map((s) => ({ userId: s.userId, amount: String(s.amount) })),
     );
@@ -309,7 +367,12 @@ export const expenseService = {
     const previousDescription = existingExp.description ?? "";
     const descriptionChanged =
       (input.description ?? previousDescription).trim() !== previousDescription.trim();
-    const amountChanged = input.amount !== Number(existingExp.amount);
+    const amountChanged = amountTab !== Number(existingExp.amount);
+
+    const notifyAmount =
+      expenseCurrency !== tabCurrency
+        ? `${input.amount} ${expenseCurrency} (${amountTab} ${tabCurrency})`
+        : String(amountTab);
 
     if (tabInfo && fromUser) {
       for (const m of members) {
@@ -322,7 +385,7 @@ export const expenseService = {
             fromUserId: performedById,
             fromUserName: fromUser.name ?? null,
             description: input.description ?? "",
-            amount: input.amount.toString(),
+            amount: notifyAmount,
             recipientOweAmount: splits.find((s) => s.userId === m.userId)?.amount.toString(),
             descriptionChanged,
             amountChanged,
@@ -452,12 +515,15 @@ export const expenseService = {
     const allMembers = await tab.getMembers(tabId);
     const tabInfo = await tab.getTabInfoForNotifications(tabId, userId);
     const fromUser = await userData.getById(userId);
+    const tabCurrency = (await tab.getCurrency(tabId)) ?? "USD";
 
     const BATCH_SIZE = 500;
     const validated: Array<{
       tabId: string;
       paidById: string;
       amount: string;
+      currency: string;
+      originalAmount: string;
       description: string;
       splitType: string;
       expenseDate: Date;
@@ -494,8 +560,30 @@ export const expenseService = {
         continue;
       }
 
+      const rowCurrency =
+        (typeof item.currency === "string" && item.currency.trim()) ||
+        parsed.data.currency?.trim() ||
+        tabCurrency;
+      const expenseCurrency = rowCurrency.toUpperCase();
+      if (!(CURRENCY_CODES as readonly string[]).includes(expenseCurrency)) {
+        errors.push(`Row ${i + 1}: Invalid currency code`);
+        continue;
+      }
+
+      const conv = await convertToTabCurrency({
+        originalAmount: parsed.data.amount,
+        from: expenseCurrency,
+        tabCurrency,
+        asOfDate: parsed.data.expenseDate,
+      });
+      if (!conv.success) {
+        errors.push(`Row ${i + 1}: ${conv.error}`);
+        continue;
+      }
+      const amountTab = conv.data.amountTab;
+
       const splits = calculateSplits(
-        parsed.data.amount,
+        amountTab,
         members,
         parsed.data.splitType,
         parsed.data.splits,
@@ -514,7 +602,9 @@ export const expenseService = {
       validated.push({
         tabId: parsed.data.tabId,
         paidById: parsed.data.paidById,
-        amount: parsed.data.amount.toString(),
+        amount: amountTab.toString(),
+        currency: expenseCurrency,
+        originalAmount: parsed.data.amount.toString(),
         description: parsed.data.description,
         splitType: parsed.data.splitType,
         expenseDate: parsed.data.expenseDate,
@@ -531,6 +621,8 @@ export const expenseService = {
           tabId: v.tabId,
           paidById: v.paidById,
           amount: v.amount,
+          currency: v.currency,
+          originalAmount: v.originalAmount,
           description: v.description,
           splitType: v.splitType,
           expenseDate: v.expenseDate,

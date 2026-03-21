@@ -7,4 +7,5 @@ export {
   type CurrencyCode,
   getCurrency,
   formatAmount,
+  formatAmountWithCurrencyCode,
 } from "./currencies.js";

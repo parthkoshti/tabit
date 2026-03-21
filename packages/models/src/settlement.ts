@@ -5,6 +5,9 @@ export const recordSettlementSchema = z.object({
   fromUserId: z.string(),
   toUserId: z.string(),
   amount: z.number().positive(),
+  currency: z.string().optional(),
+  originalAmount: z.number().positive().optional(),
+  settlementDate: z.coerce.date().optional(),
 });
 
 export type RecordSettlementInput = z.infer<typeof recordSettlementSchema>;
@@ -13,6 +16,9 @@ export const updateSettlementSchema = z.object({
   fromUserId: z.string(),
   toUserId: z.string(),
   amount: z.number().positive(),
+  currency: z.string().optional(),
+  originalAmount: z.number().positive().optional(),
+  settlementDate: z.coerce.date().optional(),
 });
 
 export type UpdateSettlementInput = z.infer<typeof updateSettlementSchema>;
@@ -23,6 +29,9 @@ export const settlementSchema = z.object({
   fromUserId: z.string(),
   toUserId: z.string(),
   amount: z.number(),
+  currency: z.string().nullable().optional(),
+  originalAmount: z.number().nullable().optional(),
+  settlementDate: z.date(),
   createdAt: z.date(),
 });
 

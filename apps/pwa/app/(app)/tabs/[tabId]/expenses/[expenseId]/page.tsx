@@ -31,7 +31,10 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
-import { formatAmount } from "@/lib/format-amount";
+import {
+  formatAmount,
+  formatAmountWithCurrencyCode,
+} from "@/lib/format-amount";
 import {
   formatAbsoluteDate,
   formatAppDate,
@@ -131,6 +134,7 @@ export function ExpensePage() {
 
   const currentUserId = session?.user?.id ?? "";
   const tabCurrency = tab?.currency ?? "USD";
+  const expenseCurrency = expense.currency;
 
   function getAddedAndRemovedParticipantIds(
     changes: Record<string, { from: unknown; to: unknown }>,
@@ -162,10 +166,28 @@ export function ExpensePage() {
       const to = new Date(changes.expenseDate.to as Date);
       parts.push(`Date ${formatAbsoluteDate(from)} to ${formatAbsoluteDate(to)}`);
     }
+    if (changes.currency) {
+      const from = (changes.currency.from as string | null) ?? tabCurrency;
+      const to = (changes.currency.to as string | null) ?? tabCurrency;
+      if (from !== to) {
+        parts.push(`Currency ${from} to ${to}`);
+      }
+    }
     if (changes.amount) {
       const from = Number(changes.amount.from);
       const to = Number(changes.amount.to);
       parts.push(`Amount ${formatAmount(from, tabCurrency)} to ${formatAmount(to, tabCurrency)}`);
+    }
+    if (changes.originalAmount) {
+      const from = Number(changes.originalAmount.from);
+      const to = Number(changes.originalAmount.to);
+      const codeBefore =
+        (changes.currency?.from as string | null) ?? expenseCurrency;
+      const codeAfter =
+        (changes.currency?.to as string | null) ?? expenseCurrency;
+      parts.push(
+        `Original amount ${formatAmountWithCurrencyCode(from, codeBefore)} to ${formatAmountWithCurrencyCode(to, codeAfter)}`,
+      );
     }
     if (changes.description) {
       parts.push("Description updated");
@@ -261,23 +283,33 @@ export function ExpensePage() {
               )}
             </Link>
           )}
-          <div className="flex items-center justify-between gap-2">
-            <div>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center justify-between gap-2">
               <p
-                className={`flex items-center gap-2 text-xl font-medium ${expense.deletedAt ? "text-muted-foreground" : "text-foreground"}`}
+                className={`flex min-w-0 items-center gap-2 text-xl font-medium ${expense.deletedAt ? "text-muted-foreground" : "text-foreground"}`}
               >
                 <UserAvatar userId={expense.paidById} size="lg" />
                 {getDisplayName(expense.paidBy, currentUserId)}
               </p>
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <span
+                className={`shrink-0 text-right font-medium text-2xl ${expense.deletedAt ? "text-muted-foreground" : "text-foreground"}`}
+              >
+                {formatAmount(expense.amount, tabCurrency)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm text-muted-foreground">
                 {formatAppDate(expense.expenseDate)}
               </p>
+              {expense.currency && expense.currency !== tabCurrency ? (
+                <span className="text-sm font-normal text-muted-foreground tabular-nums shrink-0 text-right">
+                  {formatAmountWithCurrencyCode(
+                    expense.originalAmount ?? expense.amount,
+                    expense.currency,
+                  )}
+                </span>
+              ) : null}
             </div>
-            <span
-              className={`shrink-0 font-medium text-2xl ${expense.deletedAt ? "text-muted-foreground" : "text-foreground"}`}
-            >
-              {formatAmount(expense.amount, tabCurrency)}
-            </span>
           </div>
 
           <div className="mb-4 flex gap-2">
@@ -506,6 +538,7 @@ export function ExpensePage() {
               <EditExpenseForm
                 expenseId={expenseIdOrEmpty}
                 tabId={tabIdOrEmpty}
+                tabCurrency={tab?.currency ?? "USD"}
                 expense={expense}
                 members={tab?.members ?? []}
                 currentUserId={currentUserId}

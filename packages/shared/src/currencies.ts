@@ -1101,6 +1101,23 @@ export function formatAmount(
   return `${currency.symbol}${formatted}`;
 }
 
+/** e.g. `USD 20.00` — ISO code plus amount (no symbol). */
+export function formatAmountWithCurrencyCode(
+  amount: number,
+  currencyCode?: string | null,
+): string {
+  const code = (currencyCode ?? "USD").toUpperCase();
+  const currency = getCurrency(code) ?? CURRENCIES.USD;
+  const digits = currency.decimal_digits;
+  const rounded =
+    Math.round(amount * Math.pow(10, digits)) / Math.pow(10, digits);
+  const formatted = rounded.toLocaleString(undefined, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  });
+  return `${code} ${formatted}`;
+}
+
 export const CURATED_CURRENCIES: CurrencyCode[] = [
   "USD",
   "EUR",

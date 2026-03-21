@@ -19,8 +19,15 @@ import { toast } from "sonner";
 import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
-import { formatAmount } from "@/lib/format-amount";
-import { formatAppDate, formatAppDateTime } from "@/lib/format-date";
+import {
+  formatAmount,
+  formatAmountWithCurrencyCode,
+} from "@/lib/format-amount";
+import {
+  formatAbsoluteDate,
+  formatAppDate,
+  formatAppDateTime,
+} from "@/lib/format-date";
 
 export function SettlementPage() {
   const { tabId, settlementId } = useParams<{
@@ -103,6 +110,60 @@ export function SettlementPage() {
   const currentUserId = session?.user?.id ?? "";
   const tabCurrency = tab?.currency ?? "USD";
 
+  function formatSettlementChanges(
+    changes: Record<string, { from: unknown; to: unknown }>,
+  ) {
+    const members = tab?.members ?? [];
+    const label = (uid: string) => {
+      const m = members.find((x) => x.userId === uid);
+      return m ? getDisplayName(m.user, currentUserId) : uid;
+    };
+    const parts: string[] = [];
+    if (changes.settlementDate) {
+      const from = new Date(changes.settlementDate.from as Date);
+      const to = new Date(changes.settlementDate.to as Date);
+      parts.push(
+        `Date ${formatAbsoluteDate(from)} to ${formatAbsoluteDate(to)}`,
+      );
+    }
+    if (changes.fromUserId) {
+      parts.push(
+        `Payer ${label(changes.fromUserId.from as string)} to ${label(changes.fromUserId.to as string)}`,
+      );
+    }
+    if (changes.toUserId) {
+      parts.push(
+        `Payee ${label(changes.toUserId.from as string)} to ${label(changes.toUserId.to as string)}`,
+      );
+    }
+    if (changes.currency) {
+      const from = (changes.currency.from as string | null) ?? tabCurrency;
+      const to = (changes.currency.to as string | null) ?? tabCurrency;
+      if (from !== to) {
+        parts.push(`Currency ${from} to ${to}`);
+      }
+    }
+    if (changes.originalAmount) {
+      const from = Number(changes.originalAmount.from);
+      const to = Number(changes.originalAmount.to);
+      const codeBefore =
+        (changes.currency?.from as string | null) ?? tabCurrency;
+      const codeAfter =
+        (changes.currency?.to as string | null) ?? tabCurrency;
+      parts.push(
+        `Original amount ${formatAmountWithCurrencyCode(from, codeBefore)} to ${formatAmountWithCurrencyCode(to, codeAfter)}`,
+      );
+    }
+    if (changes.amount) {
+      const from = Number(changes.amount.from);
+      const to = Number(changes.amount.to);
+      parts.push(
+        `Amount ${formatAmount(from, tabCurrency)} to ${formatAmount(to, tabCurrency)}`,
+      );
+    }
+    return parts.length > 0 ? parts.join(" · ") : "Edited";
+  }
+
   async function handleDelete() {
     setDeleteDialogOpen(false);
     setDeleteLoading(true);
@@ -124,22 +185,38 @@ export function SettlementPage() {
     <div className="p-4 pb-20">
       <div className="mx-auto max-w-md space-y-8">
         <div className="space-y-5">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <p className="flex items-center gap-2 text-xl font-medium text-foreground">
-                <UserAvatar userId={settlement.fromUserId} size="lg" />
-                {getDisplayName(settlement.fromUser, currentUserId)}
-              </p>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                paid {getDisplayName(settlement.toUser, currentUserId)}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatAppDate(settlement.createdAt)}
-              </p>
+          <div className="flex flex-col gap-0.5">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <p className="flex items-center gap-2 text-xl font-medium text-foreground">
+                  <UserAvatar userId={settlement.fromUserId} size="lg" />
+                  {getDisplayName(settlement.fromUser, currentUserId)}
+                </p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  paid {getDisplayName(settlement.toUser, currentUserId)}
+                </p>
+              </div>
+              <span className="text-foreground shrink-0 font-medium text-2xl">
+                {formatAmount(settlement.amount, tabCurrency)}
+              </span>
             </div>
-            <span className="text-foreground shrink-0 font-medium text-2xl">
-              {formatAmount(settlement.amount, tabCurrency)}
-            </span>
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                {formatAppDate(
+                  settlement.settlementDate ?? settlement.createdAt,
+                )}
+              </p>
+              {settlement.currency &&
+              settlement.currency !== tabCurrency &&
+              settlement.originalAmount != null ? (
+                <span className="text-sm font-normal text-muted-foreground tabular-nums shrink-0 text-right">
+                  {formatAmountWithCurrencyCode(
+                    settlement.originalAmount,
+                    settlement.currency,
+                  )}
+                </span>
+              ) : null}
+            </div>
           </div>
 
           <div className="mb-4 flex gap-2">
@@ -185,7 +262,11 @@ export function SettlementPage() {
                     )}
                     {entry.action === "update" && (
                       <>
-                        <span className="block text-foreground/90">Edited</span>
+                        <span className="block text-foreground/90">
+                          {entry.changes
+                            ? formatSettlementChanges(entry.changes)
+                            : "Edited"}
+                        </span>
                         <span className="block text-xs text-muted-foreground/80 mt-2">
                           {getDisplayName(entry.performedBy, currentUserId)} ·{" "}
                           {formatAppDateTime(entry.performedAt)}
@@ -239,16 +320,21 @@ export function SettlementPage() {
             <EditSettlementForm
               settlementId={settlementIdOrEmpty}
               tabId={tabIdOrEmpty}
+              tabCurrency={tabCurrency}
               settlement={settlement}
               members={tab?.members ?? []}
               currentUserId={currentUserId}
               onSuccess={() => {
                 setEditDialogOpen(false);
                 queryClient.invalidateQueries({
-                  queryKey: ["settlementAuditLog", settlementIdOrEmpty],
+                  queryKey: [
+                    "settlementAuditLog",
+                    tabIdOrEmpty,
+                    settlementIdOrEmpty,
+                  ],
                 });
                 queryClient.invalidateQueries({
-                  queryKey: ["settlement", settlementIdOrEmpty],
+                  queryKey: ["settlement", tabIdOrEmpty, settlementIdOrEmpty],
                 });
               }}
               onDeleteSuccess={() => navigate(`/tabs/${tabIdOrEmpty}`)}

@@ -35,6 +35,9 @@ import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CURATED_CURRENCIES, getCurrency } from "shared";
+import { formatAmount } from "@/lib/format-amount";
 
 type Member = {
   userId: string;
@@ -52,6 +55,8 @@ type Expense = {
   tabId: string;
   paidById: string;
   amount: number;
+  currency?: string;
+  originalAmount?: number;
   description: string;
   splitType: string;
   expenseDate: Date | string;
@@ -71,6 +76,7 @@ type Expense = {
 export function EditExpenseForm({
   expenseId,
   tabId,
+  tabCurrency,
   expense,
   members,
   currentUserId,
@@ -80,6 +86,7 @@ export function EditExpenseForm({
 }: {
   expenseId: string;
   tabId: string;
+  tabCurrency: string;
   expense: Expense;
   members: Member[];
   currentUserId: string;
@@ -88,7 +95,12 @@ export function EditExpenseForm({
   onCancel?: () => void;
 }) {
   const navigate = useNavigate();
-  const [amount, setAmount] = useState(expense.amount.toFixed(2));
+  const [amount, setAmount] = useState(() =>
+    (expense.originalAmount ?? expense.amount).toFixed(2),
+  );
+  const [currency, setCurrency] = useState(
+    expense.currency ?? tabCurrency,
+  );
   const [description, setDescription] = useState(expense.description);
   const [expenseDate, setExpenseDate] = useState<Date>(
     () => new Date(expense.expenseDate),
@@ -99,6 +111,57 @@ export function EditExpenseForm({
   );
   const [loading, setLoading] = useState(false);
   const descriptionRef = useRef<HTMLInputElement>(null);
+
+  const [fxPreview, setFxPreview] = useState<{
+    amountTab: number;
+    tabCurrency: string;
+  } | null>(null);
+  const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
+
+  function parseAmount(value: string): number | null {
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 0.01) return null;
+    return num;
+  }
+
+  useEffect(() => {
+    const parsed = parseAmount(amount);
+    if (parsed === null || currency === tabCurrency) {
+      setFxPreview(null);
+      setFxPreviewLoading(false);
+      return;
+    }
+
+    setFxPreview(null);
+    setFxPreviewLoading(true);
+
+    let cancelled = false;
+    const t = setTimeout(() => {
+      if (cancelled) return;
+      void (async () => {
+        const r = await api.expenses.fxPreview(tabId, {
+          amount: parsed,
+          currency,
+          expenseDate: expenseDate.toISOString(),
+        });
+        if (cancelled) return;
+        setFxPreviewLoading(false);
+        if (r.success && r.amountTab != null) {
+          setFxPreview({
+            amountTab: r.amountTab,
+            tabCurrency: r.tabCurrency ?? tabCurrency,
+          });
+        } else {
+          setFxPreview(null);
+        }
+      })();
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [amount, currency, expenseDate, tabId, tabCurrency]);
 
   useEffect(() => {
     const input = descriptionRef.current;
@@ -134,12 +197,6 @@ export function EditExpenseForm({
   const [error, setError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
-  function parseAmount(value: string): number | null {
-    const num = parseFloat(value);
-    if (isNaN(num) || num < 0.01) return null;
-    return num;
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -169,6 +226,7 @@ export function EditExpenseForm({
 
     const result = await api.expenses.update(tabId, expenseId, {
       amount: parsedAmount,
+      currency,
       description,
       paidById,
       splitType: "equal",
@@ -324,28 +382,64 @@ export function EditExpenseForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="amount">Amount</Label>
-          <div className="flex h-12 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
-            <span className="pl-3 text-base text-muted-foreground">$</span>
-            <Input
-              id="amount"
-              type="text"
-              inputMode="decimal"
-              autoComplete="off"
-              value={amount}
-              onChange={(e) => {
-                const v = e.target.value;
-                if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setAmount(v);
-              }}
-              onBlur={() => {
-                const num = parseFloat(amount);
-                if (!isNaN(num) && num > 0) setAmount(num.toFixed(2));
-              }}
-              placeholder="0.00"
-              required
+          <div className="flex gap-2">
+            <div className="flex h-12 min-w-0 flex-1 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
+              <span className="pl-3 text-base text-muted-foreground">
+                {getCurrency(currency)?.symbol ?? currency}
+              </span>
+              <Input
+                id="amount"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={amount}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setAmount(v);
+                }}
+                onBlur={() => {
+                  const num = parseFloat(amount);
+                  if (!isNaN(num) && num > 0) setAmount(num.toFixed(2));
+                }}
+                placeholder="0.00"
+                required
+                disabled={loading}
+                className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+            <Select
+              value={currency}
+              onValueChange={setCurrency}
               disabled={loading}
-              className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
+            >
+              <SelectTrigger className="h-12 w-[min(7.5rem,28vw)] shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {CURATED_CURRENCIES.map((code) => {
+                  const c = getCurrency(code);
+                  return (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                      {c?.symbol ? ` (${c.symbol})` : ""}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
           </div>
+          {currency !== tabCurrency &&
+            parseAmount(amount) != null &&
+            (fxPreviewLoading ? (
+              <Skeleton className="mt-0.5 h-4 w-[min(100%,12rem)]" />
+            ) : (
+              fxPreview && (
+                <p className="text-xs text-muted-foreground">
+                  ≈ {formatAmount(fxPreview.amountTab, fxPreview.tabCurrency)} in
+                  tab currency
+                </p>
+              )
+            ))}
         </div>
         {error && (
           <Alert variant="destructive">

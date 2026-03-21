@@ -3,6 +3,13 @@ import { expenseService } from "./expense.js";
 import { expense, tab, user as userData } from "data";
 import { notificationService } from "./notification.js";
 
+vi.mock("./fx-rate.js", () => ({
+  convertToTabCurrency: vi.fn(async (input: { originalAmount: number }) => ({
+    success: true,
+    data: { amountTab: input.originalAmount, rateDate: "2024-01-01" },
+  })),
+}));
+
 const baseCreateInput = {
   tabId: "tab1",
   paidById: "user1",
@@ -44,6 +51,8 @@ describe("expenseService", () => {
             tabId: "tab1",
             paidById: "user1",
             amount: 100,
+            currency: "USD",
+            originalAmount: 100,
             description: "Test",
             splitType: "equal",
             expenseDate: new Date(),
@@ -318,6 +327,8 @@ describe("expenseService", () => {
         tabId: "tab1",
         paidById: "user1",
         amount: 100,
+        currency: "USD",
+        originalAmount: 100,
         description: "Test",
         splitType: "equal",
         expenseDate: new Date(),
@@ -371,6 +382,8 @@ describe("expenseService", () => {
         tabId: "tab1",
         paidById: "user1",
         amount: 100,
+        currency: "USD",
+        originalAmount: 100,
         description: "Test",
         splitType: "equal",
         expenseDate: new Date(),
@@ -405,6 +418,8 @@ describe("expenseService", () => {
         tabId: "tab1",
         paidById: "user1",
         amount: 100,
+        currency: "USD",
+        originalAmount: 100,
         description: "Test",
         splitType: "equal",
         expenseDate: new Date(),
@@ -435,6 +450,8 @@ describe("expenseService", () => {
         tabId: "tab1",
         paidById: "user1",
         amount: 100,
+        currency: "USD",
+        originalAmount: 100,
         description: "Test",
         splitType: "equal",
         expenseDate: new Date(),
@@ -477,6 +494,8 @@ describe("expenseService", () => {
         tabId: "tab1",
         paidById: "user1",
         amount: 100,
+        currency: "USD",
+        originalAmount: 100,
         description: "Test",
         splitType: "equal",
         expenseDate: new Date(),

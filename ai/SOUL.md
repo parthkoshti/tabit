@@ -86,6 +86,8 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 
 **Real-time**: The `apps/notifications` server bridges Redis pub/sub messages (published by the API after mutations) to WebSocket clients and sends web push notifications via `web-push`.
 
+**Exchange rates (FX)**: Conversion uses [Frankfurter](https://www.frankfurter.dev/) (`packages/services/src/integrations/frankfurter.ts`). Business logic lives in `packages/services/src/fx-rate.ts`; persistence in `packages/data/src/fx-rate.ts` table `fx_rate_snapshot` keyed by `(rateDate, base)` where **`base` is the expense currency** (not the tab currency). Cache hit: multiply `originalAmount` by `rates[tabCurrency]`. On miss, fetch from Frankfurter (historical date or `latest` when the expense date is after today UTC), then upsert; if the API returns a different working day than requested, the same rates are also stored under the requested calendar day (“alias”) so the next lookup hits. **`warmLatestRatesForBases(["EUR","USD"])`** in `apps/api/src/index.ts` (cron 16:00 Europe/Berlin + startup) only prefetches **latest** full rate maps for EUR and USD bases to reduce cold cache misses for those currencies; **any other expense currency** (e.g. AUD→INR tab) still works: first conversion for that date/base triggers a fetch and caches under that base.
+
 ### Environment Variables
 
 All apps read from a root `.env` / `.env.local` file (via `dotenv-cli`). Key variables:

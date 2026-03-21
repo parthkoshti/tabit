@@ -87,6 +87,9 @@ tabsRoutes.patch("/:tabId/settlements/:settlementId", async (c) => {
     parsed.data.toUserId,
     parsed.data.amount,
     userId,
+    parsed.data.currency,
+    parsed.data.originalAmount,
+    parsed.data.settlementDate,
   );
   if (!result.success) {
     return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
@@ -240,6 +243,9 @@ tabsRoutes.post("/:tabId/settlements", async (c) => {
     parsed.data.toUserId,
     parsed.data.amount,
     userId,
+    parsed.data.currency,
+    parsed.data.originalAmount,
+    parsed.data.settlementDate,
   );
   if (!result.success) {
     return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);

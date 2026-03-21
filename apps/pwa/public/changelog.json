@@ -1,6 +1,11 @@
 {
   "releases": [
     {
+      "version": "0.1.6",
+      "date": "2026-03-21",
+      "content": "- Settlements: pick a settlement date (used for exchange rates like expense dates) when settling up or editing\n- Settlements in foreign currency with FX preview; activity and cards show the settlement date reliably\n- History on expense and settlement detail now records currency and original-amount changes\n- Settlement history refreshes right after you save an edit"
+    },
+    {
       "version": "0.1.5",
       "date": "2026-03-17",
       "content": "- Unified tab list: Single scrollable, searchable list for group tabs and direct friends when adding expenses\n- Reusable tab cards across add expense, friends, and tabs pages\n- Loading animations when selecting tabs\n- Full-width tab cards\n- Group tabs show your avatar first in the member stack"

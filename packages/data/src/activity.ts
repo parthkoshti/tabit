@@ -33,6 +33,9 @@ export type ActivityItem =
       paidByName: string | null;
       paidByUsername: string | null;
       amount: number;
+      /** ISO code for the amount entered (equals tabCurrency when no FX). */
+      expenseCurrency: string;
+      originalAmount: number;
       /** Viewing user's split share; null if they are not on this expense's split. */
       yourShare: number | null;
       description: string;
@@ -57,6 +60,9 @@ export type ActivityItem =
       toUserName: string | null;
       toUserUsername: string | null;
       amount: number;
+      settlementCurrency: string | null;
+      originalAmount: number | null;
+      settlementDate: Date;
       createdAt: Date;
     };
 
@@ -148,7 +154,7 @@ export const activity = {
       .select({
         kind: sql<string>`'settlement'`.as("kind"),
         id: settlement.id,
-        sortAt: sql`${settlement.createdAt}`.as("sortAt"),
+        sortAt: sql`${settlement.settlementDate}`.as("sortAt"),
       })
       .from(settlement)
       .where(inArray(settlement.tabId, tabIds));
@@ -190,6 +196,8 @@ export const activity = {
               tabId: expense.tabId,
               paidById: expense.paidById,
               amount: expense.amount,
+              currency: expense.currency,
+              originalAmount: expense.originalAmount,
               description: expense.description,
               expenseDate: expense.expenseDate,
               createdAt: expense.createdAt,
@@ -275,6 +283,8 @@ export const activity = {
           paidByName: e.paidByName,
           paidByUsername: e.paidByUsername,
           amount: Number(e.amount),
+          expenseCurrency: e.currency,
+          originalAmount: Number(e.originalAmount),
           yourShare: viewerShareByExpenseId.has(e.id)
             ? viewerShareByExpenseId.get(e.id)!
             : null,
@@ -307,6 +317,10 @@ export const activity = {
           toUserName: userMap[s.toUserId]?.name ?? null,
           toUserUsername: userMap[s.toUserId]?.username ?? null,
           amount: Number(s.amount),
+          settlementCurrency: s.currency ?? null,
+          originalAmount:
+            s.originalAmount != null ? Number(s.originalAmount) : null,
+          settlementDate: s.settlementDate,
           createdAt: s.createdAt,
         });
       }

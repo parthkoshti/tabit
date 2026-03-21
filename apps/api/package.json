@@ -22,6 +22,7 @@
     "hono": "^4.6.0",
     "ioredis": "^5.4.1",
     "models": "workspace:*",
+    "node-cron": "^4.2.1",
     "otel": "workspace:*",
     "services": "workspace:*",
     "shared": "workspace:*",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.11",
     "dotenv-cli": "^7.4.2",
     "tsx": "^4.19.0",
     "typescript": "^5.0.0",

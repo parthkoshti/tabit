@@ -1,3 +1,5 @@
+export { fxRate } from "./fx-rate.js";
+
 export { expense } from "./expense.js";
 export type {
   CreateExpenseInput,

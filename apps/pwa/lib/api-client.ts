@@ -209,10 +209,28 @@ export const api = {
         auditLog: ExpenseAuditLogEntry[];
         error?: string;
       }>(`/tabs/${tabId}/expenses/${expenseId}/audit-log`),
+    fxPreview: (
+      tabId: string,
+      params: { amount: number; currency: string; expenseDate?: string },
+    ) => {
+      const qs = new URLSearchParams({
+        amount: String(params.amount),
+        currency: params.currency,
+      });
+      if (params.expenseDate) qs.set("expenseDate", params.expenseDate);
+      return request<{
+        success: boolean;
+        amountTab?: number;
+        fxRateDate?: string;
+        tabCurrency?: string;
+        error?: string;
+      }>(`/tabs/${tabId}/expenses/fx-preview?${qs}`);
+    },
     create: (
       tabId: string,
       body: {
         amount: number;
+        currency?: string;
         description: string;
         paidById?: string;
         splitType?: string;
@@ -229,6 +247,9 @@ export const api = {
         description?: string;
         tabName?: string;
         currency?: string;
+        expenseCurrency?: string;
+        originalAmount?: number;
+        fxRateDate?: string;
         participants?: Array<{
           userId: string;
           name: string | null;
@@ -244,6 +265,7 @@ export const api = {
       tabId: string,
       expenses: Array<{
         amount: number;
+        currency?: string;
         description: string;
         paidById: string;
         splitType: "equal" | "custom";
@@ -267,6 +289,7 @@ export const api = {
       expenseId: string,
       body: {
         amount?: number;
+        currency?: string;
         description?: string;
         paidById?: string;
         splitType?: string;
@@ -327,18 +350,36 @@ export const api = {
       fromUserId: string,
       toUserId: string,
       amount: number,
+      opts?: {
+        currency?: string;
+        originalAmount?: number;
+        settlementDate?: string;
+      },
     ) =>
       request<{ success: boolean; error?: string }>(
         `/tabs/${tabId}/settlements`,
         {
           method: "POST",
-          body: { tabId, fromUserId, toUserId, amount },
+          body: {
+            tabId,
+            fromUserId,
+            toUserId,
+            amount,
+            ...opts,
+          },
         },
       ),
     update: (
       tabId: string,
       settlementId: string,
-      body: { fromUserId: string; toUserId: string; amount: number },
+      body: {
+        fromUserId: string;
+        toUserId: string;
+        amount: number;
+        currency?: string;
+        originalAmount?: number;
+        settlementDate?: string;
+      },
     ) =>
       request<{ success: boolean; error?: string }>(
         `/tabs/${tabId}/settlements/${settlementId}`,

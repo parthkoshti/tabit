@@ -285,6 +285,7 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                 </Button>
                 <AddExpenseForm
                   tabId={effectiveTabId}
+                  tabCurrency={tab.currency ?? "USD"}
                   members={tab.members}
                   currentUserId={currentUserId}
                   onSuccess={onSuccess}

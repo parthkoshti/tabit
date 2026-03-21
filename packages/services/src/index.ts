@@ -6,3 +6,8 @@ export { friendService } from "./friend.js";
 export { userService } from "./user.js";
 export { notificationService } from "./notification.js";
 export { tabInviteService } from "./tab-invite.js";
+export {
+  convertToTabCurrency,
+  warmLatestRatesForBases,
+  type ConvertToTabInput,
+} from "./fx-rate.js";

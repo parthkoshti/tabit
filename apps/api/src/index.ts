@@ -1,8 +1,10 @@
 import "./instrumentation.js";
+import cron from "node-cron";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "auth";
+import { warmLatestRatesForBases } from "services";
 import type { AuthContext } from "./auth.js";
 import { log } from "./lib/logger.js";
 import { friendsRoutes } from "./routes/friends.js";
@@ -74,3 +76,13 @@ app.onError((err, c) => {
 const port = Number(process.env.PORT ?? 3001);
 log("info", `API server listening on port ${port}`, { corsOrigins: origins });
 serve({ fetch: app.fetch, port });
+
+cron.schedule(
+  "0 16 * * *",
+  () => {
+    void warmLatestRatesForBases(["EUR", "USD"]);
+  },
+  { timezone: "Europe/Berlin" },
+);
+
+void warmLatestRatesForBases(["EUR", "USD"]);

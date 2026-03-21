@@ -29,6 +29,8 @@ export type GetExpensesForTabResult = {
     tabId: string;
     paidById: string;
     amount: number;
+    currency: string;
+    originalAmount: number;
     description: string;
     splitType: string;
     expenseDate: Date;
@@ -52,6 +54,8 @@ type FlatRow = {
   tabId: string;
   paidById: string;
   amount: string;
+  currency: string;
+  originalAmount: string;
   description: string;
   splitType: string;
   expenseDate: Date;
@@ -89,6 +93,8 @@ function buildExpensesFromFlatRows(
       tabId: first.tabId,
       paidById: first.paidById,
       amount: Number(first.amount),
+      currency: first.currency,
+      originalAmount: Number(first.originalAmount),
       description: first.description,
       splitType: first.splitType,
       expenseDate: first.expenseDate,
@@ -146,7 +152,11 @@ async function getReactionsForExpenseIds(
 export type CreateExpenseInput = {
   tabId: string;
   paidById: string;
+  /** Tab-currency total (ledger). */
   amount: number;
+  currency: string;
+  /** User-entered amount in `currency`. */
+  originalAmount: number;
   description: string;
   splitType: string;
   expenseDate: Date;
@@ -157,6 +167,8 @@ export type CreateExpenseInput = {
 export type UpdateExpenseInput = {
   paidById: string;
   amount: number;
+  currency: string;
+  originalAmount: number;
   description: string;
   splitType: string;
   expenseDate: Date;
@@ -170,6 +182,8 @@ export type Expense = {
   tabId: string;
   paidById: string;
   amount: number;
+  currency: string;
+  originalAmount: number;
   description: string;
   splitType: string;
   expenseDate: Date;
@@ -221,6 +235,8 @@ export const expense = {
         tabId: expenseTable.tabId,
         paidById: expenseTable.paidById,
         amount: expenseTable.amount,
+        currency: expenseTable.currency,
+        originalAmount: expenseTable.originalAmount,
         description: expenseTable.description,
         splitType: expenseTable.splitType,
         expenseDate: expenseTable.expenseDate,
@@ -259,6 +275,7 @@ export const expense = {
     return {
       ...row,
       amount: Number(row.amount),
+      originalAmount: Number(row.originalAmount),
       deletedAt: row.deletedAt ?? null,
       paidBy: {
         id: row.paidById,
@@ -383,6 +400,8 @@ export const expense = {
         tabId: expenseTable.tabId,
         paidById: expenseTable.paidById,
         amount: expenseTable.amount,
+        currency: expenseTable.currency,
+        originalAmount: expenseTable.originalAmount,
         description: expenseTable.description,
         splitType: expenseTable.splitType,
         expenseDate: expenseTable.expenseDate,
@@ -408,6 +427,8 @@ export const expense = {
           tabId: paginated.tabId,
           paidById: paginated.paidById,
           amount: paginated.amount,
+          currency: paginated.currency,
+          originalAmount: paginated.originalAmount,
           description: paginated.description,
           splitType: paginated.splitType,
           expenseDate: paginated.expenseDate,
@@ -441,6 +462,8 @@ export const expense = {
         tabId: input.tabId,
         paidById: input.paidById,
         amount: input.amount.toString(),
+        currency: input.currency,
+        originalAmount: input.originalAmount.toString(),
         description: input.description,
         splitType: input.splitType,
         expenseDate: input.expenseDate,
@@ -471,7 +494,14 @@ export const expense = {
     expenseId: string,
     tabId: string,
     input: UpdateExpenseInput,
-    existing: { amount: string; description: string; paidById: string; expenseDate: Date },
+    existing: {
+      amount: string;
+      description: string;
+      paidById: string;
+      expenseDate: Date;
+      currency: string;
+      originalAmount: string;
+    },
     existingSplits: { userId: string; amount: string }[],
   ): Promise<void> => {
     const changes: Record<string, { from: unknown; to: unknown }> = {};
@@ -482,6 +512,16 @@ export const expense = {
     }
     if (Number(existing.amount) !== input.amount) {
       changes.amount = { from: Number(existing.amount), to: input.amount };
+    }
+    if (Number(existing.originalAmount) !== input.originalAmount) {
+      changes.originalAmount = {
+        from: Number(existing.originalAmount),
+        to: input.originalAmount,
+      };
+    }
+    const currencyKey = (c: string) => c.trim().toUpperCase();
+    if (currencyKey(existing.currency) !== currencyKey(input.currency)) {
+      changes.currency = { from: existing.currency, to: input.currency };
     }
     if (existing.description !== input.description) {
       changes.description = { from: existing.description, to: input.description };
@@ -518,6 +558,8 @@ export const expense = {
       .set({
         paidById: input.paidById,
         amount: input.amount.toString(),
+        currency: input.currency,
+        originalAmount: input.originalAmount.toString(),
         description: input.description,
         splitType: input.splitType,
         expenseDate: input.expenseDate,
@@ -588,6 +630,8 @@ export const expense = {
       tabId: string;
       paidById: string;
       amount: string;
+      currency: string;
+      originalAmount: string;
       description: string;
       splitType: string;
       expenseDate: Date;
@@ -604,6 +648,8 @@ export const expense = {
             tabId: v.tabId,
             paidById: v.paidById,
             amount: v.amount,
+            currency: v.currency,
+            originalAmount: v.originalAmount,
             description: v.description,
             splitType: v.splitType,
             expenseDate: v.expenseDate,

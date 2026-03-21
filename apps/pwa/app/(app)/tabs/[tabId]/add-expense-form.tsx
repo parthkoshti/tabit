@@ -20,11 +20,13 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { formatAbsoluteDate } from "@/lib/format-date";
+import { formatRelativeCalendarDate } from "@/lib/format-date";
 import { Calendar as CalendarIcon, CornerDownLeft } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
+import { CURATED_CURRENCIES, getCurrency } from "shared";
+import { formatAmount } from "@/lib/format-amount";
 import {
   ExpenseAddedDialog,
   type ExpenseCreatedCloseReason,
@@ -36,6 +38,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type Member = {
   userId: string;
@@ -50,12 +53,14 @@ type Member = {
 
 export function AddExpenseForm({
   tabId,
+  tabCurrency,
   members,
   currentUserId,
   onSuccess,
   onExpenseCreated,
 }: {
   tabId: string;
+  tabCurrency: string;
   members: Member[];
   currentUserId: string;
   onSuccess?: () => void;
@@ -63,6 +68,7 @@ export function AddExpenseForm({
   onExpenseCreated?: () => void;
 }) {
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState(tabCurrency);
   const [description, setDescription] = useState("");
   const [expenseDate, setExpenseDate] = useState<Date>(() => new Date());
   const [paidById, setPaidById] = useState(currentUserId);
@@ -92,6 +98,22 @@ export function AddExpenseForm({
   const queryClient = useQueryClient();
   const descriptionRef = useRef<HTMLInputElement>(null);
 
+  const [fxPreview, setFxPreview] = useState<{
+    amountTab: number;
+    tabCurrency: string;
+  } | null>(null);
+  const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
+
+  function parseAmount(value: string): number | null {
+    const num = parseFloat(value);
+    if (isNaN(num) || num < 0.01) return null;
+    return num;
+  }
+
+  useEffect(() => {
+    setCurrency(tabCurrency);
+  }, [tabCurrency]);
+
   useEffect(() => {
     const input = descriptionRef.current;
     if (input) {
@@ -99,6 +121,45 @@ export function AddExpenseForm({
       return () => clearTimeout(id);
     }
   }, []);
+
+  useEffect(() => {
+    const parsed = parseAmount(amount);
+    if (parsed === null || currency === tabCurrency) {
+      setFxPreview(null);
+      setFxPreviewLoading(false);
+      return;
+    }
+
+    setFxPreview(null);
+    setFxPreviewLoading(true);
+
+    let cancelled = false;
+    const t = setTimeout(() => {
+      if (cancelled) return;
+      void (async () => {
+        const r = await api.expenses.fxPreview(tabId, {
+          amount: parsed,
+          currency,
+          expenseDate: expenseDate.toISOString(),
+        });
+        if (cancelled) return;
+        setFxPreviewLoading(false);
+        if (r.success && r.amountTab != null) {
+          setFxPreview({
+            amountTab: r.amountTab,
+            tabCurrency: r.tabCurrency ?? tabCurrency,
+          });
+        } else {
+          setFxPreview(null);
+        }
+      })();
+    }, 400);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+    };
+  }, [amount, currency, expenseDate, tabId, tabCurrency]);
 
   const selectedParticipants = useMemo(
     () => members.filter((m) => participantIds.has(m.userId)),
@@ -120,12 +181,6 @@ export function AddExpenseForm({
       }
       return next;
     });
-  }
-
-  function parseAmount(value: string): number | null {
-    const num = parseFloat(value);
-    if (isNaN(num) || num < 0.01) return null;
-    return num;
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -157,6 +212,7 @@ export function AddExpenseForm({
 
     const result = await api.expenses.create(tabId, {
       amount: parsedAmount,
+      currency,
       description,
       paidById,
       splitType: "equal",
@@ -175,6 +231,7 @@ export function AddExpenseForm({
       setAmount("");
       setDescription("");
       setExpenseDate(new Date());
+      setCurrency(tabCurrency);
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
@@ -192,6 +249,7 @@ export function AddExpenseForm({
       setAmount("");
       setDescription("");
       setExpenseDate(new Date());
+      setCurrency(tabCurrency);
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
@@ -270,147 +328,187 @@ export function AddExpenseForm({
         </DialogContent>
       </Dialog>
       <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="flex gap-2">
-        <Select value={paidById} onValueChange={setPaidById} disabled={loading}>
-          <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none">
-            <SelectValue placeholder="Select who paid">
-              {(() => {
-                const payer = members.find((m) => m.userId === paidById);
-                return payer ? (
-                  <span className="flex items-center gap-1">
-                    <UserAvatar userId={payer.userId} size="xs" />
-                    {getDisplayName(payer.user, currentUserId)}
-                    <span className="text-muted-foreground">paid</span>
+        <div className="flex gap-2">
+          <Select
+            value={paidById}
+            onValueChange={setPaidById}
+            disabled={loading}
+          >
+            <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none">
+              <SelectValue placeholder="Select who paid">
+                {(() => {
+                  const payer = members.find((m) => m.userId === paidById);
+                  return payer ? (
+                    <span className="flex items-center gap-1">
+                      <UserAvatar userId={payer.userId} size="xs" />
+                      {getDisplayName(payer.user, currentUserId)}
+                      <span className="text-muted-foreground">paid</span>
+                    </span>
+                  ) : null;
+                })()}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {members.map((m) => (
+                <SelectItem key={m.userId} value={m.userId}>
+                  <span className="flex items-center gap-2">
+                    <UserAvatar userId={m.userId} size="xs" />
+                    {getDisplayName(m.user, currentUserId)}
                   </span>
-                ) : null;
-              })()}
-            </SelectValue>
-          </SelectTrigger>
-          <SelectContent>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                disabled={loading}
+                className={cn(
+                  "h-9 shrink-0 gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
+                  !expenseDate && "text-muted-foreground",
+                )}
+              >
+                <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                {expenseDate ? formatRelativeCalendarDate(expenseDate) : "Date"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              className="w-auto min-w-72 rounded-lg border-border p-0 shadow-md overflow-clip"
+              align="end"
+              sideOffset={4}
+            >
+              <Calendar
+                mode="single"
+                selected={expenseDate}
+                className="w-full"
+                onSelect={(date) => {
+                  if (date) {
+                    setExpenseDate(date);
+                    setDatePickerOpen(false);
+                  }
+                }}
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+        <div className="space-y-2">
+          <Label>Split with</Label>
+          <div className="grid grid-cols-2 gap-2">
             {members.map((m) => (
-              <SelectItem key={m.userId} value={m.userId}>
-                <span className="flex items-center gap-2">
-                  <UserAvatar userId={m.userId} size="xs" />
+              <button
+                key={m.userId}
+                type="button"
+                onClick={() => toggleParticipant(m.userId)}
+                disabled={loading}
+                className={cn(
+                  "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                  participantIds.has(m.userId)
+                    ? "border-primary/50 bg-primary/10 text-foreground"
+                    : "border-border text-muted-foreground hover:bg-muted/50",
+                )}
+              >
+                <UserAvatar userId={m.userId} size="xs" />
+                <span className="min-w-0 truncate">
                   {getDisplayName(m.user, currentUserId)}
                 </span>
-              </SelectItem>
+              </button>
             ))}
-          </SelectContent>
-        </Select>
-        <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {selectedParticipants.length === 1
+              ? "1 person owes the full amount"
+              : `Split equally among ${selectedParticipants.length} participants`}
+          </p>
+        </div>
+        <div className="space-y-2">
+          <div className="flex h-12 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
+            <span className="pl-3 text-base text-muted-foreground">For</span>
+            <Input
+              ref={descriptionRef}
+              id="description"
+              type="text"
+              autoComplete="off"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Dinner"
+              required
               disabled={loading}
-              className={cn(
-                "h-9 shrink-0 gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
-                !expenseDate && "text-muted-foreground",
-              )}
-            >
-              <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-              {expenseDate ? formatAbsoluteDate(expenseDate) : "Date"}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent
-            className="w-auto min-w-72 rounded-lg border-border p-0 shadow-md overflow-clip"
-            align="end"
-            sideOffset={4}
-          >
-            <Calendar
-              mode="single"
-              selected={expenseDate}
-              className="w-full"
-              onSelect={(date) => {
-                if (date) {
-                  setExpenseDate(date);
-                  setDatePickerOpen(false);
-                }
-              }}
+              className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              autoFocus
             />
-          </PopoverContent>
-        </Popover>
-      </div>
-      <div className="space-y-2">
-        <Label>Split with</Label>
-        <div className="grid grid-cols-2 gap-2">
-          {members.map((m) => (
-            <button
-              key={m.userId}
-              type="button"
-              onClick={() => toggleParticipant(m.userId)}
-              disabled={loading}
-              className={cn(
-                "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                participantIds.has(m.userId)
-                  ? "border-primary/50 bg-primary/10 text-foreground"
-                  : "border-border text-muted-foreground hover:bg-muted/50",
-              )}
-            >
-              <UserAvatar userId={m.userId} size="xs" />
-              <span className="min-w-0 truncate">
-                {getDisplayName(m.user, currentUserId)}
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="amount">Amount</Label>
+          <div className="flex gap-2">
+            <div className="flex h-12 min-w-0 flex-1 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
+              <span className="pl-3 text-base text-muted-foreground">
+                {getCurrency(currency)?.symbol ?? currency}
               </span>
-            </button>
-          ))}
+              <Input
+                id="amount"
+                type="text"
+                inputMode="decimal"
+                autoComplete="off"
+                value={amount}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setAmount(v);
+                }}
+                onBlur={() => {
+                  const num = parseFloat(amount);
+                  if (!isNaN(num) && num > 0) setAmount(num.toFixed(2));
+                }}
+                placeholder="0.00"
+                required
+                disabled={loading}
+                className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+            </div>
+            <Select
+              value={currency}
+              onValueChange={setCurrency}
+              disabled={loading}
+            >
+              <SelectTrigger className="h-12 w-16 items-center justify-center shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-60">
+                {CURATED_CURRENCIES.map((code) => {
+                  const c = getCurrency(code);
+                  return (
+                    <SelectItem key={code} value={code}>
+                      {code}
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          </div>
+          {currency !== tabCurrency &&
+            parseAmount(amount) != null &&
+            (fxPreviewLoading ? (
+              <Skeleton className="mt-0.5 h-4 w-[min(100%,12rem)]" />
+            ) : (
+              fxPreview && (
+                <p className="text-xs text-muted-foreground">
+                  ≈ {formatAmount(fxPreview.amountTab, fxPreview.tabCurrency)}{" "}
+                  in tab currency
+                </p>
+              )
+            ))}
         </div>
-        <p className="text-xs text-muted-foreground">
-          {selectedParticipants.length === 1
-            ? "1 person owes the full amount"
-            : `Split equally among ${selectedParticipants.length} participants`}
-        </p>
-      </div>
-      <div className="space-y-2">
-        <div className="flex h-12 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
-          <span className="pl-3 text-base text-muted-foreground">For</span>
-          <Input
-            ref={descriptionRef}
-            id="description"
-            type="text"
-            autoComplete="off"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Dinner"
-            required
-            disabled={loading}
-            className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-            autoFocus
-          />
-        </div>
-      </div>
-      <div className="space-y-2">
-        <div className="flex h-12 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
-          <span className="pl-3 text-base text-muted-foreground">$</span>
-          <Input
-            id="amount"
-            type="text"
-            inputMode="decimal"
-            autoComplete="off"
-            value={amount}
-            onChange={(e) => {
-              const v = e.target.value;
-              if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setAmount(v);
-            }}
-            onBlur={() => {
-              const num = parseFloat(amount);
-              if (!isNaN(num) && num > 0) setAmount(num.toFixed(2));
-            }}
-            placeholder="0.00"
-            required
-            disabled={loading}
-            className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-          />
-        </div>
-      </div>
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      <Button type="submit" disabled={loading} className="w-full gap-2">
-        {loading ? "Adding..." : "Add expense"}
-        <CornerDownLeft className="h-4 w-4" />
-      </Button>
-    </form>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <Button type="submit" disabled={loading} className="w-full gap-2">
+          {loading ? "Adding..." : "Add expense"}
+          <CornerDownLeft className="h-4 w-4" />
+        </Button>
+      </form>
     </>
   );
 }
