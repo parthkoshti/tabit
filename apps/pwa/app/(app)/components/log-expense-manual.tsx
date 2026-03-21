@@ -180,12 +180,7 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                       initial="initial"
                       animate="animate"
                     >
-                      {[
-                        ...filteredTabs,
-                        ...filteredTabs,
-                        ...filteredTabs,
-                        ...filteredTabs,
-                      ].map((item) => (
+                      {filteredTabs.map((item) => (
                         <motion.div
                           key={item.id}
                           variants={staggerItem}
