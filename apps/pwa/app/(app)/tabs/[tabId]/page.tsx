@@ -78,7 +78,7 @@ export function TabPage() {
     queryKey: ["expenses", tabIdOrEmpty, expenseFilter],
     queryFn: async ({ pageParam }) => {
       const r = await api.expenses.list(tabIdOrEmpty, {
-        limit: 50,
+        limit: 20,
         offset: pageParam,
         filter: expenseFilter === "settlements" ? "all" : expenseFilter,
       });
@@ -103,10 +103,15 @@ export function TabPage() {
     enabled:
       !!tabIdOrEmpty && !!session?.user && expenseFilter !== "settlements",
   });
-  const rawExpenses = useMemo(
-    () => expensesData?.pages.flatMap((p) => p?.expenses ?? []) ?? [],
-    [expensesData],
-  );
+  const rawExpenses = useMemo(() => {
+    const flat = expensesData?.pages.flatMap((p) => p?.expenses ?? []) ?? [];
+    const seen = new Set<string>();
+    return flat.filter((e) => {
+      if (seen.has(e.id)) return false;
+      seen.add(e.id);
+      return true;
+    });
+  }, [expensesData]);
 
   const expenses = useMemo(() => {
     if (expenseFilter === "settlements") return [];

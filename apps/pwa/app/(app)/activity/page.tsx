@@ -33,7 +33,7 @@ export function ActivityPage() {
   } = useInfiniteQuery({
     queryKey: ["activity"],
     queryFn: async ({ pageParam }) => {
-      const r = await api.activity.list({ limit: 50, offset: pageParam });
+      const r = await api.activity.list({ limit: 20, offset: pageParam });
       return r.success
         ? { items: r.items ?? [], total: r.total ?? 0 }
         : { items: [], total: 0 };
