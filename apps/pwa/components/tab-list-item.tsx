@@ -68,9 +68,9 @@ export function TabListItem({
         ? `You owe ${formatAmount(Math.abs(item.balance), item.currency)}`
         : "Settled up"
     : item.balance > 0
-      ? `+${formatAmount(item.balance, item.currency)}`
+      ? `You're owed ${formatAmount(item.balance, item.currency)}`
       : item.balance < 0
-        ? `-${formatAmount(Math.abs(item.balance), item.currency)}`
+        ? `You owe ${formatAmount(Math.abs(item.balance), item.currency)}`
         : "Settled";
 
   const balanceClassName =
@@ -86,24 +86,22 @@ export function TabListItem({
         ? "No expenses yet"
         : `${item.expenseCount} expense${item.expenseCount === 1 ? "" : "s"}`}
       {item.lastExpenseDate && (
-        <>
-          {" "}
-          &middot;{" "}
-          {formatAppDate(item.lastExpenseDate)}
-        </>
+        <> &middot; {formatAppDate(item.lastExpenseDate)}</>
       )}
     </span>
   );
 
   const cardContent = (
     <>
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-start gap-3">
+      <div className="flex w-full min-w-0 items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
           {isDirect ? (
             <UserAvatar userId={item.friendId} size="sm" className="shrink-0" />
           ) : null}
           <div className="min-w-0 flex-1 space-y-0.5">
-            <span className="font-medium text-sm">{displayName}</span>
+            <span className="block truncate font-medium text-sm">
+              {displayName}
+            </span>
             {isDirect && item.username && (
               <div className="truncate text-sm text-muted-foreground">
                 @{item.username}
@@ -138,7 +136,7 @@ export function TabListItem({
   );
 
   const baseClassName =
-    "flex w-full flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 text-left transition-colors hover:bg-muted/50 hover:border-border/80";
+    "flex w-full min-w-0 max-w-full flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 text-left transition-colors hover:bg-muted/50 hover:border-border/80";
 
   if (href) {
     return (

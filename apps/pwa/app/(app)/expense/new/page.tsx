@@ -53,7 +53,8 @@ export function LogExpensePage() {
   }, [setNavTitle]);
 
   useEffect(() => {
-    const pref = getStoredPreference() ?? preferences?.addExpensePreference ?? "ai";
+    const pref =
+      getStoredPreference() ?? preferences?.addExpensePreference ?? "ai";
     setEntryMode(pref);
   }, [preferences?.addExpensePreference]);
 
@@ -70,7 +71,7 @@ export function LogExpensePage() {
   };
 
   return (
-    <div className="flex flex-col gap-6 p-4">
+    <div className="flex flex-col gap-6 p-4 h-full min-h-full">
       <div className="flex w-full justify-center">
         <div
           role="tablist"

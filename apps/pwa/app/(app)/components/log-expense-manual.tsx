@@ -10,10 +10,7 @@ import { getDisplayName } from "@/lib/display-name";
 import { ArrowLeft, Search } from "lucide-react";
 import { Spinner } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
-import {
-  TabListItem,
-  type TabListItemData,
-} from "@/components/tab-list-item";
+import { TabListItem, type TabListItemData } from "@/components/tab-list-item";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 
@@ -91,10 +88,7 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
     return allTabs.filter((item) => {
       const name = item.type === "group" ? item.name : item.displayName;
       if (name.toLowerCase().includes(q)) return true;
-      if (
-        item.type === "direct" &&
-        item.username?.toLowerCase().includes(q)
-      ) {
+      if (item.type === "direct" && item.username?.toLowerCase().includes(q)) {
         return true;
       }
       return false;
@@ -119,9 +113,9 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
   const hasAnyTabs = (tabs?.length ?? 0) > 0 || (friends?.length ?? 0) > 0;
 
   return (
-    <>
+    <div className="h-full">
       {!effectiveTabId ? (
-        <>
+        <div className="h-full">
           <AnimatePresence mode="wait">
             {isLoading ? (
               <motion.div
@@ -174,7 +168,7 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                     className="pl-9"
                   />
                 </div>
-                <div className="flex max-h-[60vh] flex-col gap-3 overflow-y-auto">
+                <div className="flex flex-col gap-3 overflow-y-auto">
                   {filteredTabs.length === 0 ? (
                     <p className="py-4 text-center text-sm text-muted-foreground">
                       No tabs match your search
@@ -186,7 +180,12 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                       initial="initial"
                       animate="animate"
                     >
-                      {filteredTabs.map((item) => (
+                      {[
+                        ...filteredTabs,
+                        ...filteredTabs,
+                        ...filteredTabs,
+                        ...filteredTabs,
+                      ].map((item) => (
                         <motion.div
                           key={item.id}
                           variants={staggerItem}
@@ -207,9 +206,9 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
               </motion.div>
             )}
           </AnimatePresence>
-        </>
+        </div>
       ) : (
-        <>
+        <div className="h-full">
           <AnimatePresence mode="wait">
             {tabLoading ? (
               <motion.div
@@ -294,8 +293,8 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
               </motion.div>
             )}
           </AnimatePresence>
-        </>
+        </div>
       )}
-    </>
+    </div>
   );
 }
