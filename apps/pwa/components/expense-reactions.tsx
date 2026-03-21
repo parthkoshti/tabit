@@ -197,12 +197,8 @@ export function ExpenseReactions({
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         {!userHasReaction && (
           <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              size={compact ? "sm" : "default"}
-              className={`size-8 p-0 ${compact ? "size-6" : ""}`}
-            >
-              <SmilePlus />
+            <Button variant="ghost" size="icon" className={`size-4 p-0`}>
+              <SmilePlus className="h-3 w-3" />
             </Button>
           </DialogTrigger>
         )}

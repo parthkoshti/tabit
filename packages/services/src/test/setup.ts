@@ -26,6 +26,7 @@ vi.mock("data", () => ({
     removeMember: vi.fn(),
     getTabsForUser: vi.fn(),
     getBalancesForTab: vi.fn(),
+    listGroupTabsSharedBetweenUsers: vi.fn(),
     createDirect: vi.fn(),
   },
   settlement: {

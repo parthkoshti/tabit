@@ -110,10 +110,9 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
     enabled: !!effectiveTabId,
   });
 
-  const handleExpenseSuccess = () => {
+  const handleExpenseCreated = () => {
     queryClient.invalidateQueries({ queryKey: ["friends"] });
     queryClient.invalidateQueries({ queryKey: ["tabs"] });
-    onSuccess();
   };
 
   const isLoading = tabsLoading || friendsLoading;
@@ -288,7 +287,8 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                   tabId={effectiveTabId}
                   members={tab.members}
                   currentUserId={currentUserId}
-                  onSuccess={handleExpenseSuccess}
+                  onSuccess={onSuccess}
+                  onExpenseCreated={handleExpenseCreated}
                 />
               </motion.div>
             )}

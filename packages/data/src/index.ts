@@ -11,7 +11,13 @@ export type {
 } from "./expense.js";
 
 export { tab } from "./tab.js";
-export type { TabWithBalance, TabWithMembers, FriendTab, Balance } from "./tab.js";
+export type {
+  TabWithBalance,
+  TabWithMembers,
+  FriendTab,
+  Balance,
+  SharedGroupTabListItem,
+} from "./tab.js";
 
 export { settlement } from "./settlement.js";
 export type {
@@ -24,6 +30,7 @@ export type {
 export { activity } from "./activity.js";
 export type {
   ActivityItem,
+  ActivityDirectOtherUser,
   GetActivityForUserOptions,
   GetActivityForUserResult,
 } from "./activity.js";

@@ -23,6 +23,7 @@ import {
   ArrowLeft,
   BanknoteArrowUp,
   Pencil,
+  ReceiptText,
   RotateCcw,
   Trash2,
 } from "lucide-react";
@@ -31,6 +32,11 @@ import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { formatAmount } from "@/lib/format-amount";
+import {
+  formatAbsoluteDate,
+  formatAppDate,
+  formatAppDateTime,
+} from "@/lib/format-date";
 import { ExpenseReactions } from "@/components/expense-reactions";
 
 export function ExpensePage() {
@@ -126,16 +132,6 @@ export function ExpensePage() {
   const currentUserId = session?.user?.id ?? "";
   const tabCurrency = tab?.currency ?? "USD";
 
-  function formatAuditDate(date: Date | string) {
-    return new Date(date).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  }
-
   function getAddedAndRemovedParticipantIds(
     changes: Record<string, { from: unknown; to: unknown }>,
   ): { added: string[]; removed: string[] } {
@@ -164,9 +160,7 @@ export function ExpensePage() {
     if (changes.expenseDate) {
       const from = new Date(changes.expenseDate.from as Date);
       const to = new Date(changes.expenseDate.to as Date);
-      parts.push(
-        `Date ${from.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })} to ${to.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`,
-      );
+      parts.push(`Date ${formatAbsoluteDate(from)} to ${formatAbsoluteDate(to)}`);
     }
     if (changes.amount) {
       const from = Number(changes.amount.from);
@@ -238,6 +232,35 @@ export function ExpensePage() {
               </span>
             </div>
           )}
+          {tab && (
+            <Link
+              to={`/tabs/${tabIdOrEmpty}`}
+              className="inline-flex max-w-full items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {tab.isDirect === true ? (
+                <>
+                  You split with{" "}
+                  <span className="truncate font-medium text-foreground">
+                    {(() => {
+                      const other = tab.members.find(
+                        (m) => m.userId !== currentUserId,
+                      );
+                      return other
+                        ? getDisplayName(other.user, currentUserId)
+                        : tab.name;
+                    })()}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                  <span className="truncate font-medium text-foreground">
+                    {tab.name}
+                  </span>
+                </>
+              )}
+            </Link>
+          )}
           <div className="flex items-center justify-between gap-2">
             <div>
               <p
@@ -247,11 +270,7 @@ export function ExpensePage() {
                 {getDisplayName(expense.paidBy, currentUserId)}
               </p>
               <p className="text-sm text-muted-foreground mt-0.5">
-                {new Date(expense.expenseDate).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatAppDate(expense.expenseDate)}
               </p>
             </div>
             <span
@@ -359,7 +378,7 @@ export function ExpensePage() {
                       <>
                         Created by{" "}
                         {getDisplayName(entry.performedBy, currentUserId)}{" "}
-                        {formatAuditDate(entry.performedAt)}
+                        {formatAppDateTime(entry.performedAt)}
                       </>
                     )}
                     {entry.action === "update" && (
@@ -428,7 +447,7 @@ export function ExpensePage() {
                           })()}
                         <span className="block text-xs text-muted-foreground/80 mt-2">
                           {getDisplayName(entry.performedBy, currentUserId)} ·{" "}
-                          {formatAuditDate(entry.performedAt)}
+                          {formatAppDateTime(entry.performedAt)}
                         </span>
                       </>
                     )}
@@ -436,14 +455,14 @@ export function ExpensePage() {
                       <>
                         Deleted by{" "}
                         {getDisplayName(entry.performedBy, currentUserId)}{" "}
-                        {formatAuditDate(entry.performedAt)}
+                        {formatAppDateTime(entry.performedAt)}
                       </>
                     )}
                     {entry.action === "restore" && (
                       <>
                         Restored by{" "}
                         {getDisplayName(entry.performedBy, currentUserId)}{" "}
-                        {formatAuditDate(entry.performedAt)}
+                        {formatAppDateTime(entry.performedAt)}
                       </>
                     )}
                   </span>

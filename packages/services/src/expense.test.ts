@@ -163,6 +163,40 @@ describe("expenseService", () => {
       }
     });
 
+    test("success path: equal split with only non-payer as participant", async () => {
+      vi.mocked(tab.isMember).mockResolvedValue(true);
+      vi.mocked(tab.getMembers).mockResolvedValue(baseMembers);
+      vi.mocked(tab.getTabInfoForNotifications).mockResolvedValue({
+        name: "Test Tab",
+        isDirect: false,
+        currency: "USD",
+        displayName: "Test Tab",
+      });
+      vi.mocked(userData.getById).mockResolvedValue({
+        id: "user1",
+        name: "User 1",
+        username: "user1",
+        email: "u1@test.com",
+        defaultCurrency: "USD",
+      });
+      vi.mocked(userData.getByIds).mockResolvedValue([
+        { id: "user2", name: "User 2", username: "user2" },
+      ]);
+      vi.mocked(expense.create).mockResolvedValue("exp1");
+
+      const result = await expenseService.create(
+        {
+          ...baseCreateInput,
+          participantIds: ["user2"],
+        },
+        "user1",
+      );
+
+      expect(result.success).toBe(true);
+      const createCall = vi.mocked(expense.create).mock.calls[0][0];
+      expect(createCall.splits).toEqual([{ userId: "user2", amount: 100 }]);
+    });
+
     test("success path: equal split with 2 people", async () => {
       vi.mocked(tab.isMember).mockResolvedValue(true);
       vi.mocked(tab.getMembers).mockResolvedValue(baseMembers);

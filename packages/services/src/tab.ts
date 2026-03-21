@@ -45,6 +45,35 @@ export const tabService = {
     return ok(balances);
   },
 
+  /** Group tabs (non-direct) where the current user and the other person in a direct tab are both members. */
+  getSharedGroupTabsForDirectTab: async (
+    tabId: string,
+    userId: string,
+  ): Promise<
+    Result<Awaited<ReturnType<typeof tab.listGroupTabsSharedBetweenUsers>>>
+  > => {
+    const tabData = await tab.getWithMembers(tabId);
+    if (!tabData) {
+      return err("Tab not found", 404);
+    }
+    const isMember = tabData.members.some((m) => m.userId === userId);
+    if (!isMember) {
+      return err("Not a member", 403);
+    }
+    if (!tabData.isDirect) {
+      return ok([]);
+    }
+    const other = tabData.members.find((m) => m.userId !== userId);
+    if (!other) {
+      return ok([]);
+    }
+    const rows = await tab.listGroupTabsSharedBetweenUsers(
+      userId,
+      other.userId,
+    );
+    return ok(rows);
+  },
+
   getSettlementsForTab: async (
     tabId: string,
     userId: string,

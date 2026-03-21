@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { getDisplayName } from "@/lib/display-name";
+import { formatAppDate } from "@/lib/format-date";
 import { UserAvatar } from "@/components/user-avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
@@ -187,11 +188,7 @@ export function FriendsPage() {
                           </div>
                         )}
                         <div className="text-xs text-muted-foreground">
-                          {new Date(r.createdAt).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {formatAppDate(r.createdAt)}
                         </div>
                       </div>
                     </div>
@@ -308,12 +305,12 @@ export function FriendsPage() {
                       href={`/tabs/${f.id}`}
                       renderActions={() => (
                         <Button
-                          size="default"
+                          size="sm"
                           variant="outline"
                           className="shrink-0 hover:text-negative/90"
                           onClick={(e) => handlePoke(f.id, e)}
                         >
-                          <PokeIcon className="h-5 w-5 stroke-3 text-negative" />{" "}
+                          <PokeIcon className="size-4 stroke-3 text-negative" />{" "}
                           Poke
                         </Button>
                       )}

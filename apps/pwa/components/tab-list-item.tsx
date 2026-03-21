@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { UserAvatar } from "@/components/user-avatar";
 import { formatAmount } from "@/lib/format-amount";
+import { formatAppDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 
 export type TabListItemGroup = {
@@ -88,11 +89,7 @@ export function TabListItem({
         <>
           {" "}
           &middot;{" "}
-          {new Date(item.lastExpenseDate).toLocaleDateString(undefined, {
-            month: "short",
-            day: "numeric",
-            year: "numeric",
-          })}
+          {formatAppDate(item.lastExpenseDate)}
         </>
       )}
     </span>

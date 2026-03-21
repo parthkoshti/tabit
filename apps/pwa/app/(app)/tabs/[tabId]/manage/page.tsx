@@ -41,11 +41,11 @@ import {
   type ParsedCsv,
   type ParsedCsvRow,
 } from "@/lib/csv-import";
-import { format } from "date-fns";
 import { Upload, FileSpreadsheet, ExternalLink } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
 import { getDisplayName } from "@/lib/display-name";
 import { formatAmount } from "@/lib/format-amount";
+import { formatAbsoluteDate } from "@/lib/format-date";
 import { CURATED_CURRENCIES, getCurrency } from "shared";
 
 export function TabManagePage() {
@@ -688,7 +688,7 @@ function ImportCsvForm({
                           }
                         >
                           <td className="w-20 shrink-0 px-2 py-1.5">
-                            {row.date ? format(row.date, "MMM d, yy") : "-"}
+                            {row.date ? formatAbsoluteDate(row.date) : "-"}
                           </td>
                           <td className="min-w-0 wrap-break-word px-2 py-1.5">
                             {row.description || "-"}

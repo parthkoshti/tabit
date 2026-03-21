@@ -17,6 +17,7 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { TabListItem } from "@/components/tab-list-item";
+import { formatAppDate } from "@/lib/format-date";
 
 type TabSort = "expenses" | "recent" | "name";
 
@@ -57,7 +58,9 @@ export function TabsPage() {
     const arr = [...tabs];
     if (sortBy === "name") {
       arr.sort((a, b) =>
-        (a.name ?? "").toLowerCase().localeCompare((b.name ?? "").toLowerCase()),
+        (a.name ?? "")
+          .toLowerCase()
+          .localeCompare((b.name ?? "").toLowerCase()),
       );
     } else if (sortBy === "recent") {
       arr.sort((a, b) => {
@@ -137,11 +140,7 @@ export function TabsPage() {
                   </div>
                   <div className="flex items-center justify-between gap-2 pt-1">
                     <span className="text-xs text-muted-foreground">
-                      {new Date(r.createdAt).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatAppDate(r.createdAt)}
                     </span>
                     <div className="flex gap-2">
                       <Button
@@ -182,7 +181,7 @@ export function TabsPage() {
                 value={sortBy}
                 onValueChange={(v) => setSortBy(v as TabSort)}
               >
-                <SelectTrigger className="shrink-0 w-fit h-9">
+                <SelectTrigger className="shrink-0 w-fit h-8 text-xs">
                   <ArrowDownAZ className="h-4 w-4 shrink-0 opacity-70 mr-2" />
                   <SelectValue />
                 </SelectTrigger>

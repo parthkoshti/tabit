@@ -8,6 +8,7 @@ import {
   user,
 } from "db";
 import { eq, desc, inArray, and, sql, isNull, ne } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 
 export type TabWithBalance = {
   id: string;
@@ -33,6 +34,15 @@ export type FriendTab = {
     name: string | null;
     username: string | null;
   };
+};
+
+/** Non-direct tabs where both users are members (for “shared group tabs” UI). */
+export type SharedGroupTabListItem = {
+  id: string;
+  name: string;
+  currency: string;
+  createdAt: Date;
+  memberUserIds: string[];
 };
 
 /** Return type of getBalancesForTab. Use string | Date for JSON API responses. */
@@ -512,6 +522,51 @@ export const tab = {
       currency: tabRow.currency ?? "USD",
       displayName,
     };
+  },
+
+  listGroupTabsSharedBetweenUsers: async (
+    userId1: string,
+    userId2: string,
+  ): Promise<SharedGroupTabListItem[]> => {
+    const tabMemberB = alias(tabMember, "tab_member_b");
+    const rows = await db
+      .select({
+        id: tabTable.id,
+        name: tabTable.name,
+        currency: tabTable.currency,
+        createdAt: tabTable.createdAt,
+      })
+      .from(tabTable)
+      .innerJoin(
+        tabMember,
+        and(eq(tabTable.id, tabMember.tabId), eq(tabMember.userId, userId1)),
+      )
+      .innerJoin(
+        tabMemberB,
+        and(eq(tabTable.id, tabMemberB.tabId), eq(tabMemberB.userId, userId2)),
+      )
+      .where(eq(tabTable.isDirect, false))
+      .orderBy(desc(tabTable.createdAt));
+
+    if (rows.length === 0) return [];
+
+    const tabIds = rows.map((r) => r.id);
+    const memberRows = await db
+      .select({ tabId: tabMember.tabId, userId: tabMember.userId })
+      .from(tabMember)
+      .where(inArray(tabMember.tabId, tabIds));
+
+    const byTab = new Map<string, string[]>();
+    for (const m of memberRows) {
+      const list = byTab.get(m.tabId) ?? [];
+      list.push(m.userId);
+      byTab.set(m.tabId, list);
+    }
+
+    return rows.map((r) => ({
+      ...r,
+      memberUserIds: byTab.get(r.id) ?? [],
+    }));
   },
 
   createDirect: async (

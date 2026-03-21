@@ -20,13 +20,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { formatAbsoluteDate } from "@/lib/format-date";
 import { Calendar as CalendarIcon, CornerDownLeft } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
-import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { ExpenseAddedToast } from "@/components/expense-added-toast";
+import {
+  ExpenseAddedDialog,
+  type ExpenseCreatedCloseReason,
+} from "@/components/expense-added-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type Member = {
   userId: string;
@@ -44,11 +53,14 @@ export function AddExpenseForm({
   members,
   currentUserId,
   onSuccess,
+  onExpenseCreated,
 }: {
   tabId: string;
   members: Member[];
   currentUserId: string;
   onSuccess?: () => void;
+  /** Called once the expense is saved (before the success dialog). Use to refresh lists outside this tab. */
+  onExpenseCreated?: () => void;
 }) {
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -61,6 +73,22 @@ export function AddExpenseForm({
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdExpense, setCreatedExpense] = useState<{
+    expenseId: string;
+    tabId: string;
+    amount: number;
+    description: string;
+    tabName: string;
+    currency?: string;
+    participants: Array<{
+      userId: string;
+      name: string | null;
+      paid?: number;
+      owes?: number;
+    }>;
+  } | null>(null);
+  const [partialSuccessOpen, setPartialSuccessOpen] = useState(false);
+  const skipPartialSheetClose = useRef(false);
   const queryClient = useQueryClient();
   const descriptionRef = useRef<HTMLInputElement>(null);
 
@@ -150,20 +178,16 @@ export function AddExpenseForm({
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
-      toast.success(
-        <ExpenseAddedToast
-          expenseId={result.expenseId}
-          tabId={result.tabId}
-          amount={result.amount}
-          description={result.description}
-          tabName={result.tabName}
-          currency={result.currency}
-          participants={result.participants ?? []}
-          currentUserId={currentUserId}
-        />,
-        { duration: 10_000 },
-      );
-      onSuccess?.();
+      onExpenseCreated?.();
+      setCreatedExpense({
+        expenseId: result.expenseId,
+        tabId: result.tabId,
+        amount: result.amount,
+        description: result.description,
+        tabName: result.tabName,
+        currency: result.currency,
+        participants: result.participants ?? [],
+      });
     } else if (result.success) {
       setAmount("");
       setDescription("");
@@ -171,16 +195,81 @@ export function AddExpenseForm({
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
-      toast.success("Expense added");
-      onSuccess?.();
+      onExpenseCreated?.();
+      setPartialSuccessOpen(true);
     } else {
       setError(result.error ?? "Failed to add expense");
     }
     setLoading(false);
   }
 
+  function handleCreatedClose(reason: ExpenseCreatedCloseReason) {
+    setCreatedExpense(null);
+    // "edit" navigates in ExpenseAddedDialog; onSuccess would navigate("/tabs") and override that.
+    if (reason === "dismiss") {
+      onSuccess?.();
+    }
+    if (reason === "add-another") {
+      queueMicrotask(() => descriptionRef.current?.focus());
+    }
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <>
+      <ExpenseAddedDialog
+        open={!!createdExpense}
+        onOpenChange={(open) => {
+          if (!open) setCreatedExpense(null);
+        }}
+        expenseId={createdExpense?.expenseId ?? ""}
+        tabId={createdExpense?.tabId ?? ""}
+        amount={createdExpense?.amount ?? 0}
+        description={createdExpense?.description ?? ""}
+        tabName={createdExpense?.tabName ?? ""}
+        currency={createdExpense?.currency}
+        participants={createdExpense?.participants ?? []}
+        currentUserId={currentUserId}
+        onCloseReason={handleCreatedClose}
+      />
+      <Dialog
+        open={partialSuccessOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPartialSuccessOpen(false);
+            if (!skipPartialSheetClose.current) {
+              onSuccess?.();
+            }
+            skipPartialSheetClose.current = false;
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-md" showCloseButton>
+          <DialogHeader>
+            <DialogTitle>Expense added</DialogTitle>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                skipPartialSheetClose.current = true;
+                setPartialSuccessOpen(false);
+              }}
+            >
+              Add another expense
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setPartialSuccessOpen(false);
+              }}
+            >
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <form onSubmit={handleSubmit} className="space-y-4">
       <div className="flex gap-2">
         <Select value={paidById} onValueChange={setPaidById} disabled={loading}>
           <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none">
@@ -219,7 +308,7 @@ export function AddExpenseForm({
               )}
             >
               <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-              {expenseDate ? format(expenseDate, "MMM d") : "Date"}
+              {expenseDate ? formatAbsoluteDate(expenseDate) : "Date"}
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -322,5 +411,6 @@ export function AddExpenseForm({
         <CornerDownLeft className="h-4 w-4" />
       </Button>
     </form>
+    </>
   );
 }

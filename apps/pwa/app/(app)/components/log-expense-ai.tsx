@@ -8,7 +8,6 @@ import {
   Loader2,
   Mic,
   MicOff,
-  Plus,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,8 +15,10 @@ import { useSpeechRecognition } from "@/lib/use-speech-recognition";
 import { useSpeechRecognitionSettings } from "@/lib/use-speech-recognition-settings";
 import { vibrate } from "@/lib/vibrate";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { ExpenseAddedToast } from "@/components/expense-added-toast";
-import { formatAmount } from "@/lib/format-amount";
+import {
+  ExpenseAddedDialog,
+  type ExpenseCreatedCloseReason,
+} from "@/components/expense-added-dialog";
 
 type LogExpenseAIProps = {
   onSuccess: () => void;
@@ -78,13 +79,6 @@ export function LogExpenseAI({
     }
   }, [isSupported, aiLoading, startVoice, voiceSettings.autoStart]);
 
-  useEffect(() => {
-    if (!aiSuccessResult) {
-      const id = setTimeout(() => aiTextareaRef.current?.focus(), 0);
-      return () => clearTimeout(id);
-    }
-  }, [aiSuccessResult]);
-
   const handleToggleVoice = () => {
     if (!isSupported) {
       toast.error("Voice input is not supported in this browser");
@@ -97,37 +91,42 @@ export function LogExpenseAI({
     toggleVoice();
   };
 
-  if (aiSuccessResult) {
-    return (
-      <div className="flex flex-col gap-3 pt-2">
-        <p className="text-sm text-muted-foreground">
-          {formatAmount(aiSuccessResult.amount, aiSuccessResult.currency)} for{" "}
-          {aiSuccessResult.description} to {aiSuccessResult.tabName}
-        </p>
-        <Button
-          variant="default"
-          className="w-full"
-          onClick={() => {
-            vibrate(50);
-            setAiSuccessResult(null);
-            setAiInputText("");
-            setAiError(null);
-            voiceInputBaseRef.current = "";
-            startVoice();
-          }}
-        >
-          <Plus className="h-4 w-4" />
-          Add another
-        </Button>
-        <Button variant="outline" className="w-full" onClick={onSuccess}>
-          Done
-        </Button>
-      </div>
-    );
+  function handleCreatedClose(reason: ExpenseCreatedCloseReason) {
+    setAiSuccessResult(null);
+    // "edit" navigates in ExpenseAddedDialog; calling onSuccess would navigate("/tabs") and override that.
+    if (reason === "dismiss") {
+      onSuccess();
+    }
+    if (reason === "add-another") {
+      setAiInputText("");
+      setAiError(null);
+      voiceInputBaseRef.current = "";
+      vibrate(50);
+      queueMicrotask(() => aiTextareaRef.current?.focus());
+      if (isSupported && voiceSettings.autoStart) {
+        startVoice();
+      }
+    }
   }
 
   return (
-    <form
+    <>
+      <ExpenseAddedDialog
+        open={!!aiSuccessResult}
+        onOpenChange={(open) => {
+          if (!open) setAiSuccessResult(null);
+        }}
+        expenseId={aiSuccessResult?.expenseId ?? ""}
+        tabId={aiSuccessResult?.tabId ?? ""}
+        amount={aiSuccessResult?.amount ?? 0}
+        description={aiSuccessResult?.description ?? ""}
+        tabName={aiSuccessResult?.tabName ?? ""}
+        currency={aiSuccessResult?.currency}
+        participants={aiSuccessResult?.participants ?? []}
+        currentUserId={currentUserId}
+        onCloseReason={handleCreatedClose}
+      />
+      <form
       ref={aiFormRef}
       className="space-y-4"
       onSubmit={async (e) => {
@@ -156,19 +155,6 @@ export function LogExpenseAI({
             currency: result.currency,
             participants: result.participants ?? [],
           });
-          toast.info(
-            <ExpenseAddedToast
-              expenseId={result.expenseId}
-              tabId={result.tabId}
-              amount={result.amount}
-              description={result.description}
-              tabName={result.tabName}
-              currency={result.currency}
-              participants={result.participants ?? []}
-              currentUserId={currentUserId}
-            />,
-            { duration: 10_000 },
-          );
           queryClient.invalidateQueries({ queryKey: ["friends"] });
           queryClient.invalidateQueries({ queryKey: ["tabs"] });
           queryClient.invalidateQueries({
@@ -284,5 +270,6 @@ export function LogExpenseAI({
         </Button>
       </div>
     </form>
+    </>
   );
 }

@@ -15,7 +15,20 @@ function calculateSplits(
   customSplits?: Array<{ userId: string; amount: number }>,
 ): { userId: string; amount: number }[] | null {
   if (members.length < 1) return null;
-  if (members.length === 1) return null;
+
+  // One split participant: they owe the full amount (caller rejects payer-only).
+  if (members.length === 1) {
+    if (splitType === "equal") {
+      return [{ userId: members[0]!.userId, amount: roundTo2(amount) }];
+    }
+    if (splitType === "custom" && customSplits && customSplits.length > 0) {
+      return customSplits.map((s) => ({
+        userId: s.userId,
+        amount: roundTo2(s.amount),
+      }));
+    }
+    return null;
+  }
 
   if (splitType === "equal") {
     const perPerson = Math.floor((amount / members.length) * 100) / 100;
@@ -144,7 +157,12 @@ export const expenseService = {
       input.splits,
     );
     if (!splits) {
-      return err("Custom split requires splits array", 400);
+      return err(
+        input.splitType === "custom"
+          ? "Custom split requires splits array"
+          : "Invalid split",
+        400,
+      );
     }
 
     const expenseId = await expense.create({
@@ -257,7 +275,12 @@ export const expenseService = {
       input.splits,
     );
     if (!splits) {
-      return err("Custom split requires splits array", 400);
+      return err(
+        input.splitType === "custom"
+          ? "Custom split requires splits array"
+          : "Invalid split",
+        400,
+      );
     }
 
     await expense.update(
@@ -478,7 +501,13 @@ export const expenseService = {
         parsed.data.splits,
       );
       if (!splits) {
-        errors.push(`Row ${i + 1}: Custom split requires splits array`);
+        errors.push(
+          `Row ${i + 1}: ${
+            parsed.data.splitType === "custom"
+              ? "Custom split requires splits array"
+              : "Invalid split"
+          }`,
+        );
         continue;
       }
 

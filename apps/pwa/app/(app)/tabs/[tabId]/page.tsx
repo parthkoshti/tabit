@@ -29,14 +29,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BanknoteArrowUp, Filter, UserPlus, Wallet } from "lucide-react";
+import {
+  BanknoteArrowUp,
+  ChevronRight,
+  SortDesc,
+  UserPlus,
+  Wallet,
+} from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { formatAmount } from "@/lib/format-amount";
+import { formatAppDate } from "@/lib/format-date";
 import { ExpenseReactions } from "@/components/expense-reactions";
+import { ExpenseYourBalance } from "@/components/expense-your-balance";
 
 export function TabPage() {
   const { tabId } = useParams<{ tabId: string }>();
@@ -130,6 +138,15 @@ export function TabPage() {
       return r.success ? (r.balances ?? []) : [];
     },
     enabled: !!tabIdOrEmpty,
+  });
+
+  const { data: sharedGroupTabs } = useQuery({
+    queryKey: ["sharedGroupTabs", tabIdOrEmpty],
+    queryFn: async () => {
+      const r = await api.tabs.getSharedGroupTabs(tabIdOrEmpty);
+      return r.success ? (r.tabs ?? []) : [];
+    },
+    enabled: !!tabIdOrEmpty && tab?.isDirect === true,
   });
 
   const [settleUpOpen, setSettleUpOpen] = useState(false);
@@ -308,6 +325,62 @@ export function TabPage() {
             </Button>
           </div>
         )}
+        {tab.isDirect && (sharedGroupTabs?.length ?? 0) > 0 && (
+          <section>
+            <h2 className="text-base font-medium mb-2">Shared tabs</h2>
+            <Card>
+              <CardContent className="divide-y divide-border p-0">
+                {sharedGroupTabs!.map((st) => {
+                  const allMemberIds = st.memberUserIds ?? [];
+                  const currentUserFirst =
+                    allMemberIds.length > 0
+                      ? [
+                          currentUserId,
+                          ...allMemberIds.filter((id) => id !== currentUserId),
+                        ]
+                      : [];
+                  const hasExtra = currentUserFirst.length > 3;
+                  const displayMemberIds = hasExtra
+                    ? currentUserFirst.slice(0, 2)
+                    : currentUserFirst.slice(0, 3);
+                  const extraCount = hasExtra ? currentUserFirst.length - 2 : 0;
+
+                  return (
+                    <Link
+                      key={st.id}
+                      to={`/tabs/${st.id}`}
+                      className="flex items-center justify-between gap-3 px-4 py-3 text-sm transition-colors hover:bg-muted/50"
+                    >
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <span className="min-w-0 truncate font-medium">
+                          {st.name}
+                        </span>
+                        {displayMemberIds.length > 0 && (
+                          <div className="flex shrink-0 -space-x-2">
+                            {displayMemberIds.map((userId) => (
+                              <UserAvatar
+                                key={userId}
+                                userId={userId}
+                                size="xs"
+                                className="ring-2 ring-background"
+                              />
+                            ))}
+                            {extraCount > 0 && (
+                              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
+                                +{extraCount}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </section>
+        )}
         <section>
           <h2 className="text-base font-medium mb-2">Balances</h2>
           <Card>
@@ -364,7 +437,7 @@ export function TabPage() {
               }
             >
               <SelectTrigger className="shrink-0 w-fit max-w-34 h-8 text-xs">
-                <Filter className="h-4 w-4 shrink-0 opacity-70 mr-1" />
+                <SortDesc className="h-4 w-4 shrink-0 opacity-70 mr-1" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -445,116 +518,202 @@ export function TabPage() {
                           }`}
                         >
                           <CardContent className="flex flex-col gap-1 p-4">
-                            <div className="flex items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 min-w-0 flex-1">
-                                <BanknoteArrowUp
-                                  className={`h-5 w-5 shrink-0 ${
-                                    item.deletedAt
-                                      ? "text-muted-foreground"
-                                      : "text-negative"
-                                  }`}
-                                />
-                                <span
-                                  className={`min-w-0 flex-1 font-medium text-sm ${
-                                    item.deletedAt
-                                      ? "text-muted-foreground"
-                                      : ""
-                                  }`}
-                                >
-                                  {item.description}
-                                </span>
-                                {item.deletedAt && (
-                                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                    Deleted
-                                  </span>
-                                )}
-                              </div>
-                              <span
-                                className={`text-sm shrink-0 font-medium ${
-                                  item.deletedAt
-                                    ? "text-muted-foreground"
-                                    : "text-foreground"
-                                }`}
-                              >
-                                {formatAmount(item.amount, tabCurrency)}
-                              </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
-                              Paid by{" "}
-                              <span className="inline-flex items-center gap-1.5">
-                                <UserAvatar userId={item.paidById} size="xs" />
-                                {getDisplayName(
-                                  getMemberUser(item.paidById),
-                                  currentUserId,
-                                )}
-                              </span>
-                              <span>
-                                ·{" "}
-                                {new Date(item.expenseDate).toLocaleDateString(
-                                  undefined,
-                                  {
-                                    month: "short",
-                                    day: "numeric",
-                                    year: "numeric",
-                                  },
-                                )}
-                              </span>
-                            </p>
-                            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground">
-                              <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                {item.splits
-                                  .filter((s) => s.userId !== item.paidById)
-                                  .map((s) => {
-                                    const owesCurrentUser =
-                                      item.paidById === currentUserId;
-                                    const currentUserOwes =
-                                      s.userId === currentUserId;
-                                    const amountClass = owesCurrentUser
-                                      ? "text-positive"
-                                      : currentUserOwes
-                                        ? "text-negative"
-                                        : "text-muted-foreground";
-                                    return (
-                                      <span
-                                        key={s.userId}
-                                        className="inline-flex items-center gap-1.5"
-                                      >
-                                        <UserAvatar
-                                          userId={s.userId}
-                                          size="xs"
-                                        />
-                                        {getDisplayName(
-                                          getMemberUser(s.userId),
-                                          currentUserId,
-                                        )}{" "}
-                                        {currentUserOwes ? "owe" : "owes"}{" "}
-                                        {getDisplayName(
-                                          getMemberUser(item.paidById),
-                                          currentUserId,
-                                        )}{" "}
-                                        <span className={amountClass}>
-                                          {formatAmount(s.amount, tabCurrency)}
-                                        </span>
+                            {tab && !tab.isDirect ? (
+                              <>
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                                    <BanknoteArrowUp
+                                      className={`h-5 w-5 shrink-0 ${
+                                        item.deletedAt
+                                          ? "text-muted-foreground"
+                                          : "text-negative"
+                                      }`}
+                                    />
+                                    <span
+                                      className={`min-w-0 flex-1 font-medium text-sm ${
+                                        item.deletedAt
+                                          ? "text-muted-foreground"
+                                          : ""
+                                      }`}
+                                    >
+                                      {item.description}
+                                    </span>
+                                    {item.deletedAt && (
+                                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                        Deleted
                                       </span>
-                                    );
-                                  })}
-                              </div>
-                              {!item.deletedAt && (
-                                <ExpenseReactions
-                                  expenseId={item.id}
-                                  tabId={tabIdOrEmpty}
-                                  reactions={item.reactions ?? []}
-                                  currentUserId={currentUserId}
-                                  compact
-                                  getDisplayName={(userId) =>
-                                    getDisplayName(
-                                      getMemberUser(userId),
+                                    )}
+                                  </div>
+                                  <span
+                                    className={`text-sm shrink-0 font-medium tabular-nums ${
+                                      item.deletedAt
+                                        ? "text-muted-foreground"
+                                        : "text-foreground"
+                                    }`}
+                                  >
+                                    {formatAmount(item.amount, tabCurrency)}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-0">
+                                  Paid by{" "}
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <UserAvatar
+                                      userId={item.paidById}
+                                      size="xs"
+                                    />
+                                    {getDisplayName(
+                                      getMemberUser(item.paidById),
                                       currentUserId,
-                                    )
-                                  }
-                                />
-                              )}
-                            </div>
+                                    )}
+                                  </span>
+                                </p>
+                                <div className="flex items-end justify-between gap-3 pt-0.5">
+                                  <p className="text-xs text-muted-foreground min-w-0">
+                                    {formatAppDate(item.expenseDate)}
+                                  </p>
+                                  <div className="flex items-center gap-2">
+                                    <ExpenseYourBalance
+                                      expenseAmount={item.amount}
+                                      tabCurrency={tabCurrency}
+                                      paidById={item.paidById}
+                                      currentUserId={currentUserId}
+                                      yourShare={
+                                        item.splits.find(
+                                          (s) => s.userId === currentUserId,
+                                        )?.amount ?? null
+                                      }
+                                      deleted={!!item.deletedAt}
+                                    />
+                                    {!item.deletedAt && (
+                                      <ExpenseReactions
+                                        expenseId={item.id}
+                                        tabId={tabIdOrEmpty}
+                                        reactions={item.reactions ?? []}
+                                        currentUserId={currentUserId}
+                                        compact
+                                        getDisplayName={(userId) =>
+                                          getDisplayName(
+                                            getMemberUser(userId),
+                                            currentUserId,
+                                          )
+                                        }
+                                      />
+                                    )}
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <BanknoteArrowUp
+                                      className={`h-5 w-5 shrink-0 ${
+                                        item.deletedAt
+                                          ? "text-muted-foreground"
+                                          : "text-negative"
+                                      }`}
+                                    />
+                                    <span
+                                      className={`min-w-0 flex-1 font-medium text-sm ${
+                                        item.deletedAt
+                                          ? "text-muted-foreground"
+                                          : ""
+                                      }`}
+                                    >
+                                      {item.description}
+                                    </span>
+                                    {item.deletedAt && (
+                                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                        Deleted
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span
+                                    className={`text-sm shrink-0 font-medium ${
+                                      item.deletedAt
+                                        ? "text-muted-foreground"
+                                        : "text-foreground"
+                                    }`}
+                                  >
+                                    {formatAmount(item.amount, tabCurrency)}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-2">
+                                  Paid by{" "}
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <UserAvatar
+                                      userId={item.paidById}
+                                      size="xs"
+                                    />
+                                    {getDisplayName(
+                                      getMemberUser(item.paidById),
+                                      currentUserId,
+                                    )}
+                                  </span>
+                                  <span>
+                                    · {formatAppDate(item.expenseDate)}
+                                  </span>
+                                </p>
+                                <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground">
+                                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                    {item.splits
+                                      .filter((s) => s.userId !== item.paidById)
+                                      .map((s) => {
+                                        const owesCurrentUser =
+                                          item.paidById === currentUserId;
+                                        const currentUserOwes =
+                                          s.userId === currentUserId;
+                                        const amountClass = owesCurrentUser
+                                          ? "text-positive"
+                                          : currentUserOwes
+                                            ? "text-negative"
+                                            : "text-muted-foreground";
+                                        return (
+                                          <span
+                                            key={s.userId}
+                                            className="inline-flex items-center gap-1.5"
+                                          >
+                                            <UserAvatar
+                                              userId={s.userId}
+                                              size="xs"
+                                            />
+                                            {getDisplayName(
+                                              getMemberUser(s.userId),
+                                              currentUserId,
+                                            )}{" "}
+                                            {currentUserOwes ? "owe" : "owes"}{" "}
+                                            {getDisplayName(
+                                              getMemberUser(item.paidById),
+                                              currentUserId,
+                                            )}{" "}
+                                            <span className={amountClass}>
+                                              {formatAmount(
+                                                s.amount,
+                                                tabCurrency,
+                                              )}
+                                            </span>
+                                          </span>
+                                        );
+                                      })}
+                                  </div>
+                                  {!item.deletedAt && (
+                                    <ExpenseReactions
+                                      expenseId={item.id}
+                                      tabId={tabIdOrEmpty}
+                                      reactions={item.reactions ?? []}
+                                      currentUserId={currentUserId}
+                                      compact
+                                      getDisplayName={(userId) =>
+                                        getDisplayName(
+                                          getMemberUser(userId),
+                                          currentUserId,
+                                        )
+                                      }
+                                    />
+                                  )}
+                                </div>
+                              </>
+                            )}
                           </CardContent>
                         </Card>
                       </AnimatedCard>
@@ -593,17 +752,7 @@ export function TabPage() {
                                 <UserAvatar userId={item.toUserId} size="xs" />
                                 {getDisplayName(item.toUser, currentUserId)}
                               </span>
-                              <span>
-                                ·{" "}
-                                {new Date(item.createdAt).toLocaleDateString(
-                                  undefined,
-                                  {
-                                    month: "short",
-                                    day: "numeric",
-                                    year: "numeric",
-                                  },
-                                )}
-                              </span>
+                              <span>· {formatAppDate(item.createdAt)}</span>
                             </p>
                           </CardContent>
                         </Card>

@@ -22,6 +22,7 @@ A running list of features in the app.
 ## Tabs
 
 - 1 on 1 tab (direct tabs with friends)
+- On a direct tab, a “Shared tabs” section lists group tabs you share with that friend (above balances)
 - Group tabs
 - Tab members can set expense currency via manage page
 - Sort tabs by name, most recent expense, or most expenses

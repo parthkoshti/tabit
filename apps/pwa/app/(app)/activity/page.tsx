@@ -14,16 +14,9 @@ import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { useMemo } from "react";
 import { formatAmount } from "@/lib/format-amount";
-
-function formatDate(d: Date | string): string {
-  const date = new Date(d);
-  const now = new Date();
-  const diff = now.getTime() - date.getTime();
-  if (diff < 60000) return "Just now";
-  if (diff < 3600000) return `${Math.floor(diff / 60000)}m ago`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
-  return date.toLocaleDateString();
-}
+import { cn } from "@/lib/utils";
+import { ExpenseYourBalance } from "@/components/expense-your-balance";
+import { formatAppDate } from "@/lib/format-date";
 
 export function ActivityPage() {
   const queryClient = useQueryClient();
@@ -71,11 +64,18 @@ export function ActivityPage() {
   });
 
   const items = useMemo((): ActivityItem[] => {
-    return (data?.pages ?? []).flatMap((p) =>
+    const flat = (data?.pages ?? []).flatMap((p) =>
       p && typeof p === "object" && "items" in p
         ? (p.items as ActivityItem[])
         : [],
     );
+    const seen = new Set<string>();
+    return flat.filter((item) => {
+      const k = `${item.type}:${item.id}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
   }, [data]);
 
   const [infiniteRef] = useInfiniteScroll({
@@ -113,14 +113,17 @@ export function ActivityPage() {
                   className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-1 items-center gap-2">
                       <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
                       <Skeleton className="h-4 flex-1 max-w-40" />
                     </div>
-                    <Skeleton className="h-4 w-16 shrink-0" />
+                    <Skeleton className="h-4 w-14 shrink-0" />
                   </div>
                   <Skeleton className="h-3 w-48" />
-                  <Skeleton className="h-3 w-24" />
+                  <div className="flex items-end justify-between gap-3 pt-0.5">
+                    <Skeleton className="h-3 w-24" />
+                    <Skeleton className="h-10 w-20 shrink-0" />
+                  </div>
                 </div>
               ))}
             </div>
@@ -148,11 +151,11 @@ export function ActivityPage() {
                           item.deletedAt ? "opacity-60" : ""
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-2 min-w-0">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
                             <UserAvatar userId={item.paidById} size="sm" />
                             <span
-                              className={`font-medium truncate ${
+                              className={`font-medium truncate min-w-0 ${
                                 item.deletedAt ? "text-muted-foreground" : ""
                               }`}
                             >
@@ -165,14 +168,15 @@ export function ActivityPage() {
                             )}
                           </div>
                           <span
-                            className={`text-sm font-medium shrink-0 ${
-                              item.deletedAt ? "text-muted-foreground" : ""
-                            }`}
+                            className={cn(
+                              "text-sm font-medium shrink-0 tabular-nums",
+                              item.deletedAt && "text-muted-foreground",
+                            )}
                           >
                             {formatAmount(item.amount, item.tabCurrency)}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
+                        <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                           {getDisplayName(
                             {
                               id: item.paidById,
@@ -182,15 +186,61 @@ export function ActivityPage() {
                             },
                             currentUserId,
                           )}{" "}
-                          paid in{" "}
-                          <span className="inline-flex items-center gap-1 text-foreground">
-                            <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
-                            {item.tabName}
-                          </span>
+                          paid{" "}
+                          {item.tabIsDirect && item.directOtherUser ? (
+                            item.paidById === currentUserId &&
+                            (item.yourShare == null ||
+                              item.yourShare <= 0.001) ? (
+                              <>
+                                —{" "}
+                                <span className="text-foreground">
+                                  {getDisplayName(
+                                    item.directOtherUser,
+                                    currentUserId,
+                                  )}
+                                </span>{" "}
+                                owes you{" "}
+                                <span className="text-foreground font-medium">
+                                  {formatAmount(
+                                    item.amount - (item.yourShare ?? 0),
+                                    item.tabCurrency,
+                                  )}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                — You split with{" "}
+                                <span className="text-foreground">
+                                  {getDisplayName(
+                                    item.directOtherUser,
+                                    currentUserId,
+                                  )}
+                                </span>
+                              </>
+                            )
+                          ) : (
+                            <>
+                              in{" "}
+                              <span className="inline-flex items-center gap-1 text-foreground">
+                                <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                                {item.tabName}
+                              </span>
+                            </>
+                          )}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatDate(item.expenseDate)}
-                        </p>
+                        <div className="flex items-end justify-between gap-3 pt-0.5">
+                          <p className="text-xs text-muted-foreground min-w-0">
+                            {formatAppDate(item.expenseDate)}
+                          </p>
+                          <ExpenseYourBalance
+                            expenseAmount={item.amount}
+                            tabCurrency={item.tabCurrency}
+                            paidById={item.paidById}
+                            currentUserId={currentUserId}
+                            yourShare={item.yourShare}
+                            deleted={!!item.deletedAt}
+                          />
+                        </div>
                       </AnimatedCard>
                     </Link>
                   </motion.div>
@@ -230,15 +280,30 @@ export function ActivityPage() {
                             {formatAmount(item.amount, item.tabCurrency)}
                           </span>
                         </div>
-                        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                          Settlement in{" "}
-                          <span className="inline-flex items-center gap-1 text-foreground">
-                            <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
-                            {item.tabName}
-                          </span>
+                        <p className="text-sm text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                          Settlement{" "}
+                          {item.tabIsDirect && item.directOtherUser ? (
+                            <>
+                              — You split with{" "}
+                              <span className="text-foreground">
+                                {getDisplayName(
+                                  item.directOtherUser,
+                                  currentUserId,
+                                )}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              in{" "}
+                              <span className="inline-flex items-center gap-1 text-foreground">
+                                <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                                {item.tabName}
+                              </span>
+                            </>
+                          )}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {formatDate(item.createdAt)}
+                          {formatAppDate(item.createdAt)}
                         </p>
                       </AnimatedCard>
                     </Link>

@@ -29,7 +29,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { format } from "date-fns";
+import { formatAbsoluteDate } from "@/lib/format-date";
 import { Calendar as CalendarIcon, CornerDownLeft, Trash2 } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
@@ -253,7 +253,7 @@ export function EditExpenseForm({
                 )}
               >
                 <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                {expenseDate ? format(expenseDate, "MMM d") : "Date"}
+                {expenseDate ? formatAbsoluteDate(expenseDate) : "Date"}
               </Button>
             </PopoverTrigger>
             <PopoverContent

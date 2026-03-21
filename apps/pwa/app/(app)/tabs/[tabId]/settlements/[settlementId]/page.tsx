@@ -20,6 +20,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { formatAmount } from "@/lib/format-amount";
+import { formatAppDate, formatAppDateTime } from "@/lib/format-date";
 
 export function SettlementPage() {
   const { tabId, settlementId } = useParams<{
@@ -102,16 +103,6 @@ export function SettlementPage() {
   const currentUserId = session?.user?.id ?? "";
   const tabCurrency = tab?.currency ?? "USD";
 
-  function formatAuditDate(date: Date | string) {
-    return new Date(date).toLocaleDateString(undefined, {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  }
-
   async function handleDelete() {
     setDeleteDialogOpen(false);
     setDeleteLoading(true);
@@ -143,11 +134,7 @@ export function SettlementPage() {
                 paid {getDisplayName(settlement.toUser, currentUserId)}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                {new Date(settlement.createdAt).toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatAppDate(settlement.createdAt)}
               </p>
             </div>
             <span className="text-foreground shrink-0 font-medium text-2xl">
@@ -193,7 +180,7 @@ export function SettlementPage() {
                       <>
                         Recorded by{" "}
                         {getDisplayName(entry.performedBy, currentUserId)}{" "}
-                        {formatAuditDate(entry.performedAt)}
+                        {formatAppDateTime(entry.performedAt)}
                       </>
                     )}
                     {entry.action === "update" && (
@@ -201,7 +188,7 @@ export function SettlementPage() {
                         <span className="block text-foreground/90">Edited</span>
                         <span className="block text-xs text-muted-foreground/80 mt-2">
                           {getDisplayName(entry.performedBy, currentUserId)} ·{" "}
-                          {formatAuditDate(entry.performedAt)}
+                          {formatAppDateTime(entry.performedAt)}
                         </span>
                       </>
                     )}
@@ -209,7 +196,7 @@ export function SettlementPage() {
                       <>
                         Deleted by{" "}
                         {getDisplayName(entry.performedBy, currentUserId)}{" "}
-                        {formatAuditDate(entry.performedAt)}
+                        {formatAppDateTime(entry.performedAt)}
                       </>
                     )}
                   </span>

@@ -2,6 +2,7 @@ import type {
   TabWithMembers,
   TabWithBalance,
   FriendTab,
+  SharedGroupTabListItem,
   Balance,
   Expense,
   Settlement,
@@ -149,6 +150,12 @@ export const api = {
       request<{ success: boolean; balances: Balance[]; error?: string }>(
         `/tabs/${tabId}/balances`,
       ),
+    getSharedGroupTabs: (tabId: string) =>
+      request<{
+        success: boolean;
+        tabs: SharedGroupTabListItem[];
+        error?: string;
+      }>(`/tabs/${tabId}/shared-group-tabs`),
     create: (name: string, currency?: string) =>
       request<{ success: boolean; tabId: string; error?: string }>("/tabs", {
         method: "POST",

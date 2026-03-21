@@ -79,6 +79,85 @@ describe("tabService", () => {
     });
   });
 
+  describe("getSharedGroupTabsForDirectTab", () => {
+    test("returns error if tab not found", async () => {
+      vi.mocked(tab.getWithMembers).mockResolvedValue(null);
+
+      const result = await tabService.getSharedGroupTabsForDirectTab("tab1", "user1");
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Tab not found");
+        expect(result.status).toBe(404);
+      }
+    });
+
+    test("returns empty list for non-direct tab", async () => {
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        id: "tab1",
+        name: "Group",
+        currency: "USD",
+        isDirect: false,
+        createdAt: new Date(),
+        members: [
+          {
+            userId: "user1",
+            role: "member",
+            user: { id: "user1", email: "u1@test.com", name: "U1", username: null },
+          },
+        ],
+      });
+
+      const result = await tabService.getSharedGroupTabsForDirectTab("tab1", "user1");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toEqual([]);
+      }
+      expect(tab.listGroupTabsSharedBetweenUsers).not.toHaveBeenCalled();
+    });
+
+    test("returns shared group tabs for direct tab", async () => {
+      const shared = [
+        {
+          id: "g1",
+          name: "Trip",
+          currency: "USD",
+          createdAt: new Date(),
+          memberUserIds: ["user1", "user2", "user3"],
+        },
+      ];
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        id: "d1",
+        name: "Direct",
+        currency: "USD",
+        isDirect: true,
+        createdAt: new Date(),
+        members: [
+          {
+            userId: "user1",
+            role: "member",
+            user: { id: "user1", email: "u1@test.com", name: "U1", username: null },
+          },
+          {
+            userId: "user2",
+            role: "member",
+            user: { id: "user2", email: "u2@test.com", name: "U2", username: null },
+          },
+        ],
+      });
+      vi.mocked(tab.listGroupTabsSharedBetweenUsers).mockResolvedValue(shared);
+
+      const result = await tabService.getSharedGroupTabsForDirectTab("d1", "user1");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data).toEqual(shared);
+      }
+      expect(tab.listGroupTabsSharedBetweenUsers).toHaveBeenCalledWith("user1", "user2");
+    });
+  });
+
   describe("create", () => {
     test("validates currency code", async () => {
       const result = await tabService.create("Test Tab", "user1", "INVALID");

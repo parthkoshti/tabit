@@ -116,6 +116,16 @@ tabsRoutes.get("/:tabId/balances", async (c) => {
   return c.json({ success: true, balances: result.data });
 });
 
+tabsRoutes.get("/:tabId/shared-group-tabs", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId")!;
+  const result = await tabService.getSharedGroupTabsForDirectTab(tabId, userId);
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
+  }
+  return c.json({ success: true, tabs: result.data });
+});
+
 tabsRoutes.post("/", async (c) => {
   const { userId } = c.get("auth");
 
