@@ -144,14 +144,14 @@ Select the tabId from the lists above. Match "with John" to a friend tab, "in Pa
 Rules:
 - Extract amount in dollars (number). If user says "$50" or "50 dollars", use 50.
 - Extract a clear description (e.g. "dinner at the restaurant").
-- paidById must be a valid userId from the members list. When user says "I paid", use ${userId}.
+- paidById: Use the userId of the person who paid. When the user explicitly names a payer (e.g. "John paid", "Sarah paid"), use that person's userId. When NO payer is explicitly mentioned, ALWAYS use the current user: ${userId}.
 - participantIds: omit for equal split among all members, or provide user IDs to include in split.
 
 CRITICAL - Confidence and ambiguity:
-- confidence: 0.0 to 1.0. Use 1.0 only when amount, tab, payer, and participants are all clearly specified and unambiguous.
-- Use 0.5 or lower when: multiple tabs could match (e.g. user has two friends named John), amount is unclear, payer is ambiguous, or you had to guess.
-- Use 0.3 or lower when: you had to infer or assume critical fields (tab, payer, amount).
-- ambiguityReason: when confidence < 0.8, briefly explain what is unclear (e.g. "Multiple tabs match 'John'", "Amount not specified", "Unclear who paid").`;
+- confidence: 0.0 to 1.0. Use 1.0 only when amount, tab, and participants are clear. When payer is not specified, using current user ${userId} is correct and does NOT reduce confidence.
+- Use 0.5 or lower when: multiple tabs could match (e.g. user has two friends named John), amount is unclear, or you had to guess.
+- Use 0.3 or lower when: you had to infer or assume critical fields (tab, amount). Defaulting to current user when payer is unspecified is NOT an assumption that reduces confidence.
+- ambiguityReason: when confidence < 0.8, briefly explain what is unclear (e.g. "Multiple tabs match 'John'", "Amount not specified"). Never cite "unclear who paid" when the user simply did not mention a payer - in that case use current user.`;
 
   const userPrompt = `Parse this expense: "${text}"`;
 

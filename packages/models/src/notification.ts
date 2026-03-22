@@ -79,6 +79,7 @@ export const expenseAddedNotificationPayloadSchema = z.object({
   description: z.string(),
   amount: z.string(),
   recipientOweAmount: z.string().optional(),
+  currencySymbol: z.string().optional(),
   createdAt: z.string(),
 });
 export type ExpenseAddedNotificationPayload = z.infer<
@@ -96,6 +97,7 @@ export const expenseUpdatedNotificationPayloadSchema = z.object({
   description: z.string(),
   amount: z.string(),
   recipientOweAmount: z.string().optional(),
+  currencySymbol: z.string().optional(),
   descriptionChanged: z.boolean().optional(),
   amountChanged: z.boolean().optional(),
   previousDescription: z.string().optional(),
@@ -115,6 +117,7 @@ export const expenseDeletedNotificationPayloadSchema = z.object({
   fromUserName: z.string().nullable(),
   description: z.string(),
   amount: z.string(),
+  currencySymbol: z.string().optional(),
   deletedAt: z.string(),
   createdAt: z.string(),
 });
@@ -132,6 +135,7 @@ export const expenseRestoredNotificationPayloadSchema = z.object({
   fromUserName: z.string().nullable(),
   description: z.string(),
   amount: z.string(),
+  currencySymbol: z.string().optional(),
   createdAt: z.string(),
 });
 export type ExpenseRestoredNotificationPayload = z.infer<
@@ -283,6 +287,7 @@ export function createExpenseAddedNotificationPayload(data: {
   description: string;
   amount: string;
   recipientOweAmount?: string;
+  currencySymbol?: string;
   createdAt: Date;
 }): ExpenseAddedNotificationPayload {
   return {
@@ -296,6 +301,7 @@ export function createExpenseAddedNotificationPayload(data: {
     description: data.description,
     amount: data.amount,
     recipientOweAmount: data.recipientOweAmount,
+    currencySymbol: data.currencySymbol,
     createdAt: data.createdAt.toISOString(),
   };
 }
@@ -310,6 +316,7 @@ export function createExpenseUpdatedNotificationPayload(data: {
   description: string;
   amount: string;
   recipientOweAmount?: string;
+  currencySymbol?: string;
   descriptionChanged?: boolean;
   amountChanged?: boolean;
   previousDescription?: string;
@@ -326,6 +333,7 @@ export function createExpenseUpdatedNotificationPayload(data: {
     description: data.description,
     amount: data.amount,
     recipientOweAmount: data.recipientOweAmount,
+    currencySymbol: data.currencySymbol,
     descriptionChanged: data.descriptionChanged,
     amountChanged: data.amountChanged,
     previousDescription: data.previousDescription,
@@ -342,6 +350,7 @@ export function createExpenseDeletedNotificationPayload(data: {
   fromUserName: string | null;
   description: string;
   amount: string;
+  currencySymbol?: string;
   deletedAt: Date;
   createdAt: Date;
 }): ExpenseDeletedNotificationPayload {
@@ -355,6 +364,7 @@ export function createExpenseDeletedNotificationPayload(data: {
     fromUserName: data.fromUserName,
     description: data.description,
     amount: data.amount,
+    currencySymbol: data.currencySymbol,
     deletedAt: data.deletedAt.toISOString(),
     createdAt: data.createdAt.toISOString(),
   };
@@ -369,6 +379,7 @@ export function createExpenseRestoredNotificationPayload(data: {
   fromUserName: string | null;
   description: string;
   amount: string;
+  currencySymbol?: string;
   createdAt: Date;
 }): ExpenseRestoredNotificationPayload {
   return {
@@ -381,6 +392,7 @@ export function createExpenseRestoredNotificationPayload(data: {
     fromUserName: data.fromUserName,
     description: data.description,
     amount: data.amount,
+    currencySymbol: data.currencySymbol,
     createdAt: data.createdAt.toISOString(),
   };
 }

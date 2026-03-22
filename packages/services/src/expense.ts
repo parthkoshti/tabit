@@ -1,7 +1,7 @@
 import { expense, tab, user as userData } from "data";
 import type { GetExpensesForTabOptions } from "data";
 import { createExpenseSchema } from "models";
-import { CURRENCY_CODES } from "shared";
+import { CURRENCY_CODES, getCurrency } from "shared";
 import { ok, err, type Result } from "./types.js";
 import { notificationService } from "./notification.js";
 import { convertToTabCurrency } from "./fx-rate.js";
@@ -232,6 +232,7 @@ export const expenseService = {
       expenseCurrency !== tabCurrency
         ? `${input.amount} ${expenseCurrency} (${amountTab} ${tabCurrency})`
         : String(amountTab);
+    const currencySymbol = getCurrency(tabCurrency)?.symbol ?? "$";
 
     if (tabInfo) {
       for (const m of members) {
@@ -246,6 +247,7 @@ export const expenseService = {
             description: input.description,
             amount: notifyAmount,
             recipientOweAmount: splitByUser.get(m.userId)?.toString(),
+            currencySymbol,
             createdAt: new Date(),
           });
         }
@@ -373,6 +375,7 @@ export const expenseService = {
       expenseCurrency !== tabCurrency
         ? `${input.amount} ${expenseCurrency} (${amountTab} ${tabCurrency})`
         : String(amountTab);
+    const currencySymbol = getCurrency(tabCurrency)?.symbol ?? "$";
 
     if (tabInfo && fromUser) {
       for (const m of members) {
@@ -387,6 +390,7 @@ export const expenseService = {
             description: input.description ?? "",
             amount: notifyAmount,
             recipientOweAmount: splits.find((s) => s.userId === m.userId)?.amount.toString(),
+            currencySymbol,
             descriptionChanged,
             amountChanged,
             previousDescription: existingExp.description ?? "",
@@ -421,6 +425,8 @@ export const expenseService = {
 
     const tabInfo = await tab.getTabInfoForNotifications(tabId, userId);
     const fromUser = await userData.getById(userId);
+    const tabCurrency = (await tab.getCurrency(tabId)) ?? "USD";
+    const currencySymbol = getCurrency(tabCurrency)?.symbol ?? "$";
     const deletedAt = new Date();
     const participantIds = [...new Set([exp.paidById, ...exp.splits.map((s) => s.userId)])];
 
@@ -436,6 +442,7 @@ export const expenseService = {
             fromUserName: fromUser.name ?? null,
             description: exp.description,
             amount: exp.amount.toString(),
+            currencySymbol,
             deletedAt,
             createdAt: deletedAt,
           });
@@ -468,6 +475,8 @@ export const expenseService = {
 
     const tabInfo = await tab.getTabInfoForNotifications(tabId, userId);
     const fromUser = await userData.getById(userId);
+    const tabCurrency = (await tab.getCurrency(tabId)) ?? "USD";
+    const currencySymbol = getCurrency(tabCurrency)?.symbol ?? "$";
     const restoredAt = new Date();
     const participantIds = exp.splits.map((s) => s.userId);
 
@@ -483,6 +492,7 @@ export const expenseService = {
             fromUserName: fromUser.name ?? null,
             description: exp.description,
             amount: exp.amount.toString(),
+            currencySymbol,
             createdAt: restoredAt,
           });
         }

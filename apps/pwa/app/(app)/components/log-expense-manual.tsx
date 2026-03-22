@@ -153,7 +153,7 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                 </p>
                 <div className="flex flex-col gap-2">
                   <Button asChild variant="outline" className="w-full">
-                    <Link to="/tabs/create">Create tab</Link>
+                    <Link to="/tabs/new">Create tab</Link>
                   </Button>
                   <Button asChild variant="outline" className="w-full">
                     <Link to="/friends/addFriend">Add friend</Link>

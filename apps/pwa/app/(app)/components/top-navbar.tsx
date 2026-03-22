@@ -40,7 +40,9 @@ export function TopNavbar() {
   const isTabPage =
     displayPathname.startsWith("/tabs/") &&
     !displayPathname.match(/^\/tabs\/?$/);
-  const isMainTabPage = /^\/tabs\/[^/]+$/.test(displayPathname);
+  const isTabsNewPage = displayPathname === "/tabs/new";
+  const isMainTabPage =
+    /^\/tabs\/[^/]+$/.test(displayPathname) && !isTabsNewPage;
   const mainTabId = isMainTabPage
     ? displayPathname.replace(/^\/tabs\//, "").split("/")[0]
     : null;
@@ -176,7 +178,7 @@ export function TopNavbar() {
         ) : isTabsListPage ? (
           <div className="relative z-10 flex shrink-0 justify-end">
             <Button variant="default" size="sm" asChild aria-label="New tab">
-              <Link to="/tabs/create" className="">
+              <Link to="/tabs/new" className="">
                 <Plus className="h-5 w-5" />
                 <span>Tab</span>
               </Link>

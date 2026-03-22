@@ -106,6 +106,7 @@ function getPushTitle(payload: {
   forcePush?: boolean;
   isDirect?: boolean;
   emoji?: string;
+  currencySymbol?: string;
 }): string {
   if (payload.forcePush)
     return payload.type === "tab_invite"
@@ -133,7 +134,10 @@ function getPushTitle(payload: {
   }
   if (payload.type === "expense_added" && payload.fromUserName) {
     const desc = payload.description || "expense";
-    const amt = payload.amount ? ` $${payload.amount}` : "";
+    const sym = payload.currencySymbol ?? "$";
+    const amt = payload.amount
+      ? ` ${payload.amount.includes(" (") ? payload.amount : `${sym}${payload.amount}`}`
+      : "";
     if (payload.isDirect) {
       return `${payload.fromUserName} paid${amt} for ${desc}`;
     }
@@ -152,7 +156,10 @@ function getPushTitle(payload: {
   }
   if (payload.type === "expense_deleted" && payload.fromUserName) {
     const desc = payload.description || "expense";
-    const amt = payload.amount ? ` $${payload.amount} for ` : " ";
+    const sym = payload.currencySymbol ?? "$";
+    const amt = payload.amount
+      ? ` ${payload.amount.includes(" (") ? payload.amount : `${sym}${payload.amount}`} for `
+      : " ";
     if (payload.isDirect) {
       return `${payload.fromUserName} deleted ${desc} expense`;
     }
@@ -162,7 +169,10 @@ function getPushTitle(payload: {
   }
   if (payload.type === "expense_restored" && payload.fromUserName) {
     const desc = payload.description || "expense";
-    const amt = payload.amount ? ` $${payload.amount}` : "";
+    const sym = payload.currencySymbol ?? "$";
+    const amt = payload.amount
+      ? ` ${payload.amount.includes(" (") ? payload.amount : `${sym}${payload.amount}`}`
+      : "";
     if (payload.isDirect) {
       return `${payload.fromUserName} restored ${desc} expense`;
     }
@@ -218,6 +228,7 @@ function getPushBody(payload: {
   amountChanged?: boolean;
   fromUserName?: string | null;
   emoji?: string;
+  currencySymbol?: string;
 }): string {
   if (payload.forcePush) return "This is a test notification";
   if (payload.type === "friend_request") return "New friend request";
@@ -226,19 +237,23 @@ function getPushBody(payload: {
     return "Accepted your friend request";
   if (payload.type === "tab_invite_accepted") return "Joined your tab";
   if (payload.type === "expense_added") {
+    const sym = payload.currencySymbol ?? "$";
     return payload.recipientOweAmount
-      ? `You owe $${payload.recipientOweAmount}`
+      ? `You owe ${sym}${payload.recipientOweAmount}`
       : "New expense added";
   }
   if (payload.type === "expense_updated") {
+    const sym = payload.currencySymbol ?? "$";
+    const formatAmt = (a: string) =>
+      a.includes(" (") ? a : `${sym}${a}`;
     const parts: string[] = [];
     if (payload.descriptionChanged && payload.description) {
       parts.push(`Description: ${payload.description}`);
     }
     if (payload.amountChanged) {
-      const amt = payload.amount ? `$${payload.amount}` : "";
+      const amt = payload.amount ? formatAmt(payload.amount) : "";
       const owe = payload.recipientOweAmount
-        ? ` You owe $${payload.recipientOweAmount}`
+        ? ` You owe ${sym}${payload.recipientOweAmount}`
         : "";
       parts.push(`Amount: ${amt}${owe}`);
     }

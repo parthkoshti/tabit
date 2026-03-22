@@ -46,6 +46,7 @@ export const notificationService = {
       description: string;
       amount: string;
       recipientOweAmount?: string;
+      currencySymbol?: string;
       createdAt: Date;
     },
   ): Promise<void> => {
@@ -65,6 +66,7 @@ export const notificationService = {
       description: string;
       amount: string;
       recipientOweAmount?: string;
+      currencySymbol?: string;
       descriptionChanged?: boolean;
       amountChanged?: boolean;
       previousDescription?: string;
@@ -86,6 +88,7 @@ export const notificationService = {
       fromUserName: string | null;
       description: string;
       amount: string;
+      currencySymbol?: string;
       deletedAt: Date;
       createdAt: Date;
     },
@@ -105,6 +108,7 @@ export const notificationService = {
       fromUserName: string | null;
       description: string;
       amount: string;
+      currencySymbol?: string;
       createdAt: Date;
     },
   ): Promise<void> => {
