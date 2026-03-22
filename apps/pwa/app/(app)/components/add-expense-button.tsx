@@ -1,4 +1,4 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, useLocation, Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -6,7 +6,9 @@ import { fabSpring } from "@/lib/animations";
 
 export function AddExpenseButton() {
   const params = useParams<{ tabId?: string }>();
-  const tabIdFromParams = params?.tabId;
+  const { pathname } = useLocation();
+  const tabIdFromParams =
+    params?.tabId ?? (pathname.match(/^\/tabs\/([^/]+)/)?.[1] ?? null);
   const href = tabIdFromParams
     ? `/expense/new?tabId=${tabIdFromParams}`
     : "/expense/new";

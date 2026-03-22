@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -27,8 +27,19 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
   const currentUserId = session?.user?.id ?? "";
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
+  const [selectedTabId, setSelectedTabId] = useState<string | null>(
+    () => tabIdFromParams ?? null,
+  );
   const [pickedAnotherTab, setPickedAnotherTab] = useState(false);
+
+  useEffect(() => {
+    if (tabIdFromParams) {
+      setSelectedTabId(tabIdFromParams);
+      setPickedAnotherTab(false);
+    } else {
+      setSelectedTabId(null);
+    }
+  }, [tabIdFromParams]);
 
   const { data: friends, isLoading: friendsLoading } = useQuery({
     queryKey: ["friends"],
