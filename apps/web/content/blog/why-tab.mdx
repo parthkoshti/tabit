@@ -1,29 +1,61 @@
 ---
-title: "Why Tab - Free Splitwise Alternative, No Expense Limits"
-description: "Splitwise added limits and paywalls. Tab is the free alternative: no expense cap, no wait timer, no upgrade prompt. Split bills with friends—forever."
-date: "2025-03-14"
+title: "Why I Built Tab. And Why It's Free"
+description: "Splitwise got greedy. I got annoyed. So I built Tab: a free, open source expense splitting app with no limits, no paywalls, and no plans to change that."
+date: "2026-03-14"
 ---
 
-The short version: expense apps got greedy. Tab is the antidote.
+I use expense splitting apps constantly. Apartment bills with my partner. Trips with friends. Dinners, nights out, the kind of shared spending that's just part of life.
 
-## The problem
+For a long time, Splitwise was the default. Everyone had it, it worked well enough, and I didn't think much about it.
 
-Splitwise used to be simple. Add expenses, split with friends, settle up. Then they added a daily cap. Three expenses, then a timer. Then a paywall. The basics got locked behind a subscription.
+Then it got worse.
 
-That pattern is everywhere now. Free tiers that feel like demos. Artificial limits that push you toward upgrades. Dark patterns that make you feel like you're doing something wrong for wanting to split a fourth expense.
+## The frustration built slowly
 
-## What Tab does differently
+It wasn't one moment. It was a slow accumulation of friction that eventually made me dread opening the app.
 
-No daily cap. No wait timer. No upgrade prompt when you add your tenth expense. Create as many tabs as you want. Add as many friends as you need. Settle up when you're ready.
+The daily expense cap. The wait timer. The upgrade prompts that appeared exactly when you were trying to do something simple. The UI that felt increasingly designed to remind you that you were on the free tier.
 
-Tab is open source. Your data, your control. No lock-in, no surprise limits. If the product changes in a way you don't like, the code is there. The community can fork it.
+At some point I realized I wasn't logging expenses anymore. Not because I forgot, because I didn't want to deal with it. And when you stop logging, you lose track. You don't know what you owe. You don't know what you're owed. The whole point of the app falls apart.
 
-Splitting bills shouldn't cost you. Not in money, not in friction, not in guilt. Tab exists because that should be the default.
+That's the real cost of bad UX. Not the subscription fee, it's the mental overhead of not knowing where you stand with people you care about.
 
-## Built for people who split bills, not paywalls
+One day I sat down and thought: this problem is not hard. Why does the best solution feel this bad to use?
 
-Roommates, trip mates, office lunch crews. The use case is simple. The tools should be too. Tab gives you tabs, friends, expenses, and settle-up. Nothing more, nothing less.
+## So I built Tab
 
-<OtherProjects />
+I started in the first week of March 2026. As of writing this, I've put about 25–30 hours into it.
+
+The goal was simple: build the thing I actually want to use. No artificial limits. No dark patterns. No moment where the app makes you feel like you're doing something wrong for wanting to split a fourth expense.
+
+Tab does what expense splitting apps should do: tabs, friends, expenses, settle up. It works on your phone, your laptop, your tablet. You can add expenses by voice if you don't want to tap through forms. You get notified when someone adds something or settles up. It handles multiple currencies for trips. The basics, done well, with nothing in the way.
+
+## Why it's free
+
+Tab costs me almost nothing to run. The app is on Cloudflare Pages, the website on Vercel, both essentially free at this scale. The backend, database, and Redis run on a $10/month VPS. Backups go to Cloudflare R2, which is also basically free right now.
+
+I'm also lucky that I don't need Tab to make money. I have other projects: [Conncord](https://conncord.com) and [SnitchFeed](https://snitchfeed.com), that cover my costs. Tab is something I build because I use it every day and I want it to exist. That's enough.
+
+The AI voice expense feature is free for all users right now. I'm absorbing those costs. If AI usage grows significantly, I might introduce BYOK (bring your own key) as an option. But that would be an option, not a gate. No paywalls.
+
+**TLDR:** the moment an expense app costs you something to log an expense, you stop logging. That defeats the entire purpose. Tab is free because it has to be.
+
+## Will it stay free?
+
+Yes, for as long as I can make it work.
+
+If infra costs ever get out of hand (think $100+/month), I'll ask the community to help cover them through optional donations. No paywalls, no tiers, no "premium" features held hostage. If you find Tab useful and want to chip in, great. If not, the app works exactly the same.
+
+I'm not building this to exit. I'm building it because I use it.
+
+## Open source, self-hostable
+
+Tab is fully open source. The code is on [GitHub](https://github.com/parthkoshti/tabit).
+
+If you want to run it yourself, there's a Docker Compose setup that gets the full stack running: backend, frontend, database, Redis, notifications, wherever you want. Your data stays yours. If I ever shut Tab down or take it in a direction you don't like, you can fork it, host it, and keep going.
+
+That matters to me. I've always wanted to contribute to open source by solving a real problem, not just submitting a PR to a project I don't use. This problem spoke to me. I'm pretty sure I'm not the only one who's felt this way about Splitwise.
+
+If that's you, welcome. Tab is for you.
 
 <GetStartedButton />

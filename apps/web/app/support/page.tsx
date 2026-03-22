@@ -1,144 +1,120 @@
-import { Link as TransitionLink } from "next-view-transitions";
+import Link from "next/link";
 import { appConfig } from "@/app/config";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Github, ExternalLink, Heart } from "lucide-react";
+import { Github, ExternalLink, Heart, ArrowLeft } from "lucide-react";
+
+export const metadata = {
+  title: "Support Tab",
+  description:
+    "Tab is free forever. If it's saved you from a paywall, a $5 donation helps keep the servers running.",
+};
 
 const donateLinks = [
   {
     name: "PayPal",
-    description: "Any amount helps.",
     url: appConfig.support.paypalUrl,
-    cta: "Donate $5",
   },
   {
     name: "Venmo",
-    description: "Quick send from your phone.",
     url: appConfig.support.venmoUrl,
-    cta: "Donate $5",
   },
 ];
-
-export const metadata = {
-  title: "Donate $5",
-  description:
-    "Support Tab development. No limits, no paywall—a small donation helps keep it that way.",
-};
 
 export default function SupportPage() {
   return (
     <>
-      <section className="px-6 pt-32 pb-24 sm:px-8 sm:pt-40 sm:pb-32 lg:px-12">
-        <div className="mx-auto max-w-2xl">
-          <TransitionLink
+      <section className="px-6 pt-32 pb-20 sm:px-8 sm:pt-40 sm:pb-28 lg:px-12">
+        <div className="mx-auto max-w-xl">
+          <Link
             href="/"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Back to home
-          </TransitionLink>
+            <ArrowLeft className="h-3.5 w-3.5" />
+            Back
+          </Link>
+
           <h1 className="mt-8 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Donate $5
+            Tab is free. It'll stay that way.
           </h1>
-          <p className="mt-4 text-lg text-muted-foreground">
-            Tab has no limits, no paywall, no timer. A small donation helps keep
-            it that way.
-          </p>
-          <div className="mt-8 space-y-4 text-base leading-relaxed text-muted-foreground">
+          <div className="mt-6 space-y-4 text-base leading-relaxed text-muted-foreground">
             <p>
-              The app is free forever because I built it that way. No cap on
-              expenses, no upgrade prompts, no dark patterns. If Tab has saved
-              you from splitting another bill manually—or from hitting a paywall
-              elsewhere—a $5 donation goes a long way.
+              No limits, no upgrade prompts, no paywall. I built Tab because
+              Splitwise got greedy and I got tired of it. The whole point is
+              that logging an expense should cost you nothing. In money, in
+              friction, in guilt.
             </p>
             <p>
-              Your support keeps the servers running and the lights on. No VC
-              money, no ads, no data sales. Just a simple app that does one
-              thing well.
+              I cover the infrastructure costs myself. I have other projects
+              that pay the bills, so Tab doesn't need to make money.
+            </p>
+            <p>
+              But if Tab has saved you from a paywall or just made splitting
+              bills with your friends a little less annoying, a small donation
+              means a lot. It helps cover hosting and keeps me motivated to keep
+              building.
+            </p>
+            <p className="font-medium text-foreground">
+              Completely optional. The app works exactly the same either way.
             </p>
           </div>
-        </div>
-      </section>
 
-      <section className="border-t border-border/50 px-6 py-16 sm:px-8 sm:py-24 lg:px-12">
-        <div className="mx-auto max-w-2xl">
-          <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Choose how to donate
-          </p>
-          <h2 className="mt-3 text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            PayPal or Venmo
-          </h2>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          <div className="mt-10 flex flex-col gap-3 sm:flex-row">
             {donateLinks.map((link) => (
               <a
                 key={link.name}
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group block"
+                className="group flex flex-1 items-center justify-between gap-3 rounded-xl border border-border/40 bg-card/60 px-5 py-4 transition-all hover:border-primary/30 hover:bg-card/90 hover:shadow-sm dark:bg-card/30 dark:hover:bg-card/50"
               >
-                <Card className="h-full transition-all hover:border-primary/30 hover:bg-card/90 hover:shadow-md dark:hover:bg-card/70">
-                  <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                    <CardTitle className="text-base">{link.name}</CardTitle>
-                    <ExternalLink className="h-4 w-4 shrink-0 opacity-50 transition-opacity group-hover:opacity-100" />
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <CardDescription>{link.description}</CardDescription>
-                    <span className="inline-flex h-9 w-full items-center justify-center rounded-xl bg-primary px-4 text-sm font-medium text-primary-foreground">
-                      {link.cta}
-                    </span>
-                  </CardContent>
-                </Card>
+                <div>
+                  <p className="font-semibold text-foreground">{link.name}</p>
+                  <p className="mt-0.5 text-sm text-muted-foreground">
+                    Donate $5
+                  </p>
+                </div>
+                <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
               </a>
             ))}
           </div>
 
           {appConfig.githubUrl ? (
-            <div className="mt-12 rounded-xl border border-border/40 bg-muted/20 p-6 dark:bg-muted/10">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Github className="h-5 w-5 text-primary" />
+            <div className="mt-10 rounded-xl border border-border/30 bg-muted/20 p-5 dark:bg-muted/10">
+              <div className="flex items-start gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                  <Github className="h-4 w-4 text-primary" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">
-                    Prefer to contribute?
-                  </h3>
-                  <p className="mt-0.5 text-sm text-muted-foreground">
-                    Star the repo, report issues, or open a PR. Every bit helps.
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground">
+                    Not a money person? That's fine too.
                   </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    A GitHub star, a bug report, or a PR helps just as much. Tab
+                    is open source. Contributions are always welcome.
+                  </p>
+                  <Button variant="outline" size="sm" className="mt-3" asChild>
+                    <a
+                      href={appConfig.githubUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2"
+                    >
+                      <Github className="h-4 w-4" />
+                      View on GitHub
+                    </a>
+                  </Button>
                 </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="mt-4 rounded-xl"
-                asChild
-              >
-                <a
-                  href={appConfig.githubUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2"
-                >
-                  <Github className="h-4 w-4" />
-                  View on GitHub
-                </a>
-              </Button>
             </div>
           ) : null}
         </div>
       </section>
 
-      <section className="border-t border-border/50 px-6 py-12 sm:px-8 sm:py-16 lg:px-12">
-        <div className="mx-auto max-w-2xl text-center">
-          <p className="inline-flex items-center gap-2 text-sm text-muted-foreground">
-            <Heart className="h-4 w-4 fill-current text-primary/60" />
-            Thanks for using Tab.
+      <section className="border-t border-border/50 px-6 py-10 sm:px-8 lg:px-12">
+        <div className="mx-auto max-w-xl">
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Heart className="h-4 w-4 shrink-0 fill-current text-primary/60" />
+            Thanks for using Tab. It genuinely means a lot.
           </p>
         </div>
       </section>

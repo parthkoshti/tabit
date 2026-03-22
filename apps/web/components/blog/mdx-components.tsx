@@ -119,11 +119,7 @@ export const mdxComponents = {
       <p className="mt-4 text-muted-foreground">
         No credit card. No expense limit. No wait timer.
       </p>
-      <Button
-        asChild
-        size="lg"
-        className="mt-10 rounded-full px-10 shadow-lg shadow-primary/20 no-underline"
-      >
+      <Button asChild size="lg" className="mt-10 px-10 no-underline">
         <Link href={`${appConfig.pwaUrl}/login`} target="_blank">
           Create your first tab
           <ArrowRight className="h-4 w-4" />
