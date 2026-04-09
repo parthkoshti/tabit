@@ -32,6 +32,7 @@ A running list of features in the app.
 
 ## Expenses
 
+- Split types when adding or editing manually: equal (default), shares, percentage (must total 100%), or custom amounts; split dialog uses tabs; weights are stored and shown on expense detail (e.g. `40%` or `2 shares`) for percent and shares splits
 - Choose expense currency when adding or editing (defaults to tab currency); amounts convert to tab currency using Frankfurter ECB rates with server-side cache
 - FX works for any supported pair (e.g. AUD expense on an INR tab): the server looks up cached rates by expense date and expense currency; on a miss it fetches from Frankfurter and stores the result so repeat use is fast
 - The API prefetches latest EUR and USD rate maps on startup and once daily (Europe/Berlin) to warm the cache for those bases; other currencies are not prefetched but still convert on first need
@@ -40,6 +41,7 @@ A running list of features in the app.
 - Unified add-expense flow with AI/Manual tabs; preference persisted in user preferences
 - AI-powered voice expense creation
 - Emoji reactions on expenses (add, remove, full emoji picker)
+- New-expense notifications (push and real-time) name the **payer** (who paid), not only whoever logged the expense
 - Notifications when someone reacts to an expense you're part of
 - Expense audit logs
 - Import from Splitwise (CSV)
@@ -51,5 +53,5 @@ A running list of features in the app.
 
 ## Testing
 
-- Comprehensive service layer tests (111+ tests across expense, tab, settlement, friend, user, tab-invite)
+- Comprehensive service layer tests (116+ tests across expense, tab, settlement, friend, user, tab-invite)
 - Vitest with mocked data layer; authorization, validation, and business logic coverage

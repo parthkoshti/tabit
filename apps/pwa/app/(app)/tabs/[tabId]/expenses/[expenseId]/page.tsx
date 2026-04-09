@@ -37,8 +37,8 @@ import {
 } from "@/lib/format-amount";
 import {
   formatAbsoluteDate,
+  formatAbsoluteDateTime,
   formatAppDate,
-  formatAppDateTime,
 } from "@/lib/format-date";
 import { ExpenseReactions } from "@/components/expense-reactions";
 
@@ -164,7 +164,9 @@ export function ExpensePage() {
     if (changes.expenseDate) {
       const from = new Date(changes.expenseDate.from as Date);
       const to = new Date(changes.expenseDate.to as Date);
-      parts.push(`Date ${formatAbsoluteDate(from)} to ${formatAbsoluteDate(to)}`);
+      parts.push(
+        `Date ${formatAbsoluteDate(from)} to ${formatAbsoluteDate(to)}`,
+      );
     }
     if (changes.currency) {
       const from = (changes.currency.from as string | null) ?? tabCurrency;
@@ -176,7 +178,9 @@ export function ExpensePage() {
     if (changes.amount) {
       const from = Number(changes.amount.from);
       const to = Number(changes.amount.to);
-      parts.push(`Amount ${formatAmount(from, tabCurrency)} to ${formatAmount(to, tabCurrency)}`);
+      parts.push(
+        `Amount ${formatAmount(from, tabCurrency)} to ${formatAmount(to, tabCurrency)}`,
+      );
     }
     if (changes.originalAmount) {
       const from = Number(changes.originalAmount.from);
@@ -299,7 +303,7 @@ export function ExpensePage() {
             </div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm text-muted-foreground">
-                {formatAppDate(expense.expenseDate)}
+                {formatAppDate(expense.createdAt)}
               </p>
               {expense.currency && expense.currency !== tabCurrency ? (
                 <span className="text-sm font-normal text-muted-foreground tabular-nums shrink-0 text-right">
@@ -388,7 +392,24 @@ export function ExpensePage() {
                     {getDisplayName(s.user, currentUserId)}{" "}
                     {currentUserOwes ? "owe" : "owes"}{" "}
                     {getDisplayName(expense.paidBy, currentUserId)}{" "}
-                    <span className={amountClass}>{formatAmount(s.amount, tabCurrency)}</span>
+                    <span className={amountClass}>
+                      {expense.splitType === "percent" && s.weight != null ? (
+                        <>
+                          {Number(s.weight) % 1 === 0
+                            ? String(Number(s.weight))
+                            : Number(s.weight).toFixed(2)}
+                          % — {formatAmount(s.amount, tabCurrency)}
+                        </>
+                      ) : expense.splitType === "shares" && s.weight != null ? (
+                        <>
+                          {Math.round(Number(s.weight))} share
+                          {Math.round(Number(s.weight)) === 1 ? "" : "s"} —{" "}
+                          {formatAmount(s.amount, tabCurrency)}
+                        </>
+                      ) : (
+                        formatAmount(s.amount, tabCurrency)
+                      )}
+                    </span>
                   </span>
                 );
               })}
@@ -410,7 +431,7 @@ export function ExpensePage() {
                       <>
                         Created by{" "}
                         {getDisplayName(entry.performedBy, currentUserId)}{" "}
-                        {formatAppDateTime(entry.performedAt)}
+                        {formatAbsoluteDateTime(entry.performedAt)}
                       </>
                     )}
                     {entry.action === "update" && (
@@ -479,7 +500,7 @@ export function ExpensePage() {
                           })()}
                         <span className="block text-xs text-muted-foreground/80 mt-2">
                           {getDisplayName(entry.performedBy, currentUserId)} ·{" "}
-                          {formatAppDateTime(entry.performedAt)}
+                          {formatAbsoluteDateTime(entry.performedAt)}
                         </span>
                       </>
                     )}
@@ -487,14 +508,14 @@ export function ExpensePage() {
                       <>
                         Deleted by{" "}
                         {getDisplayName(entry.performedBy, currentUserId)}{" "}
-                        {formatAppDateTime(entry.performedAt)}
+                        {formatAbsoluteDateTime(entry.performedAt)}
                       </>
                     )}
                     {entry.action === "restore" && (
                       <>
                         Restored by{" "}
                         {getDisplayName(entry.performedBy, currentUserId)}{" "}
-                        {formatAppDateTime(entry.performedAt)}
+                        {formatAbsoluteDateTime(entry.performedAt)}
                       </>
                     )}
                   </span>
@@ -545,10 +566,14 @@ export function ExpensePage() {
                 onSuccess={() => {
                   setEditDialogOpen(false);
                   queryClient.invalidateQueries({
-                    queryKey: ["expenseAuditLog", expenseIdOrEmpty],
+                    queryKey: [
+                      "expenseAuditLog",
+                      tabIdOrEmpty,
+                      expenseIdOrEmpty,
+                    ],
                   });
                   queryClient.invalidateQueries({
-                    queryKey: ["expense", expenseIdOrEmpty],
+                    queryKey: ["expense", tabIdOrEmpty, expenseIdOrEmpty],
                   });
                 }}
                 onDeleteSuccess={() => navigate(`/tabs/${tabIdOrEmpty}`)}

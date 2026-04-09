@@ -202,9 +202,7 @@ export function SettlementPage() {
             </div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground">
-                {formatAppDate(
-                  settlement.settlementDate ?? settlement.createdAt,
-                )}
+                {formatAppDate(settlement.createdAt)}
               </p>
               {settlement.currency &&
               settlement.currency !== tabCurrency &&

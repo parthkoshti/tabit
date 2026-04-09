@@ -17,6 +17,7 @@ export type TabWithBalance = {
   createdAt: Date;
   balance?: number;
   memberUserIds?: string[];
+  /** Latest non-deleted expense `createdAt` or settlement `createdAt`, whichever is newer. */
   lastExpenseDate?: Date | null;
   expenseCount?: number;
 };
@@ -27,6 +28,7 @@ export type FriendTab = {
   createdAt: Date;
   balance: number;
   expenseCount: number;
+  /** Latest non-deleted expense `createdAt` or settlement `createdAt`, whichever is newer. */
   lastExpenseDate?: Date | null;
   friend: {
     id: string;
@@ -190,12 +192,12 @@ export const tab = {
           }
           if (includeLastExpenseDate) {
             const [latestExp] = await db
-              .select({ expenseDate: expenseTable.expenseDate })
+              .select({ createdAt: expenseTable.createdAt })
               .from(expenseTable)
               .where(
                 and(eq(expenseTable.tabId, r.id), isNull(expenseTable.deletedAt)),
               )
-              .orderBy(desc(expenseTable.expenseDate))
+              .orderBy(desc(expenseTable.createdAt))
               .limit(1);
             const [latestSet] = await db
               .select({ createdAt: settlementTable.createdAt })
@@ -203,15 +205,15 @@ export const tab = {
               .where(eq(settlementTable.tabId, r.id))
               .orderBy(desc(settlementTable.createdAt))
               .limit(1);
-            const expDate = latestExp?.expenseDate
-              ? new Date(latestExp.expenseDate).getTime()
+            const expTime = latestExp?.createdAt
+              ? new Date(latestExp.createdAt).getTime()
               : 0;
-            const setDate = latestSet?.createdAt
+            const setTime = latestSet?.createdAt
               ? new Date(latestSet.createdAt).getTime()
               : 0;
             result.lastExpenseDate =
-              expDate || setDate
-                ? new Date(Math.max(expDate, setDate))
+              expTime || setTime
+                ? new Date(Math.max(expTime, setTime))
                 : null;
           }
           if (includeExpenseCount) {
@@ -258,12 +260,12 @@ export const tab = {
         }
         if (includeLastExpenseDate) {
           const [latestExp] = await db
-            .select({ expenseDate: expenseTable.expenseDate })
+            .select({ createdAt: expenseTable.createdAt })
             .from(expenseTable)
             .where(
               and(eq(expenseTable.tabId, r.id), isNull(expenseTable.deletedAt)),
             )
-            .orderBy(desc(expenseTable.expenseDate))
+            .orderBy(desc(expenseTable.createdAt))
             .limit(1);
           const [latestSet] = await db
             .select({ createdAt: settlementTable.createdAt })
@@ -271,14 +273,14 @@ export const tab = {
             .where(eq(settlementTable.tabId, r.id))
             .orderBy(desc(settlementTable.createdAt))
             .limit(1);
-          const expDate = latestExp?.expenseDate
-            ? new Date(latestExp.expenseDate).getTime()
+          const expTime = latestExp?.createdAt
+            ? new Date(latestExp.createdAt).getTime()
             : 0;
-          const setDate = latestSet?.createdAt
+          const setTime = latestSet?.createdAt
             ? new Date(latestSet.createdAt).getTime()
             : 0;
           result.lastExpenseDate =
-            expDate || setDate ? new Date(Math.max(expDate, setDate)) : null;
+            expTime || setTime ? new Date(Math.max(expTime, setTime)) : null;
         }
         if (includeExpenseCount) {
           const [countRow] = await db
@@ -330,10 +332,10 @@ export const tab = {
           .from(expenseTable)
           .where(and(eq(expenseTable.tabId, t.id), deletedAtNull));
         const [latestExp] = await db
-          .select({ expenseDate: expenseTable.expenseDate })
+          .select({ createdAt: expenseTable.createdAt })
           .from(expenseTable)
           .where(and(eq(expenseTable.tabId, t.id), deletedAtNull))
-          .orderBy(desc(expenseTable.expenseDate))
+          .orderBy(desc(expenseTable.createdAt))
           .limit(1);
         const [latestSet] = await db
           .select({ createdAt: settlementTable.createdAt })
@@ -341,14 +343,14 @@ export const tab = {
           .where(eq(settlementTable.tabId, t.id))
           .orderBy(desc(settlementTable.createdAt))
           .limit(1);
-        const expDate = latestExp?.expenseDate
-          ? new Date(latestExp.expenseDate).getTime()
+        const expTime = latestExp?.createdAt
+          ? new Date(latestExp.createdAt).getTime()
           : 0;
-        const setDate = latestSet?.createdAt
+        const setTime = latestSet?.createdAt
           ? new Date(latestSet.createdAt).getTime()
           : 0;
         const lastExpenseDate =
-          expDate || setDate ? new Date(Math.max(expDate, setDate)) : null;
+          expTime || setTime ? new Date(Math.max(expTime, setTime)) : null;
         result.push({
           id: t.id,
           currency: t.currency,

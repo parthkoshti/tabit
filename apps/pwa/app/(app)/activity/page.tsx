@@ -243,7 +243,7 @@ export function ActivityPage() {
                         </div>
                         <div className="flex items-end justify-between gap-3 pt-0.5">
                           <p className="text-xs text-muted-foreground min-w-0">
-                            {formatAppDate(item.expenseDate)}
+                            {formatAppDate(item.createdAt)}
                           </p>
                           <ExpenseYourBalance
                             expenseAmount={item.amount}
@@ -328,9 +328,7 @@ export function ActivityPage() {
                           ) : null}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {formatAppDate(
-                            item.settlementDate ?? item.createdAt,
-                          )}
+                          {formatAppDate(item.createdAt)}
                         </p>
                       </AnimatedCard>
                     </Link>

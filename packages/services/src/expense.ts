@@ -10,45 +10,185 @@ function roundTo2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+type ResolvedSplitRow = {
+  userId: string;
+  amount: number;
+  /** Stored for percent/shares; null for equal/custom. */
+  weight: number | null;
+};
+
+function orderMembersByParticipantIds(
+  allMembers: Array<{ userId: string }>,
+  participantIds: string[],
+): Array<{ userId: string }> {
+  const map = new Map(allMembers.map((m) => [m.userId, m]));
+  const ordered: Array<{ userId: string }> = [];
+  for (const id of participantIds) {
+    const m = map.get(id);
+    if (m) ordered.push({ userId: m.userId });
+  }
+  return ordered;
+}
+
+function buildSplitInputMap(
+  members: Array<{ userId: string }>,
+  inputSplits: Array<{ userId: string; amount?: number; weight?: number }> | undefined,
+): Map<string, { amount?: number; weight?: number }> | null {
+  if (!inputSplits || inputSplits.length !== members.length) return null;
+  const map = new Map(inputSplits.map((s) => [s.userId, s]));
+  if (map.size !== inputSplits.length) return null;
+  for (const m of members) {
+    if (!map.has(m.userId)) return null;
+  }
+  return map;
+}
+
 function calculateSplits(
-  amount: number,
+  amountTab: number,
   members: Array<{ userId: string }>,
   splitType: string,
-  customSplits?: Array<{ userId: string; amount: number }>,
-): { userId: string; amount: number }[] | null {
-  if (members.length < 1) return null;
-
-  // One split participant: they owe the full amount (caller rejects payer-only).
-  if (members.length === 1) {
-    if (splitType === "equal") {
-      return [{ userId: members[0]!.userId, amount: roundTo2(amount) }];
-    }
-    if (splitType === "custom" && customSplits && customSplits.length > 0) {
-      return customSplits.map((s) => ({
-        userId: s.userId,
-        amount: roundTo2(s.amount),
-      }));
-    }
-    return null;
-  }
+  inputSplits?: Array<{ userId: string; amount?: number; weight?: number }>,
+): { splits: ResolvedSplitRow[] } | { error: string } {
+  if (members.length < 1) return { error: "Invalid split" };
 
   if (splitType === "equal") {
-    const perPerson = Math.floor((amount / members.length) * 100) / 100;
-    const remainder = roundTo2(amount - perPerson * (members.length - 1));
-    return members.map((m, i) => ({
-      userId: m.userId,
-      amount: i === members.length - 1 ? remainder : perPerson,
-    }));
+    if (members.length === 1) {
+      return {
+        splits: [{ userId: members[0]!.userId, amount: roundTo2(amountTab), weight: null }],
+      };
+    }
+    const perPerson = Math.floor((amountTab / members.length) * 100) / 100;
+    const remainder = roundTo2(amountTab - perPerson * (members.length - 1));
+    return {
+      splits: members.map((m, i) => ({
+        userId: m.userId,
+        amount: i === members.length - 1 ? remainder : perPerson,
+        weight: null,
+      })),
+    };
   }
 
-  if (splitType === "custom" && customSplits && customSplits.length > 0) {
-    return customSplits.map((s) => ({
-      userId: s.userId,
-      amount: roundTo2(s.amount),
-    }));
+  const splitMap = buildSplitInputMap(members, inputSplits);
+  if (!splitMap) {
+    return {
+      error:
+        splitType === "custom"
+          ? "Custom split requires one entry per participant with amounts"
+          : splitType === "percent"
+            ? "Percent split requires one entry per participant with weights"
+            : splitType === "shares"
+              ? "Shares split requires one entry per participant with weights"
+              : "Invalid split",
+    };
   }
 
-  return null;
+  if (splitType === "custom") {
+    let sum = 0;
+    const rows: ResolvedSplitRow[] = [];
+    for (const m of members) {
+      const line = splitMap.get(m.userId)!;
+      if (line.amount === undefined) {
+        return { error: "Custom split requires an amount for each participant" };
+      }
+      if (line.amount <= 0) {
+        return { error: "Each participant must have a positive split amount" };
+      }
+      sum += line.amount;
+      rows.push({ userId: m.userId, amount: roundTo2(line.amount), weight: null });
+    }
+    if (Math.abs(roundTo2(sum) - roundTo2(amountTab)) > 0.01) {
+      return { error: "Custom split amounts must sum to the expense total" };
+    }
+    return { splits: rows };
+  }
+
+  if (splitType === "percent") {
+    let weightSum = 0;
+    const weights: number[] = [];
+    for (const m of members) {
+      const w = splitMap.get(m.userId)!.weight;
+      if (w === undefined) {
+        return { error: "Percent split requires a weight for each participant" };
+      }
+      weightSum += w;
+      weights.push(w);
+    }
+    if (Math.abs(weightSum - 100) > 0.01) {
+      return { error: "Percentages must sum to 100" };
+    }
+
+    if (members.length === 1) {
+      return {
+        splits: [
+          {
+            userId: members[0]!.userId,
+            amount: roundTo2(amountTab),
+            weight: weights[0]!,
+          },
+        ],
+      };
+    }
+
+    const amounts: number[] = [];
+    for (let i = 0; i < members.length - 1; i++) {
+      amounts.push(roundTo2((weights[i]! / 100) * amountTab));
+    }
+    const allocated = amounts.reduce((a, b) => a + b, 0);
+    amounts.push(roundTo2(amountTab - allocated));
+
+    return {
+      splits: members.map((m, i) => ({
+        userId: m.userId,
+        amount: amounts[i]!,
+        weight: weights[i]!,
+      })),
+    };
+  }
+
+  if (splitType === "shares") {
+    let totalShares = 0;
+    const weights: number[] = [];
+    for (const m of members) {
+      const w = splitMap.get(m.userId)!.weight;
+      if (w === undefined) {
+        return { error: "Shares split requires a weight for each participant" };
+      }
+      if (!Number.isInteger(w) || w < 1) {
+        return { error: "Share counts must be positive integers" };
+      }
+      totalShares += w;
+      weights.push(w);
+    }
+
+    if (members.length === 1) {
+      return {
+        splits: [
+          {
+            userId: members[0]!.userId,
+            amount: roundTo2(amountTab),
+            weight: weights[0]!,
+          },
+        ],
+      };
+    }
+
+    const amounts: number[] = [];
+    for (let i = 0; i < members.length - 1; i++) {
+      amounts.push(roundTo2((weights[i]! / totalShares) * amountTab));
+    }
+    const allocated = amounts.reduce((a, b) => a + b, 0);
+    amounts.push(roundTo2(amountTab - allocated));
+
+    return {
+      splits: members.map((m, i) => ({
+        userId: m.userId,
+        amount: amounts[i]!,
+        weight: weights[i]!,
+      })),
+    };
+  }
+
+  return { error: "Invalid split" };
 }
 
 export type CreateExpenseInput = {
@@ -58,10 +198,10 @@ export type CreateExpenseInput = {
   amount: number;
   currency?: string;
   description: string;
-  splitType: "equal" | "custom";
+  splitType: "equal" | "custom" | "percent" | "shares";
   expenseDate: Date;
   participantIds?: string[];
-  splits?: Array<{ userId: string; amount: number }>;
+  splits?: Array<{ userId: string; amount?: number; weight?: number }>;
 };
 
 export type CreateExpenseSuccess = {
@@ -150,7 +290,11 @@ export const expenseService = {
       input.participantIds && input.participantIds.length > 0
         ? input.participantIds
         : allMembers.map((m) => m.userId);
-    const members = allMembers.filter((m) => participantIds.includes(m.userId));
+    const useExplicitParticipants =
+      input.participantIds && input.participantIds.length > 0;
+    const members = useExplicitParticipants
+      ? orderMembersByParticipantIds(allMembers, participantIds)
+      : allMembers.map((m) => ({ userId: m.userId }));
 
     if (members.length < 1) {
       return err("At least one person must be in the split", 400);
@@ -176,20 +320,11 @@ export const expenseService = {
     }
     const amountTab = conv.data.amountTab;
 
-    const splits = calculateSplits(
-      amountTab,
-      members,
-      input.splitType,
-      input.splits,
-    );
-    if (!splits) {
-      return err(
-        input.splitType === "custom"
-          ? "Custom split requires splits array"
-          : "Invalid split",
-        400,
-      );
+    const splitResult = calculateSplits(amountTab, members, input.splitType, input.splits);
+    if ("error" in splitResult) {
+      return err(splitResult.error, 400);
     }
+    const splits = splitResult.splits;
 
     const expenseId = await expense.create({
       tabId: input.tabId,
@@ -205,7 +340,9 @@ export const expenseService = {
     });
 
     const tabInfo = await tab.getTabInfoForNotifications(input.tabId, performedById);
-    const fromUser = await userData.getById(performedById);
+    const payerUser = await userData.getById(input.paidById);
+    const payerDisplayName =
+      payerUser?.name ?? (payerUser?.username ? `@${payerUser.username}` : null);
     const participantUserRows = await userData.getByIds(members.map((m) => m.userId));
     const participantMap = new Map(
       participantUserRows.map((r: { id: string; name: string | null; username: string | null }) => [
@@ -242,8 +379,8 @@ export const expenseService = {
             expenseId,
             tabName: tabInfo.name,
             isDirect: tabInfo.isDirect,
-            fromUserId: performedById,
-            fromUserName: fromUser?.name ?? null,
+            fromUserId: input.paidById,
+            fromUserName: payerDisplayName,
             description: input.description,
             amount: notifyAmount,
             recipientOweAmount: splitByUser.get(m.userId)?.toString(),
@@ -298,7 +435,11 @@ export const expenseService = {
       input.participantIds && input.participantIds.length > 0
         ? input.participantIds
         : allMembers.map((m) => m.userId);
-    const members = allMembers.filter((m) => participantIds.includes(m.userId));
+    const useExplicitParticipants =
+      input.participantIds && input.participantIds.length > 0;
+    const members = useExplicitParticipants
+      ? orderMembersByParticipantIds(allMembers, participantIds)
+      : allMembers.map((m) => ({ userId: m.userId }));
 
     if (members.length < 1) {
       return err("At least one person must be in the split", 400);
@@ -324,20 +465,11 @@ export const expenseService = {
     }
     const amountTab = conv.data.amountTab;
 
-    const splits = calculateSplits(
-      amountTab,
-      members,
-      input.splitType,
-      input.splits,
-    );
-    if (!splits) {
-      return err(
-        input.splitType === "custom"
-          ? "Custom split requires splits array"
-          : "Invalid split",
-        400,
-      );
+    const splitResult = calculateSplits(amountTab, members, input.splitType, input.splits);
+    if ("error" in splitResult) {
+      return err(splitResult.error, 400);
     }
+    const splits = splitResult.splits;
 
     await expense.update(
       expenseId,
@@ -361,7 +493,11 @@ export const expenseService = {
         currency: existingExp.currency,
         originalAmount: existingExp.originalAmount.toString(),
       },
-      existingExp.splits.map((s) => ({ userId: s.userId, amount: String(s.amount) })),
+      existingExp.splits.map((s) => ({
+        userId: s.userId,
+        amount: String(s.amount),
+        weight: s.weight != null ? String(s.weight) : undefined,
+      })),
     );
 
     const tabInfo = await tab.getTabInfoForNotifications(tabId, performedById);
@@ -537,7 +673,7 @@ export const expenseService = {
       description: string;
       splitType: string;
       expenseDate: Date;
-      splits: Array<{ userId: string; amount: string }>;
+      splits: Array<{ userId: string; amount: string; weight?: string }>;
     }> = [];
     const errors: string[] = [];
 
@@ -556,10 +692,11 @@ export const expenseService = {
 
       const participantIds =
         (item.participantIds as string[] | undefined) ?? allMembers.map((m) => m.userId);
-      const members =
-        participantIds.length > 0
-          ? allMembers.filter((m) => participantIds.includes(m.userId))
-          : allMembers;
+      const useExplicit =
+        Array.isArray(item.participantIds) && item.participantIds.length > 0;
+      const members = useExplicit
+        ? orderMembersByParticipantIds(allMembers, participantIds)
+        : allMembers.map((m) => ({ userId: m.userId }));
 
       if (members.length < 1) {
         errors.push(`Row ${i + 1}: At least one person must be in the split`);
@@ -592,22 +729,17 @@ export const expenseService = {
       }
       const amountTab = conv.data.amountTab;
 
-      const splits = calculateSplits(
+      const splitResult = calculateSplits(
         amountTab,
         members,
         parsed.data.splitType,
         parsed.data.splits,
       );
-      if (!splits) {
-        errors.push(
-          `Row ${i + 1}: ${
-            parsed.data.splitType === "custom"
-              ? "Custom split requires splits array"
-              : "Invalid split"
-          }`,
-        );
+      if ("error" in splitResult) {
+        errors.push(`Row ${i + 1}: ${splitResult.error}`);
         continue;
       }
+      const splits = splitResult.splits;
 
       validated.push({
         tabId: parsed.data.tabId,
@@ -618,7 +750,11 @@ export const expenseService = {
         description: parsed.data.description,
         splitType: parsed.data.splitType,
         expenseDate: parsed.data.expenseDate,
-        splits: splits.map((s) => ({ userId: s.userId, amount: s.amount.toString() })),
+        splits: splits.map((s) => ({
+          userId: s.userId,
+          amount: s.amount.toString(),
+          weight: s.weight != null ? s.weight.toString() : undefined,
+        })),
       });
     }
 

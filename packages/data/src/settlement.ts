@@ -102,10 +102,7 @@ export const settlement = {
       .from(settlementTable)
       .innerJoin(user, eq(settlementTable.fromUserId, user.id))
       .where(eq(settlementTable.tabId, tabId))
-      .orderBy(
-        desc(settlementTable.settlementDate),
-        desc(settlementTable.createdAt),
-      );
+      .orderBy(desc(settlementTable.createdAt));
 
     const toUserIds = [...new Set(rows.map((r) => r.toUserId))];
     const toUsers =

@@ -214,17 +214,10 @@ export function TabPage() {
         ...s,
         type: "settlement" as const,
       })),
-    ].sort((a, b) => {
-      const dateA =
-        a.type === "expense"
-          ? a.expenseDate
-          : (a.settlementDate ?? a.createdAt);
-      const dateB =
-        b.type === "expense"
-          ? b.expenseDate
-          : (b.settlementDate ?? b.createdAt);
-      return new Date(dateB).getTime() - new Date(dateA).getTime();
-    });
+    ].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
   }, [expenses, filteredSettlements]);
 
   useEffect(() => {

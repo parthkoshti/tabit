@@ -134,6 +134,13 @@
       "when": 1774200000000,
       "tag": "0018_settlement_audit_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1774300000000,
+      "tag": "0019_split_weights",
+      "breakpoints": true
     }
   ]
 }

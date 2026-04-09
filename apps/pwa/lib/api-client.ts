@@ -235,7 +235,7 @@ export const api = {
         paidById?: string;
         splitType?: string;
         participantIds?: string[];
-        splits?: { userId: string; amount: number }[];
+        splits?: { userId: string; amount?: number; weight?: number }[];
         expenseDate?: string | Date;
       },
     ) =>
@@ -268,8 +268,8 @@ export const api = {
         currency?: string;
         description: string;
         paidById: string;
-        splitType: "equal" | "custom";
-        splits: { userId: string; amount: number }[];
+        splitType: "equal" | "custom" | "percent" | "shares";
+        splits: { userId: string; amount?: number; weight?: number }[];
         expenseDate: string;
         participantIds?: string[];
       }>,
@@ -295,6 +295,7 @@ export const api = {
         splitType?: string;
         expenseDate?: string;
         participantIds?: string[];
+        splits?: { userId: string; amount?: number; weight?: number }[];
       },
     ) =>
       request<{ success: boolean; error?: string }>(

@@ -95,7 +95,7 @@ export function TabExpenseCard({
             </div>
             <div className="flex items-end justify-between gap-3 pt-0.5">
               <p className="text-xs text-muted-foreground min-w-0">
-                {formatAppDate(item.expenseDate)}
+                {formatAppDate(item.createdAt)}
               </p>
               <div className="flex items-center gap-2">
                 <ExpenseYourBalance
@@ -165,7 +165,7 @@ export function TabExpenseCard({
                   <UserAvatar userId={item.paidById} size="xs" />
                   {getDisplayName(getMemberUser(item.paidById), currentUserId)}
                 </span>
-                <span>· {formatAppDate(item.expenseDate)}</span>
+                <span>· {formatAppDate(item.createdAt)}</span>
               </p>
               {item.currency !== tabCurrency ? (
                 <span className="text-sm font-normal text-muted-foreground tabular-nums shrink-0 text-right">
@@ -204,7 +204,22 @@ export function TabExpenseCard({
                           currentUserId,
                         )}{" "}
                         <span className={amountClass}>
-                          {formatAmount(s.amount, tabCurrency)}
+                          {item.splitType === "percent" && s.weight != null ? (
+                            <>
+                              {Number(s.weight) % 1 === 0
+                                ? String(Number(s.weight))
+                                : Number(s.weight).toFixed(2)}
+                              % — {formatAmount(s.amount, tabCurrency)}
+                            </>
+                          ) : item.splitType === "shares" && s.weight != null ? (
+                            <>
+                              {Math.round(Number(s.weight))} share
+                              {Math.round(Number(s.weight)) === 1 ? "" : "s"} —{" "}
+                              {formatAmount(s.amount, tabCurrency)}
+                            </>
+                          ) : (
+                            formatAmount(s.amount, tabCurrency)
+                          )}
                         </span>
                       </span>
                     );

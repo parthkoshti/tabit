@@ -52,7 +52,7 @@ export function TabSettlementCard({
               {getDisplayName(item.toUser, currentUserId)}
             </span>
             <span>
-              · {formatAppDate(item.settlementDate ?? item.createdAt)}
+              · {formatAppDate(item.createdAt)}
             </span>
           </p>
           {foreign ? (

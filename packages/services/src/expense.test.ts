@@ -168,7 +168,9 @@ describe("expenseService", () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toBe("Custom split requires splits array");
+        expect(result.error).toBe(
+          "Custom split requires one entry per participant with amounts",
+        );
       }
     });
 
@@ -203,7 +205,9 @@ describe("expenseService", () => {
 
       expect(result.success).toBe(true);
       const createCall = vi.mocked(expense.create).mock.calls[0][0];
-      expect(createCall.splits).toEqual([{ userId: "user2", amount: 100 }]);
+      expect(createCall.splits).toEqual([
+        { userId: "user2", amount: 100, weight: null },
+      ]);
     });
 
     test("success path: equal split with 2 people", async () => {
@@ -237,6 +241,7 @@ describe("expenseService", () => {
       expect(expense.create).toHaveBeenCalled();
       const createCall = vi.mocked(expense.create).mock.calls[0][0];
       expect(createCall.splits).toHaveLength(2);
+      expect(createCall.splits?.every((s) => s.weight === null)).toBe(true);
       expect(createCall.splits?.reduce((a, s) => a + s.amount, 0)).toBe(100);
     });
 
@@ -314,9 +319,163 @@ describe("expenseService", () => {
       expect(result.success).toBe(true);
       const createCall = vi.mocked(expense.create).mock.calls[0][0];
       expect(createCall.splits).toEqual([
-        { userId: "user1", amount: 60 },
-        { userId: "user2", amount: 40 },
+        { userId: "user1", amount: 60, weight: null },
+        { userId: "user2", amount: 40, weight: null },
       ]);
+    });
+
+    test("rejects custom split when amounts do not sum to total", async () => {
+      vi.mocked(tab.isMember).mockResolvedValue(true);
+      vi.mocked(tab.getMembers).mockResolvedValue(baseMembers);
+
+      const result = await expenseService.create(
+        {
+          ...baseCreateInput,
+          splitType: "custom",
+          splits: [
+            { userId: "user1", amount: 60 },
+            { userId: "user2", amount: 30 },
+          ],
+        },
+        "user1",
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe(
+          "Custom split amounts must sum to the expense total",
+        );
+      }
+    });
+
+    test("success path: percent split", async () => {
+      vi.mocked(tab.isMember).mockResolvedValue(true);
+      vi.mocked(tab.getMembers).mockResolvedValue(baseMembers);
+      vi.mocked(tab.getTabInfoForNotifications).mockResolvedValue({
+        name: "Test Tab",
+        isDirect: false,
+        currency: "USD",
+        displayName: "Test Tab",
+      });
+      vi.mocked(userData.getById).mockResolvedValue({
+        id: "user1",
+        name: "User 1",
+        username: "user1",
+        email: "u1@test.com",
+        defaultCurrency: "USD",
+      });
+      vi.mocked(userData.getByIds).mockResolvedValue([
+        { id: "user1", name: "User 1", username: "user1" },
+        { id: "user2", name: "User 2", username: "user2" },
+      ]);
+      vi.mocked(expense.create).mockResolvedValue("exp1");
+
+      const result = await expenseService.create(
+        {
+          ...baseCreateInput,
+          amount: 100,
+          splitType: "percent",
+          splits: [
+            { userId: "user1", weight: 60 },
+            { userId: "user2", weight: 40 },
+          ],
+        },
+        "user1",
+      );
+
+      expect(result.success).toBe(true);
+      const createCall = vi.mocked(expense.create).mock.calls[0][0];
+      expect(createCall.splits).toHaveLength(2);
+      expect(createCall.splits?.reduce((a, s) => a + s.amount, 0)).toBe(100);
+      expect(createCall.splits?.[0]?.weight).toBe(60);
+      expect(createCall.splits?.[1]?.weight).toBe(40);
+    });
+
+    test("rejects percent split when weights do not sum to 100", async () => {
+      vi.mocked(tab.isMember).mockResolvedValue(true);
+      vi.mocked(tab.getMembers).mockResolvedValue(baseMembers);
+
+      const result = await expenseService.create(
+        {
+          ...baseCreateInput,
+          splitType: "percent",
+          splits: [
+            { userId: "user1", weight: 50 },
+            { userId: "user2", weight: 40 },
+          ],
+        },
+        "user1",
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Percentages must sum to 100");
+      }
+    });
+
+    test("success path: shares split", async () => {
+      vi.mocked(tab.isMember).mockResolvedValue(true);
+      vi.mocked(tab.getMembers).mockResolvedValue(baseMembers);
+      vi.mocked(tab.getTabInfoForNotifications).mockResolvedValue({
+        name: "Test Tab",
+        isDirect: false,
+        currency: "USD",
+        displayName: "Test Tab",
+      });
+      vi.mocked(userData.getById).mockResolvedValue({
+        id: "user1",
+        name: "User 1",
+        username: "user1",
+        email: "u1@test.com",
+        defaultCurrency: "USD",
+      });
+      vi.mocked(userData.getByIds).mockResolvedValue([
+        { id: "user1", name: "User 1", username: "user1" },
+        { id: "user2", name: "User 2", username: "user2" },
+      ]);
+      vi.mocked(expense.create).mockResolvedValue("exp1");
+
+      const result = await expenseService.create(
+        {
+          ...baseCreateInput,
+          amount: 100,
+          splitType: "shares",
+          splits: [
+            { userId: "user1", weight: 2 },
+            { userId: "user2", weight: 1 },
+          ],
+        },
+        "user1",
+      );
+
+      expect(result.success).toBe(true);
+      const createCall = vi.mocked(expense.create).mock.calls[0][0];
+      expect(createCall.splits).toHaveLength(2);
+      expect(createCall.splits?.reduce((a, s) => a + s.amount, 0)).toBe(100);
+      expect(createCall.splits?.[0]?.weight).toBe(2);
+      expect(createCall.splits?.[1]?.weight).toBe(1);
+    });
+
+    test("rejects shares split with non-integer weight", async () => {
+      vi.mocked(tab.isMember).mockResolvedValue(true);
+      vi.mocked(tab.getMembers).mockResolvedValue(baseMembers);
+
+      const result = await expenseService.create(
+        {
+          ...baseCreateInput,
+          splitType: "shares",
+          splits: [
+            { userId: "user1", weight: 1.5 },
+            { userId: "user2", weight: 1 },
+          ],
+        },
+        "user1",
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Share counts must be positive integers");
+      }
     });
   });
 
@@ -338,7 +497,16 @@ describe("expenseService", () => {
         paidByEmail: "u1@test.com",
         paidByName: "User 1",
         paidByUsername: "user1",
-        splits: [{ id: "s1", expenseId: "exp1", userId: "user2", amount: 50, user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" } }],
+        splits: [
+          {
+            id: "s1",
+            expenseId: "exp1",
+            userId: "user2",
+            amount: 50,
+            weight: null,
+            user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" },
+          },
+        ],
         reactions: [],
       });
       vi.mocked(tab.isMember).mockResolvedValue(false);
@@ -393,7 +561,16 @@ describe("expenseService", () => {
         paidByEmail: "u1@test.com",
         paidByName: "User 1",
         paidByUsername: "user1",
-        splits: [{ id: "s1", expenseId: "exp1", userId: "user2", amount: 50, user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" } }],
+        splits: [
+          {
+            id: "s1",
+            expenseId: "exp1",
+            userId: "user2",
+            amount: 50,
+            weight: null,
+            user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" },
+          },
+        ],
         reactions: [],
       });
 

@@ -140,10 +140,13 @@ expensesRoutes.post("/", async (c) => {
   });
 
   if (!parsed.success) {
-    return c.json(
-      { success: false, error: parsed.error.flatten().formErrors[0] },
-      400,
-    );
+    const flat = parsed.error.flatten();
+    const errMsg =
+      flat.formErrors[0] ??
+      Object.values(flat.fieldErrors).flat()[0] ??
+      parsed.error.issues[0]?.message ??
+      "Invalid";
+    return c.json({ success: false, error: errMsg }, 400);
   }
 
   const result = await expenseService.create(
@@ -221,10 +224,13 @@ expensesRoutes.patch("/:expenseId", async (c) => {
   });
 
   if (!parsed.success) {
-    return c.json(
-      { success: false, error: parsed.error.flatten().formErrors[0] },
-      400,
-    );
+    const flat = parsed.error.flatten();
+    const errMsg =
+      flat.formErrors[0] ??
+      Object.values(flat.fieldErrors).flat()[0] ??
+      parsed.error.issues[0]?.message ??
+      "Invalid";
+    return c.json({ success: false, error: errMsg }, 400);
   }
 
   const result = await expenseService.update(

@@ -1,6 +1,11 @@
 {
   "releases": [
     {
+      "version": "0.1.7",
+      "date": "2026-04-09",
+      "content": "- Split expenses when adding or editing: equal (default), exact amounts per person, percentages that add up to 100%, or shares\n- Expense detail shows each person's share and how the split was set (for example percent or shares)\n- When someone else paid, new-expense notifications name the right person as the payer"
+    },
+    {
       "version": "0.1.6",
       "date": "2026-03-21",
       "content": "- Settlements: pick a settlement date (used for exchange rates like expense dates) when settling up or editing\n- Settlements in foreign currency with FX preview; activity and cards show the settlement date reliably\n- History on expense and settlement detail now records currency and original-amount changes\n- Settlement history refreshes right after you save an edit"

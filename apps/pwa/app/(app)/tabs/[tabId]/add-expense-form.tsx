@@ -39,6 +39,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  SplitDialog,
+  splitConfigLabel,
+  type SplitConfig,
+} from "@/components/split-dialog";
 
 type Member = {
   userId: string;
@@ -104,6 +109,9 @@ export function AddExpenseForm({
   } | null>(null);
   const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
 
+  const [splitConfig, setSplitConfig] = useState<SplitConfig | null>(null);
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false);
+
   function parseAmount(value: string): number | null {
     const num = parseFloat(value);
     if (isNaN(num) || num < 0.01) return null;
@@ -166,7 +174,20 @@ export function AddExpenseForm({
     [members, participantIds],
   );
 
+  const parsedAmountForSplit = useMemo(() => parseAmount(amount), [amount]);
+
+  const tabTotalForSplit = useMemo(() => {
+    if (parsedAmountForSplit === null) return null;
+    if (currency === tabCurrency) return parsedAmountForSplit;
+    return fxPreview?.amountTab ?? null;
+  }, [parsedAmountForSplit, currency, tabCurrency, fxPreview?.amountTab]);
+
+  const splitButtonDisabled =
+    parsedAmountForSplit === null ||
+    (currency !== tabCurrency && (fxPreviewLoading || tabTotalForSplit === null));
+
   function toggleParticipant(userId: string) {
+    setSplitConfig(null);
     setParticipantIds((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
@@ -210,15 +231,45 @@ export function AddExpenseForm({
       return;
     }
 
-    const result = await api.expenses.create(tabId, {
-      amount: parsedAmount,
-      currency,
-      description,
-      paidById,
-      splitType: "equal",
-      participantIds: selectedParticipants.map((p) => p.userId),
-      expenseDate: expenseDate.toISOString(),
-    });
+    const participantIdsList = selectedParticipants.map((p) => p.userId);
+
+    const createBody =
+      splitConfig == null || splitConfig.splitType === "equal"
+        ? {
+            amount: parsedAmount,
+            currency,
+            description,
+            paidById,
+            splitType: "equal" as const,
+            participantIds: participantIdsList,
+            expenseDate: expenseDate.toISOString(),
+          }
+        : splitConfig.splitType === "custom"
+          ? {
+              amount: parsedAmount,
+              currency,
+              description,
+              paidById,
+              splitType: "custom" as const,
+              participantIds: participantIdsList,
+              splits: splitConfig.splits,
+              expenseDate: expenseDate.toISOString(),
+            }
+          : {
+              amount: parsedAmount,
+              currency,
+              description,
+              paidById,
+              splitType: splitConfig.splitType,
+              participantIds: participantIdsList,
+              splits: splitConfig.splits.map((s) => ({
+                userId: s.userId,
+                weight: s.weight,
+              })),
+              expenseDate: expenseDate.toISOString(),
+            };
+
+    const result = await api.expenses.create(tabId, createBody);
 
     if (
       result.success &&
@@ -232,6 +283,7 @@ export function AddExpenseForm({
       setDescription("");
       setExpenseDate(new Date());
       setCurrency(tabCurrency);
+      setSplitConfig(null);
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
@@ -250,6 +302,7 @@ export function AddExpenseForm({
       setDescription("");
       setExpenseDate(new Date());
       setCurrency(tabCurrency);
+      setSplitConfig(null);
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
@@ -274,6 +327,20 @@ export function AddExpenseForm({
 
   return (
     <>
+      {tabTotalForSplit != null && parsedAmountForSplit != null ? (
+        <SplitDialog
+          open={splitDialogOpen}
+          onOpenChange={setSplitDialogOpen}
+          participants={selectedParticipants}
+          tabTotal={tabTotalForSplit}
+          expenseTotal={parsedAmountForSplit}
+          expenseCurrency={currency}
+          tabCurrency={tabCurrency}
+          currentUserId={currentUserId}
+          initialConfig={splitConfig}
+          onConfirm={setSplitConfig}
+        />
+      ) : null}
       <ExpenseAddedDialog
         open={!!createdExpense}
         onOpenChange={(open) => {
@@ -415,10 +482,25 @@ export function AddExpenseForm({
               </button>
             ))}
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={loading || splitButtonDisabled}
+            onClick={() => setSplitDialogOpen(true)}
+          >
+            {splitConfigLabel(splitConfig)}
+          </Button>
           <p className="text-xs text-muted-foreground">
             {selectedParticipants.length === 1
               ? "1 person owes the full amount"
-              : `Split equally among ${selectedParticipants.length} participants`}
+              : splitConfig == null || splitConfig.splitType === "equal"
+                ? `Split equally among ${selectedParticipants.length} participants`
+                : splitConfig.splitType === "shares"
+                  ? `Split by shares among ${selectedParticipants.length} participants`
+                  : splitConfig.splitType === "percent"
+                    ? `Split by % among ${selectedParticipants.length} participants`
+                    : `Custom amounts for ${selectedParticipants.length} participants`}
           </p>
         </div>
         <div className="space-y-2">

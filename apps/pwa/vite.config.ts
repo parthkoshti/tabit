@@ -73,6 +73,7 @@ export default defineConfig({
     }),
   ],
   resolve: {
+    conditions: ["source"],
     alias: {
       "@": path.resolve(__dirname, "."),
       shared: path.resolve(__dirname, "../../packages/shared/src/index.ts"),
@@ -96,7 +97,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ["auth", "data", "models"],
-    exclude: ["shared"],
+    exclude: ["shared", "data", "models", "services"],
   },
 });

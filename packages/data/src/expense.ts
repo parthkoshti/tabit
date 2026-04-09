@@ -42,6 +42,7 @@ export type GetExpensesForTabResult = {
       expenseId: string;
       userId: string;
       amount: number;
+      weight: number | null;
       user: { id: string };
     }>;
     reactions: ExpenseReaction[];
@@ -65,6 +66,7 @@ type FlatRow = {
   splitExpenseId: string | null;
   splitUserId: string | null;
   splitAmount: string | null;
+  splitWeight: string | null;
 };
 
 function buildExpensesFromFlatRows(
@@ -86,6 +88,7 @@ function buildExpensesFromFlatRows(
         expenseId: r.splitExpenseId!,
         userId: r.splitUserId!,
         amount: Number(r.splitAmount),
+        weight: r.splitWeight != null ? Number(r.splitWeight) : null,
         user: { id: r.splitUserId! },
       }));
     return {
@@ -160,7 +163,7 @@ export type CreateExpenseInput = {
   description: string;
   splitType: string;
   expenseDate: Date;
-  splits: { userId: string; amount: number }[];
+  splits: { userId: string; amount: number; weight?: number | null }[];
   performedById: string;
 };
 
@@ -172,7 +175,7 @@ export type UpdateExpenseInput = {
   description: string;
   splitType: string;
   expenseDate: Date;
-  splits: { userId: string; amount: number }[];
+  splits: { userId: string; amount: number; weight?: number | null }[];
   performedById: string;
 };
 
@@ -200,6 +203,7 @@ export type Expense = {
     expenseId: string;
     userId: string;
     amount: number;
+    weight: number | null;
     user: {
       id: string;
       email: string;
@@ -260,6 +264,7 @@ export const expense = {
           expenseId: expenseSplit.expenseId,
           userId: expenseSplit.userId,
           amount: expenseSplit.amount,
+          weight: expenseSplit.weight,
           userEmail: user.email,
           userName: user.name,
           userUsername: user.username,
@@ -288,6 +293,7 @@ export const expense = {
         expenseId: s.expenseId,
         userId: s.userId,
         amount: Number(s.amount),
+        weight: s.weight != null ? Number(s.weight) : null,
         user: {
           id: s.userId,
           email: s.userEmail,
@@ -410,7 +416,7 @@ export const expense = {
       })
       .from(expenseTable)
       .where(filterWhere)
-      .orderBy(desc(expenseTable.expenseDate));
+      .orderBy(desc(expenseTable.createdAt));
 
     const paginated = paginate
       ? baseExpenseQuery.limit(limit).offset(offset).as("paginated")
@@ -438,10 +444,11 @@ export const expense = {
           splitExpenseId: expenseSplit.expenseId,
           splitUserId: expenseSplit.userId,
           splitAmount: expenseSplit.amount,
+          splitWeight: expenseSplit.weight,
         })
         .from(paginated)
         .leftJoin(expenseSplit, eq(expenseSplit.expenseId, paginated.id))
-        .orderBy(desc(paginated.expenseDate), expenseSplit.id),
+        .orderBy(desc(paginated.createdAt), expenseSplit.id),
     ]);
 
     const total = countResult[0]?.count ?? 0;
@@ -476,6 +483,7 @@ export const expense = {
         expenseId,
         userId: s.userId,
         amount: s.amount.toString(),
+        weight: s.weight != null ? String(s.weight) : null,
       });
     }
 
@@ -502,7 +510,7 @@ export const expense = {
       currency: string;
       originalAmount: string;
     },
-    existingSplits: { userId: string; amount: string }[],
+    existingSplits: { userId: string; amount: string; weight?: string }[],
   ): Promise<void> => {
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     const existingDateStr = new Date(existing.expenseDate).toISOString().slice(0, 10);
@@ -573,6 +581,7 @@ export const expense = {
         expenseId,
         userId: s.userId,
         amount: s.amount.toString(),
+        weight: s.weight != null ? String(s.weight) : null,
       });
     }
 
@@ -635,7 +644,7 @@ export const expense = {
       description: string;
       splitType: string;
       expenseDate: Date;
-      splits: { userId: string; amount: string }[];
+      splits: { userId: string; amount: string; weight?: string }[];
     }>,
     performedById: string,
   ): Promise<string[]> => {
@@ -657,12 +666,22 @@ export const expense = {
         )
         .returning({ id: expenseTable.id });
 
-      const splitRows: { expenseId: string; userId: string; amount: string }[] = [];
+      const splitRows: {
+        expenseId: string;
+        userId: string;
+        amount: string;
+        weight: string | null;
+      }[] = [];
       for (let i = 0; i < items.length; i++) {
         const expenseId = inserted[i]!.id;
         ids.push(expenseId);
         for (const s of items[i]!.splits) {
-          splitRows.push({ expenseId, userId: s.userId, amount: s.amount });
+          splitRows.push({
+            expenseId,
+            userId: s.userId,
+            amount: s.amount,
+            weight: s.weight != null ? s.weight : null,
+          });
         }
       }
       if (splitRows.length > 0) {

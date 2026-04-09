@@ -38,6 +38,11 @@ import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CURATED_CURRENCIES, getCurrency } from "shared";
 import { formatAmount } from "@/lib/format-amount";
+import {
+  SplitDialog,
+  splitConfigLabel,
+  type SplitConfig,
+} from "@/components/split-dialog";
 
 type Member = {
   userId: string;
@@ -69,9 +74,49 @@ type Expense = {
   splits: {
     userId: string;
     amount: number;
+    weight?: number | null;
     user: { id: string; email: string; name: string | null };
   }[];
 };
+
+function inferSplitConfig(expense: Expense): SplitConfig | null {
+  if (expense.splitType === "equal") return null;
+  if (
+    expense.splitType === "percent" &&
+    expense.splits.every((s) => s.weight != null)
+  ) {
+    return {
+      splitType: "percent",
+      splits: expense.splits.map((s) => ({
+        userId: s.userId,
+        weight: s.weight as number,
+      })),
+    };
+  }
+  if (
+    expense.splitType === "shares" &&
+    expense.splits.every((s) => s.weight != null)
+  ) {
+    return {
+      splitType: "shares",
+      splits: expense.splits.map((s) => ({
+        userId: s.userId,
+        weight: s.weight as number,
+      })),
+    };
+  }
+  const amounts = expense.splits.map((s) => s.amount);
+  const allEqual =
+    amounts.length > 0 && amounts.every((a) => a === amounts[0]);
+  if (allEqual) return null;
+  return {
+    splitType: "custom",
+    splits: expense.splits.map((s) => ({
+      userId: s.userId,
+      amount: s.amount,
+    })),
+  };
+}
 
 export function EditExpenseForm({
   expenseId,
@@ -117,6 +162,15 @@ export function EditExpenseForm({
     tabCurrency: string;
   } | null>(null);
   const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
+
+  const [splitConfig, setSplitConfig] = useState<SplitConfig | null>(() =>
+    inferSplitConfig(expense),
+  );
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false);
+
+  useEffect(() => {
+    setSplitConfig(inferSplitConfig(expense));
+  }, [expenseId]);
 
   function parseAmount(value: string): number | null {
     const num = parseFloat(value);
@@ -176,7 +230,20 @@ export function EditExpenseForm({
     [members, participantIds],
   );
 
+  const parsedAmountForSplit = useMemo(() => parseAmount(amount), [amount]);
+
+  const tabTotalForSplit = useMemo(() => {
+    if (parsedAmountForSplit === null) return null;
+    if (currency === tabCurrency) return parsedAmountForSplit;
+    return fxPreview?.amountTab ?? null;
+  }, [parsedAmountForSplit, currency, tabCurrency, fxPreview?.amountTab]);
+
+  const splitButtonDisabled =
+    parsedAmountForSplit === null ||
+    (currency !== tabCurrency && (fxPreviewLoading || tabTotalForSplit === null));
+
   function toggleParticipant(userId: string) {
+    setSplitConfig(null);
     setParticipantIds((prev) => {
       const next = new Set(prev);
       if (next.has(userId)) {
@@ -224,21 +291,56 @@ export function EditExpenseForm({
       return;
     }
 
-    const result = await api.expenses.update(tabId, expenseId, {
-      amount: parsedAmount,
-      currency,
-      description,
-      paidById,
-      splitType: "equal",
-      expenseDate: expenseDate.toISOString().slice(0, 10),
-      participantIds: selectedParticipants.map((p) => p.userId),
-    });
+    const participantIdsList = selectedParticipants.map((p) => p.userId);
+
+    const updateBody =
+      splitConfig == null || splitConfig.splitType === "equal"
+        ? {
+            amount: parsedAmount,
+            currency,
+            description,
+            paidById,
+            splitType: "equal" as const,
+            expenseDate: expenseDate.toISOString().slice(0, 10),
+            participantIds: participantIdsList,
+          }
+        : splitConfig.splitType === "custom"
+          ? {
+              amount: parsedAmount,
+              currency,
+              description,
+              paidById,
+              splitType: "custom" as const,
+              expenseDate: expenseDate.toISOString().slice(0, 10),
+              participantIds: participantIdsList,
+              splits: splitConfig.splits,
+            }
+          : {
+              amount: parsedAmount,
+              currency,
+              description,
+              paidById,
+              splitType: splitConfig.splitType,
+              expenseDate: expenseDate.toISOString().slice(0, 10),
+              participantIds: participantIdsList,
+              splits: splitConfig.splits.map((s) => ({
+                userId: s.userId,
+                weight: s.weight,
+              })),
+            };
+
+    const result = await api.expenses.update(tabId, expenseId, updateBody);
 
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
-      queryClient.invalidateQueries({ queryKey: ["expense", expenseId] });
+      queryClient.invalidateQueries({
+        queryKey: ["expense", tabId, expenseId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["expenseAuditLog", tabId, expenseId],
+      });
       toast.success("Expense updated");
       if (onSuccess) onSuccess();
       else navigate(`/tabs/${tabId}`);
@@ -268,6 +370,20 @@ export function EditExpenseForm({
 
   return (
     <>
+      {tabTotalForSplit != null && parsedAmountForSplit != null ? (
+        <SplitDialog
+          open={splitDialogOpen}
+          onOpenChange={setSplitDialogOpen}
+          participants={selectedParticipants}
+          tabTotal={tabTotalForSplit}
+          expenseTotal={parsedAmountForSplit}
+          expenseCurrency={currency}
+          tabCurrency={tabCurrency}
+          currentUserId={currentUserId}
+          initialConfig={splitConfig}
+          onConfirm={setSplitConfig}
+        />
+      ) : null}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex gap-2">
           <Select
@@ -356,10 +472,25 @@ export function EditExpenseForm({
               </button>
             ))}
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={loading || splitButtonDisabled}
+            onClick={() => setSplitDialogOpen(true)}
+          >
+            {splitConfigLabel(splitConfig)}
+          </Button>
           <p className="text-xs text-muted-foreground">
             {selectedParticipants.length === 1
               ? "1 person owes the full amount"
-              : `Split equally among ${selectedParticipants.length} participants`}
+              : splitConfig == null || splitConfig.splitType === "equal"
+                ? `Split equally among ${selectedParticipants.length} participants`
+                : splitConfig.splitType === "shares"
+                  ? `Split by shares among ${selectedParticipants.length} participants`
+                  : splitConfig.splitType === "percent"
+                    ? `Split by % among ${selectedParticipants.length} participants`
+                    : `Custom amounts for ${selectedParticipants.length} participants`}
           </p>
         </div>
         <div className="space-y-2">

@@ -136,6 +136,8 @@ export const expenseSplit = pgTable("expense_split", {
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  /** Percent or share count for splitType percent/shares; null for equal/custom. */
+  weight: decimal("weight", { precision: 10, scale: 6 }),
 });
 
 export const pendingTabInvite = pgTable("pending_tab_invite", {
