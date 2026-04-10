@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
 import { Inter } from "next/font/google";
-import { ViewTransitions } from "next-view-transitions";
 import "./globals.css";
 import { Providers } from "./providers";
 import { appConfig } from "./config";
@@ -65,28 +64,26 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ViewTransitions>
-      <html lang="en" className={inter.variable} suppressHydrationWarning>
-        <body className="min-h-screen bg-background font-sans text-foreground">
-          <Providers>
-            <div className="flex min-h-screen flex-col">
-              <Navbar />
-              <main className="flex-1">
-                <div className="mx-auto w-full max-w-7xl">{children}</div>
-              </main>
-              <Footer />
-            </div>
-          </Providers>
-          {process.env.NEXT_PUBLIC_RYBBIT_SCRIPT_URL &&
-          process.env.NEXT_PUBLIC_WEB_RYBBIT_SITE_ID ? (
-            <Script
-              src={process.env.NEXT_PUBLIC_RYBBIT_SCRIPT_URL}
-              data-site-id={process.env.NEXT_PUBLIC_WEB_RYBBIT_SITE_ID}
-              strategy="afterInteractive"
-            />
-          ) : null}
-        </body>
-      </html>
-    </ViewTransitions>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <body className="min-h-screen bg-background font-sans text-foreground">
+        <Providers>
+          <div className="flex min-h-screen flex-col">
+            <Navbar />
+            <main className="flex-1">
+              <div className="mx-auto w-full max-w-7xl">{children}</div>
+            </main>
+            <Footer />
+          </div>
+        </Providers>
+        {process.env.NEXT_PUBLIC_RYBBIT_SCRIPT_URL &&
+        process.env.NEXT_PUBLIC_WEB_RYBBIT_SITE_ID ? (
+          <Script
+            src={process.env.NEXT_PUBLIC_RYBBIT_SCRIPT_URL}
+            data-site-id={process.env.NEXT_PUBLIC_WEB_RYBBIT_SITE_ID}
+            strategy="afterInteractive"
+          />
+        ) : null}
+      </body>
+    </html>
   );
 }

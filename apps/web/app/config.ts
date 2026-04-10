@@ -5,7 +5,7 @@ export const appConfig = {
   seo: {
     title: "Tab - Splitwise Alternative Free | Expense Splitting for Friends",
     description:
-      "Splitwise alternative free. Split bills with friends—no limits, no paywall, no wait timer. Free forever. Create tabs, add expenses, settle up.",
+      "Splitwise alternative free. Split bills with friends: no limits, no paywall, no wait timer. Free forever. Create tabs, add expenses, settle up.",
   },
   appUrl: process.env.NEXT_PUBLIC_WEB_URL ?? "https://tabit.in",
   githubUrl: "https://github.com/parthkoshti/tabit",

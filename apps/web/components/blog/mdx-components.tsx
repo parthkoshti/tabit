@@ -1,4 +1,3 @@
-import { Link as TransitionLink } from "next-view-transitions";
 import { appConfig } from "@/app/config";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, ExternalLink } from "lucide-react";
@@ -31,13 +30,13 @@ export const mdxComponents = {
       );
     }
     return (
-      <TransitionLink
+      <Link
         href={href ?? "#"}
         className="font-medium text-primary underline underline-offset-4 transition-colors hover:text-primary/80"
         {...props}
       >
         {children}
-      </TransitionLink>
+      </Link>
     );
   },
   h1: ({ children }: React.HTMLAttributes<HTMLHeadingElement>) => (

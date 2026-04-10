@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
-import { Link as TransitionLink } from "next-view-transitions";
+
 import { format } from "date-fns";
 import type { Metadata } from "next";
 import { getPostBySlug, getAllPosts } from "@/lib/blog";
 import { MDXContent } from "@/components/blog/mdx-content";
 import { appConfig } from "@/app/config";
+import Link from "next/link";
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
@@ -57,12 +58,12 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     <>
       <section className="px-6 pt-32 pb-10 sm:px-8 sm:pt-40 sm:pb-12 lg:px-12">
         <div className="mx-auto max-w-2xl">
-          <TransitionLink
+          <Link
             href="/blog"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
             Back to blog
-          </TransitionLink>
+          </Link>
           <h1 className="mt-8 text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
             {post.title}
           </h1>

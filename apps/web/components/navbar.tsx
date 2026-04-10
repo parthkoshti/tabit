@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type MouseEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Link as TransitionLink } from "next-view-transitions";
+import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { appConfig } from "@/app/config";
 import { Github, Menu, X, ArrowRight } from "lucide-react";
@@ -14,14 +14,28 @@ const navLinks = [
   { label: "Motivation", href: "/blog/why-tab" },
 ];
 
+const featuresNavClass =
+  "px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground";
+
 export function Navbar() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  function onFeaturesClick(e: MouseEvent<HTMLAnchorElement>) {
+    if (pathname === "/") {
+      e.preventDefault();
+      document
+        .getElementById("features")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    setOpen(false);
+  }
 
   return (
     <>
       <header className="fixed left-0 right-0 top-0 z-50 px-4 pt-4 sm:px-6 sm:pt-6">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between rounded-full border border-border/30 bg-background/70 px-5 shadow-sm backdrop-blur-sm supports-backdrop-filter:bg-background/50">
-          <TransitionLink
+          <Link
             href="/"
             className="flex items-center text-foreground transition-opacity hover:opacity-80"
             onClick={() => setOpen(false)}
@@ -33,19 +47,26 @@ export function Navbar() {
               height={44}
               className="size-11 rounded-xl"
             />
-          </TransitionLink>
+          </Link>
 
           {/* Desktop nav */}
           <div className="flex items-center gap-1">
             <div className="hidden sm:flex items-center mr-2">
+              <Link
+                href="/#features"
+                className={featuresNavClass}
+                onClick={onFeaturesClick}
+              >
+                Features
+              </Link>
               {navLinks.map((link) => (
-                <TransitionLink
+                <Link
                   key={link.href}
                   href={link.href}
                   className="px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
                 >
                   {link.label}
-                </TransitionLink>
+                </Link>
               ))}
               {appConfig.githubUrl ? (
                 <Button
@@ -94,15 +115,22 @@ export function Navbar() {
           >
             <div className="overflow-hidden rounded-2xl border border-border/30 bg-background/95 shadow-lg backdrop-blur-sm">
               <nav className="flex flex-col p-3">
+                <Link
+                  href="/#features"
+                  onClick={onFeaturesClick}
+                  className="rounded-xl px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+                >
+                  Features
+                </Link>
                 {navLinks.map((link) => (
-                  <TransitionLink
+                  <Link
                     key={link.href}
                     href={link.href}
                     onClick={() => setOpen(false)}
                     className="rounded-xl px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
                   >
                     {link.label}
-                  </TransitionLink>
+                  </Link>
                 ))}
                 {appConfig.githubUrl ? (
                   <Link
@@ -119,7 +147,10 @@ export function Navbar() {
               </nav>
               <div className="border-t border-border/30 p-3">
                 <Button asChild className="w-full gap-2">
-                  <Link href={`${appConfig.pwaUrl}`} onClick={() => setOpen(false)}>
+                  <Link
+                    href={`${appConfig.pwaUrl}`}
+                    onClick={() => setOpen(false)}
+                  >
                     Get started
                     <ArrowRight className="h-4 w-4" />
                   </Link>

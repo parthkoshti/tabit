@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { motion, useInView, useMotionValue, useSpring } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,7 @@ import {
   Wallet,
   ChevronLeft,
   Settings,
+  PieChart,
 } from "lucide-react";
 
 const staggerChild = {
@@ -40,7 +41,7 @@ const features = [
     icon: Mic,
     title: "Log expenses in seconds",
     description:
-      'Just say what happened — "Alex paid 30 for pizza" — and it\'s done. No tapping through forms.',
+      'Just say what happened: "Alex paid 30 for pizza," and it\'s done. No tapping through forms.',
   },
   {
     icon: Monitor,
@@ -52,7 +53,7 @@ const features = [
     icon: Zap,
     title: "Know the moment it happens",
     description:
-      'Get notified when someone adds an expense or settles up. No more "did you add that yet?" texts.',
+      'Get notified when someone adds an expense or settles up. Alerts show who actually paid, even if someone else logged it. No more "did you add that yet?" texts.',
   },
   {
     icon: QrCode,
@@ -67,16 +68,22 @@ const features = [
       'Drop an emoji on an expense. Great for a quick "thanks" or calling out that suspiciously expensive dinner.',
   },
   {
+    icon: PieChart,
+    title: "Split it your way",
+    description:
+      "Equal split by default, or set exact amounts, percentages that add up to 100%, or shares, whatever matches real life.",
+  },
+  {
     icon: ReceiptText,
     title: "Works for trips abroad",
     description:
-      "Paid in euros but your group uses dollars? Tab handles the conversion. Just log it and move on.",
+      "Pick the tab's currency, log expenses in another, and Tab converts to the tab using live rates. Just log it and move on.",
   },
   {
     icon: Users,
     title: "For any situation",
     description:
-      "Roommates, road trips, couples, friend groups. Create as many tabs as you need — no limits.",
+      "Roommates, road trips, couples, friend groups. Create as many tabs as you need, with no limits.",
   },
   {
     icon: Download,
@@ -306,7 +313,7 @@ function FeatureShowcase() {
       ref={ref}
       className="relative w-screen left-1/2 -ml-[50vw] border-t border-border/30 bg-background px-6 py-20 sm:px-8 sm:py-28 lg:px-12"
     >
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -324,7 +331,7 @@ function FeatureShowcase() {
           </p>
         </motion.div>
 
-        <div className="mt-16 grid gap-8 sm:grid-cols-3">
+        <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -338,15 +345,30 @@ function FeatureShowcase() {
             >
               <Mic className="h-7 w-7" />
             </motion.div>
-            <motion.div
-              className="absolute right-4 top-4 h-2 w-2 rounded-full bg-positive"
-              animate={{ scale: [1, 1.3, 1], opacity: [0.8, 0.4, 0.8] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-            />
             <h3 className="font-semibold text-foreground">Voice expenses</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Say "Alex paid 30 for groceries" and it's logged. AI parses who
-              paid what.
+              Say "Alex paid 30 for groceries in Roommates" and it's logged. AI
+              parses who paid what.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ delay: 0.15, duration: 0.5 }}
+            className="relative overflow-hidden rounded-2xl border border-border/20 bg-card/50 p-8 dark:bg-card/30"
+          >
+            <motion.div
+              className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary"
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            >
+              <PieChart className="h-7 w-7" />
+            </motion.div>
+            <h3 className="font-semibold text-foreground">Flexible splits</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Equal by default, or dial in amounts, percentages, or shares when
+              the bill wasn't fifty-fifty.
             </p>
           </motion.div>
 
@@ -377,8 +399,8 @@ function FeatureShowcase() {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="relative overflow-hidden rounded-2xl border border-border/20 bg-card/50 p-8 dark:bg-card/30"
+            transition={{ delay: 0.25, duration: 0.5 }}
+            className="relative overflow-visible rounded-2xl border border-border/20 bg-card/50 p-8 dark:bg-card/30"
           >
             <motion.div
               className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary"
@@ -387,14 +409,19 @@ function FeatureShowcase() {
             >
               <Zap className="h-7 w-7" />
             </motion.div>
-            <motion.div
-              className="absolute right-6 top-6 h-1.5 w-1.5 rounded-full bg-chart-2"
-              animate={{ scale: [1, 2, 1], opacity: [1, 0, 1] }}
-              transition={{ duration: 1.2, repeat: Infinity }}
-            />
-            <h3 className="font-semibold text-foreground">Real-time</h3>
+            <div className="flex items-center gap-3">
+              <h3 className="font-semibold text-foreground">Real-time</h3>
+              <span
+                className="pointer-events-none relative flex h-3 w-3 shrink-0"
+                aria-hidden
+              >
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-chart-2 opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-chart-2" />
+              </span>
+            </div>
             <p className="mt-2 text-sm text-muted-foreground">
-              New expense? Notification. Reaction? Notification. Always in sync.
+              New expense? You see who paid. Reactions, invites, and settlements
+              too. Always in sync.
             </p>
           </motion.div>
         </div>
@@ -433,6 +460,19 @@ function AnimatedSection({
 }
 
 export function HomePageContent() {
+  useEffect(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#features") {
+      return;
+    }
+    const id = window.setTimeout(() => {
+      document.getElementById("features")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
+    return () => window.clearTimeout(id);
+  }, []);
+
   return (
     <>
       <section className="relative w-screen left-1/2 -ml-[50vw] overflow-hidden px-6 pt-28 pb-32 sm:px-8 sm:pt-36 sm:pb-40 lg:px-12">
@@ -559,7 +599,10 @@ export function HomePageContent() {
 
       <FeatureShowcase />
 
-      <section className="relative w-screen left-1/2 -ml-[50vw] border-t border-border/30 bg-muted/5 px-6 py-24 sm:px-8 sm:py-32 lg:px-12">
+      <section
+        id="features"
+        className="scroll-mt-24 relative w-screen left-1/2 -ml-[50vw] border-t border-border/30 bg-muted/5 px-6 py-24 sm:px-8 sm:py-32 lg:px-12"
+      >
         <div className="mx-auto max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -576,7 +619,7 @@ export function HomePageContent() {
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
               Simple enough that logging an expense takes seconds. Powerful
-              enough to handle trips, roommates, and mixed currencies.
+              enough for uneven splits, roommates, trips, and mixed currencies.
             </p>
           </motion.div>
           <motion.div
@@ -639,9 +682,9 @@ export function HomePageContent() {
           <p className="mt-5 text-lg leading-relaxed text-muted-foreground">
             No trial. No credit card. No plan to upgrade to.{" "}
             <span className="font-medium text-foreground">
-              Tab is free because it has to be
+              Tab is free because it has to be:
             </span>{" "}
-            — the moment logging an expense costs you something, you stop doing
+            the moment logging an expense costs you something, you stop doing
             it.
           </p>
           <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">

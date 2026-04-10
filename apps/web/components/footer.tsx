@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Link as TransitionLink } from "next-view-transitions";
+
 import { appConfig } from "@/app/config";
 import { Github, ArrowRight, Twitter, Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,9 +31,9 @@ function FooterLink({
     );
   }
   return (
-    <TransitionLink href={href} className={className}>
+    <Link href={href} className={className}>
       {children}
-    </TransitionLink>
+    </Link>
   );
 }
 
@@ -70,7 +70,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl">
         <div className="grid grid-cols-2 gap-10 lg:grid-cols-[2fr_1fr_1fr_1fr]">
           <div className="col-span-2 lg:col-span-1">
-            <TransitionLink
+            <Link
               href="/"
               className="inline-flex items-center gap-3 transition-opacity hover:opacity-80"
             >
@@ -81,7 +81,7 @@ export function Footer() {
                 height={48}
                 className="size-12 rounded-xl"
               />
-            </TransitionLink>
+            </Link>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
               Splitting bills shouldn't cost you. No limits, no paywalls.
             </p>

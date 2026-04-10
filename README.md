@@ -29,8 +29,8 @@ Commercial expense-splitting apps can change the rules overnight. Free tiers get
 ### Core Splitting
 
 - [x] 1-on-1 and group expense tracking
-- [ ] Multiple split types: equal, custom amounts, percentages
-- [ ] Multi-currency support per tab
+- [x] Split types when adding or editing: equal (default), custom amounts per person, percentages (must total 100%), and shares; expense detail shows how each share was set
+- [x] Multi-currency tabs and expenses
 - [x] Splitwise CSV import
 - [x] Expense audit logs
 
@@ -38,8 +38,8 @@ Commercial expense-splitting apps can change the rules overnight. Free tiers get
 
 - [x] Progressive Web App (install on iOS, Android, desktop)
 - [x] AI-powered voice expense entry
-- [x] Real-time notifications via WebSocket
-- [x] Offline-first with IndexedDB persistence
+- [x] Real-time notifications via WebSocket and web push
+- [] Offline-first with IndexedDB persistence
 - [x] Emoji reactions on expenses
 
 ### Social and Collaboration
@@ -110,16 +110,16 @@ cp .env.example .env
 
 Edit `.env` with your values. Required variables:
 
-| Variable                    | Description                                    |
-| --------------------------- | ---------------------------------------------- |
-| `DATABASE_URL`              | PostgreSQL connection string                   |
-| `BETTER_AUTH_SECRET`        | Secret for auth (min 32 characters)            |
+| Variable                    | Description                                       |
+| --------------------------- | ------------------------------------------------- |
+| `DATABASE_URL`              | PostgreSQL connection string                      |
+| `BETTER_AUTH_SECRET`        | Secret for auth (min 32 characters)               |
 | `VITE_BACKEND_URL`          | Backend API URL (e.g. https://api.yourdomain.com) |
-| `PLUNK_SECRET_KEY`          | Plunk API key for magic link emails            |
-| `PLUNK_BASE_URL`            | Plunk API base URL                             |
-| `CORS_ORIGIN`               | Allowed origins for API (your PWA URL)         |
-| `NEXT_PUBLIC_PWA_URL`       | Public PWA URL                                  |
-| `VITE_NOTIFICATIONS_WS_URL` | WebSocket URL (e.g. wss://ws.yourdomain.com)   |
+| `PLUNK_SECRET_KEY`          | Plunk API key for magic link emails               |
+| `PLUNK_BASE_URL`            | Plunk API base URL                                |
+| `CORS_ORIGIN`               | Allowed origins for API (your PWA URL)            |
+| `NEXT_PUBLIC_PWA_URL`       | Public PWA URL                                    |
+| `VITE_NOTIFICATIONS_WS_URL` | WebSocket URL (e.g. wss://ws.yourdomain.com)      |
 
 Redis is included in the compose stack. `REDIS_URL` is set automatically for the api and notifications services.
 
