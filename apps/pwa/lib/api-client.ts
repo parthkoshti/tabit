@@ -176,6 +176,67 @@ export const api = {
         method: "DELETE",
         body: { userId },
       }),
+    listRecurringExpenses: (tabId: string) =>
+      request<{
+        success: boolean;
+        rules: Array<{
+          id: string;
+          tabId: string;
+          ownerUserId: string;
+          status: string;
+          schedule: unknown;
+          template: unknown;
+          startsOn: string;
+          endsOn: string | null;
+          maxCount: number | null;
+          postedCount: number;
+          nextDueKey: string;
+          pausedAt: string | null;
+          createdAt: string;
+          updatedAt: string;
+        }>;
+        error?: string;
+      }>(`/tabs/${tabId}/recurring-expenses`),
+    createRecurringExpense: (
+      tabId: string,
+      body: Record<string, unknown>,
+    ) =>
+      request<{ success: boolean; ruleId?: string; error?: string }>(
+        `/tabs/${tabId}/recurring-expenses`,
+        { method: "POST", body },
+      ),
+  },
+  recurringExpenses: {
+    get: (ruleId: string) =>
+      request<{
+        success: boolean;
+        rule: {
+          id: string;
+          tabId: string;
+          ownerUserId: string;
+          status: string;
+          schedule: unknown;
+          template: unknown;
+          startsOn: string;
+          endsOn: string | null;
+          maxCount: number | null;
+          postedCount: number;
+          nextDueKey: string;
+          pausedAt: string | null;
+          createdAt: string;
+          updatedAt: string;
+        };
+        error?: string;
+      }>(`/recurring-expenses/${ruleId}`),
+    update: (ruleId: string, body: Record<string, unknown>) =>
+      request<{ success: boolean; error?: string }>(`/recurring-expenses/${ruleId}`, {
+        method: "PATCH",
+        body,
+      }),
+    delete: (ruleId: string) =>
+      request<{ success: boolean; error?: string }>(`/recurring-expenses/${ruleId}`, {
+        method: "DELETE",
+      }),
   },
   expenses: {
     list: (
@@ -237,6 +298,7 @@ export const api = {
         participantIds?: string[];
         splits?: { userId: string; amount?: number; weight?: number }[];
         expenseDate?: string | Date;
+        createRecurringRule?: Record<string, unknown>;
       },
     ) =>
       request<{
@@ -413,7 +475,11 @@ export const api = {
     },
   },
   profile: {
-    update: (data: { name?: string; defaultCurrency?: string | null }) =>
+    update: (data: {
+      name?: string;
+      defaultCurrency?: string | null;
+      timezone?: string | null;
+    }) =>
       request<{ success: boolean; error?: string }>("/profile", {
         method: "PATCH",
         body: data,
@@ -424,9 +490,15 @@ export const api = {
       request<{
         success: boolean;
         addExpensePreference?: "ai" | "manual";
+        timezone?: string | null;
+        /** IANA zone from CF/proxy headers or IP geolocation when available. */
+        suggestedTimezoneFromRequest?: string | null;
         error?: string;
       }>("/preferences"),
-    update: (data: { addExpensePreference?: "ai" | "manual" }) =>
+    update: (data: {
+      addExpensePreference?: "ai" | "manual";
+      timezone?: string | null;
+    }) =>
       request<{ success: boolean; error?: string }>("/preferences", {
         method: "PATCH",
         body: data,

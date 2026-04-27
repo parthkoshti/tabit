@@ -17,6 +17,8 @@ export const user = pgTable("user", {
   emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),
   defaultCurrency: text("defaultCurrency"),
+  /** IANA timezone for recurring schedules and calendar UX (e.g. America/Los_Angeles). */
+  timezone: text("timezone"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });

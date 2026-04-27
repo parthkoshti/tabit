@@ -19,13 +19,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import {
+  Calendar,
+  CALENDAR_POPOVER_CONTENT_CLASSNAME,
+} from "@/components/ui/calendar";
 import { formatRelativeCalendarDate } from "@/lib/format-date";
-import { Calendar as CalendarIcon, CornerDownLeft } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  CalendarSync,
+  CornerDownLeft,
+  Split,
+} from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { cn } from "@/lib/utils";
 import { CURATED_CURRENCIES, getCurrency } from "shared";
+import type { PendingRecurringRuleWithoutTemplate } from "models";
 import { formatAmount } from "@/lib/format-amount";
 import {
   ExpenseAddedDialog,
@@ -44,6 +53,10 @@ import {
   splitConfigLabel,
   type SplitConfig,
 } from "@/components/split-dialog";
+import {
+  MakeRecurringExpenseDialog,
+  type RecurringTemplatePayload,
+} from "@/components/make-recurring-expense-dialog";
 
 type Member = {
   userId: string;
@@ -111,6 +124,11 @@ export function AddExpenseForm({
 
   const [splitConfig, setSplitConfig] = useState<SplitConfig | null>(null);
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
+  const [recurringSetupOpen, setRecurringSetupOpen] = useState(false);
+  const [recurringTemplate, setRecurringTemplate] =
+    useState<RecurringTemplatePayload | null>(null);
+  const [pendingRecurring, setPendingRecurring] =
+    useState<PendingRecurringRuleWithoutTemplate | null>(null);
 
   function parseAmount(value: string): number | null {
     const num = parseFloat(value);
@@ -184,7 +202,105 @@ export function AddExpenseForm({
 
   const splitButtonDisabled =
     parsedAmountForSplit === null ||
-    (currency !== tabCurrency && (fxPreviewLoading || tabTotalForSplit === null));
+    (currency !== tabCurrency &&
+      (fxPreviewLoading || tabTotalForSplit === null));
+
+  function prepareRecurringTemplate():
+    | { ok: true; template: RecurringTemplatePayload }
+    | { ok: false; error: string } {
+    const parsedAmount = parseAmount(amount);
+    if (parsedAmount === null) {
+      return { ok: false, error: "Please enter a valid amount (min $0.01)" };
+    }
+    if (!description.trim()) {
+      return { ok: false, error: "Please add a description" };
+    }
+    if (selectedParticipants.length < 1) {
+      return { ok: false, error: "At least one person must be in the split" };
+    }
+    if (
+      selectedParticipants.length === 1 &&
+      selectedParticipants[0].userId === paidById
+    ) {
+      return {
+        ok: false,
+        error: "Payer cannot be the only member of the split",
+      };
+    }
+    if (splitButtonDisabled) {
+      return {
+        ok: false,
+        error:
+          currency !== tabCurrency && fxPreviewLoading
+            ? "Wait for the exchange rate preview to finish"
+            : "Enter a valid amount or wait for tab-currency conversion",
+      };
+    }
+    const participantIdsList = selectedParticipants.map((p) => p.userId);
+    const template: RecurringTemplatePayload =
+      splitConfig == null || splitConfig.splitType === "equal"
+        ? {
+            amount: parsedAmount,
+            currency,
+            description,
+            paidById,
+            splitType: "equal",
+            participantIds: participantIdsList,
+          }
+        : splitConfig.splitType === "custom"
+          ? {
+              amount: parsedAmount,
+              currency,
+              description,
+              paidById,
+              splitType: "custom",
+              participantIds: participantIdsList,
+              splits: splitConfig.splits,
+            }
+          : {
+              amount: parsedAmount,
+              currency,
+              description,
+              paidById,
+              splitType: splitConfig.splitType,
+              participantIds: participantIdsList,
+              splits: splitConfig.splits.map((s) => ({
+                userId: s.userId,
+                weight: s.weight,
+              })),
+            };
+    return { ok: true, template };
+  }
+
+  const makeRecurringDisabled = useMemo(
+    () =>
+      loading ||
+      parseAmount(amount) === null ||
+      !description.trim() ||
+      selectedParticipants.length < 1 ||
+      (selectedParticipants.length === 1 &&
+        selectedParticipants[0].userId === paidById) ||
+      splitButtonDisabled,
+    [
+      loading,
+      amount,
+      description,
+      selectedParticipants,
+      paidById,
+      splitButtonDisabled,
+    ],
+  );
+
+  function handleMakeRecurringClick() {
+    setError(null);
+    const prep = prepareRecurringTemplate();
+    if (!prep.ok) {
+      setError(prep.error);
+      return;
+    }
+    setRecurringTemplate(prep.template);
+    setRecurringSetupOpen(true);
+  }
 
   function toggleParticipant(userId: string) {
     setSplitConfig(null);
@@ -209,29 +325,14 @@ export function AddExpenseForm({
     setLoading(true);
     setError(null);
 
-    const parsedAmount = parseAmount(amount);
-    if (parsedAmount === null) {
-      setError("Please enter a valid amount (min $0.01)");
+    const prep = prepareRecurringTemplate();
+    if (!prep.ok) {
+      setError(prep.error);
       setLoading(false);
       return;
     }
-
-    if (selectedParticipants.length < 1) {
-      setError("At least one person must be in the split");
-      setLoading(false);
-      return;
-    }
-
-    if (
-      selectedParticipants.length === 1 &&
-      selectedParticipants[0].userId === paidById
-    ) {
-      setError("Payer cannot be the only member of the split");
-      setLoading(false);
-      return;
-    }
-
-    const participantIdsList = selectedParticipants.map((p) => p.userId);
+    const parsedAmount = prep.template.amount;
+    const participantIdsList = prep.template.participantIds;
 
     const createBody =
       splitConfig == null || splitConfig.splitType === "equal"
@@ -269,7 +370,14 @@ export function AddExpenseForm({
               expenseDate: expenseDate.toISOString(),
             };
 
-    const result = await api.expenses.create(tabId, createBody);
+    const createRecurringRule = pendingRecurring
+      ? { ...pendingRecurring, template: prep.template }
+      : undefined;
+
+    const result = await api.expenses.create(tabId, {
+      ...createBody,
+      ...(createRecurringRule ? { createRecurringRule } : {}),
+    });
 
     if (
       result.success &&
@@ -284,9 +392,13 @@ export function AddExpenseForm({
       setExpenseDate(new Date());
       setCurrency(tabCurrency);
       setSplitConfig(null);
+      setPendingRecurring(null);
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["recurring-expenses", tabId],
+      });
       onExpenseCreated?.();
       setCreatedExpense({
         expenseId: result.expenseId,
@@ -303,9 +415,13 @@ export function AddExpenseForm({
       setExpenseDate(new Date());
       setCurrency(tabCurrency);
       setSplitConfig(null);
+      setPendingRecurring(null);
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["recurring-expenses", tabId],
+      });
       onExpenseCreated?.();
       setPartialSuccessOpen(true);
     } else {
@@ -355,6 +471,18 @@ export function AddExpenseForm({
         participants={createdExpense?.participants ?? []}
         currentUserId={currentUserId}
         onCloseReason={handleCreatedClose}
+      />
+      <MakeRecurringExpenseDialog
+        open={recurringSetupOpen}
+        onOpenChange={(open) => {
+          setRecurringSetupOpen(open);
+          if (!open) {
+            setRecurringTemplate(null);
+          }
+        }}
+        template={recurringTemplate}
+        draft={pendingRecurring}
+        onConfirm={setPendingRecurring}
       />
       <Dialog
         open={partialSuccessOpen}
@@ -441,9 +569,10 @@ export function AddExpenseForm({
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-auto min-w-72 rounded-lg border-border p-0 shadow-md overflow-clip"
+              className={CALENDAR_POPOVER_CONTENT_CLASSNAME}
               align="end"
               sideOffset={4}
+              collisionPadding={12}
             >
               <Calendar
                 mode="single"
@@ -482,15 +611,6 @@ export function AddExpenseForm({
               </button>
             ))}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full"
-            disabled={loading || splitButtonDisabled}
-            onClick={() => setSplitDialogOpen(true)}
-          >
-            {splitConfigLabel(splitConfig)}
-          </Button>
           <p className="text-xs text-muted-foreground">
             {selectedParticipants.length === 1
               ? "1 person owes the full amount"
@@ -586,6 +706,37 @@ export function AddExpenseForm({
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+        <div className="grid grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="min-w-0"
+            disabled={loading || splitButtonDisabled}
+            onClick={() => setSplitDialogOpen(true)}
+          >
+            <Split
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+            <span className="truncate">{splitConfigLabel(splitConfig)}</span>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="min-w-0 gap-2"
+            disabled={makeRecurringDisabled}
+            onClick={handleMakeRecurringClick}
+          >
+            <CalendarSync
+              className="size-4 shrink-0 text-muted-foreground"
+              aria-hidden
+            />
+
+            <span className="truncate">
+              {pendingRecurring ? "Edit recurring" : "Make recurring"}
+            </span>
+          </Button>
+        </div>
         <Button type="submit" disabled={loading} className="w-full gap-2">
           {loading ? "Adding..." : "Add expense"}
           <CornerDownLeft className="h-4 w-4" />

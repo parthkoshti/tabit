@@ -1,3 +1,4 @@
+import { DateTime } from "luxon";
 import { CURRENCY_CODES } from "shared";
 import { user as userData, preference as preferenceData } from "data";
 import {
@@ -13,9 +14,13 @@ const ADD_EXPENSE_PREFERENCE_KEY = "add_expense_preference";
 export const userService = {
   updateProfile: async (
     userId: string,
-    updates: { name?: string | null; defaultCurrency?: string | null },
+    updates: { name?: string | null; defaultCurrency?: string | null; timezone?: string | null },
   ): Promise<Result<void>> => {
-    const resolved: { name?: string | null; defaultCurrency?: string | null } = {};
+    const resolved: {
+      name?: string | null;
+      defaultCurrency?: string | null;
+      timezone?: string | null;
+    } = {};
 
     if ("name" in updates) {
       const name =
@@ -44,6 +49,19 @@ export const userService = {
         return err("Invalid currency code", 400);
       }
       resolved.defaultCurrency = defaultCurrency;
+    }
+
+    if ("timezone" in updates) {
+      const tz =
+        updates.timezone === null || updates.timezone === undefined
+          ? null
+          : typeof updates.timezone === "string"
+            ? updates.timezone.trim() || null
+            : null;
+      if (tz !== null && !DateTime.now().setZone(tz).isValid) {
+        return err("Invalid timezone", 400);
+      }
+      resolved.timezone = tz;
     }
 
     if (Object.keys(resolved).length === 0) {
@@ -104,7 +122,10 @@ export const userService = {
 
   getPreferences: async (userId: string) => {
     const rows = await preferenceData.getByUserId(userId);
-    const prefs: { addExpensePreference?: AddExpensePreference } = {};
+    const prefs: {
+      addExpensePreference?: AddExpensePreference;
+      timezone?: string | null;
+    } = {};
     for (const row of rows) {
       if (
         row.key === ADD_EXPENSE_PREFERENCE_KEY &&
@@ -113,6 +134,8 @@ export const userService = {
         prefs.addExpensePreference = row.value;
       }
     }
+    const u = await userData.getById(userId);
+    prefs.timezone = u?.timezone ?? null;
     return ok(prefs);
   },
 

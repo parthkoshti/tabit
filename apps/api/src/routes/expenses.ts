@@ -1,5 +1,9 @@
 import { Hono } from "hono";
-import { createExpenseSchema } from "models";
+import {
+  createExpenseSchema,
+  createRecurringExpenseRuleSchema,
+  type CreateRecurringExpenseRuleInput,
+} from "models";
 import { CURRENCY_CODES } from "shared";
 import { tab } from "data";
 import type { AuthContext } from "../auth.js";
@@ -149,10 +153,26 @@ expensesRoutes.post("/", async (c) => {
     return c.json({ success: false, error: errMsg }, 400);
   }
 
+  let createRecurringRule: CreateRecurringExpenseRuleInput | undefined;
+  if (body.createRecurringRule != null) {
+    const crParsed = createRecurringExpenseRuleSchema.safeParse(body.createRecurringRule);
+    if (!crParsed.success) {
+      const flat = crParsed.error.flatten();
+      const errMsg =
+        flat.formErrors[0] ??
+        Object.values(flat.fieldErrors).flat()[0] ??
+        crParsed.error.issues[0]?.message ??
+        "Invalid recurring rule";
+      return c.json({ success: false, error: errMsg }, 400);
+    }
+    createRecurringRule = crParsed.data;
+  }
+
   const result = await expenseService.create(
     {
       ...parsed.data,
       participantIds: body.participantIds as string[] | undefined,
+      ...(createRecurringRule ? { createRecurringRule } : {}),
     },
     userId,
   );

@@ -5,6 +5,7 @@ import {
   date,
   decimal,
   boolean,
+  integer,
   primaryKey,
   jsonb,
   index,
@@ -63,6 +64,42 @@ export const tabMember = pgTable(
   (t) => [primaryKey({ columns: [t.tabId, t.userId] })],
 );
 
+/** Recurring expense template and schedule (cron posts expenses from template). */
+export const recurringExpenseRule = pgTable(
+  "recurring_expense_rule",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    tabId: text("tabId")
+      .notNull()
+      .references(() => tab.id, { onDelete: "cascade" }),
+    ownerUserId: text("ownerUserId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    /** active | paused_user | paused_needs_fix */
+    status: text("status").notNull().default("active"),
+    /** Discriminated schedule JSON (interval_days | monthly_nth | weekly). */
+    schedule: jsonb("schedule").notNull(),
+    /** Frozen expense fields: amount, currency, description, paidById, splitType, splits?, participantIds?. */
+    template: jsonb("template").notNull(),
+    startsOn: date("startsOn", { mode: "string" }).notNull(),
+    endsOn: date("endsOn", { mode: "string" }),
+    maxCount: integer("maxCount"),
+    postedCount: integer("postedCount").notNull().default(0),
+    /** Next calendar date (YYYY-MM-DD in owner TZ) when a post may run. */
+    nextDueKey: text("nextDueKey").notNull(),
+    pausedAt: timestamp("pausedAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (t) => [
+    index("recurring_expense_rule_tabId_idx").on(t.tabId),
+    index("recurring_expense_rule_ownerUserId_idx").on(t.ownerUserId),
+    index("recurring_expense_rule_status_nextDueKey_idx").on(t.status, t.nextDueKey),
+  ],
+);
+
 export const expense = pgTable(
   "expense",
   {
@@ -75,6 +112,9 @@ export const expense = pgTable(
     paidById: text("paidById")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    recurringRuleId: text("recurringRuleId").references(() => recurringExpenseRule.id, {
+      onDelete: "set null",
+    }),
     /** Tab-currency total (ledger / splits). */
     amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
     /** ISO currency code for the amount the user entered. */
@@ -90,6 +130,29 @@ export const expense = pgTable(
   (t) => [
     index("expense_tabId_expenseDate_idx").on(t.tabId, t.expenseDate),
     index("expense_tabId_deletedAt_idx").on(t.tabId, t.deletedAt),
+    index("expense_recurringRuleId_idx").on(t.recurringRuleId),
+  ],
+);
+
+/** One row per posted occurrence; unique (ruleId, occurrenceKey) for idempotency. */
+export const recurringExpenseOccurrence = pgTable(
+  "recurring_expense_occurrence",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    ruleId: text("ruleId")
+      .notNull()
+      .references(() => recurringExpenseRule.id, { onDelete: "cascade" }),
+    occurrenceKey: text("occurrenceKey").notNull(),
+    expenseId: text("expenseId").references(() => expense.id, { onDelete: "set null" }),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("recurring_expense_occurrence_ruleId_occurrenceKey_uidx").on(
+      t.ruleId,
+      t.occurrenceKey,
+    ),
   ],
 );
 

@@ -13,6 +13,13 @@ import { format } from "date-fns"
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
 
+/**
+ * Apply to `PopoverContent` that wraps `Calendar` so tall months scroll on
+ * small viewports instead of being clipped (common on iPhone).
+ */
+export const CALENDAR_POPOVER_CONTENT_CLASSNAME =
+  "w-auto min-w-72 max-h-[min(85dvh,calc(100svh-5rem))] overflow-y-auto overscroll-y-contain rounded-lg border-border p-0 shadow-md"
+
 function Calendar({
   className,
   classNames,
@@ -131,7 +138,7 @@ function Calendar({
             <div
               data-slot="calendar"
               ref={rootRef}
-              className={cn(className)}
+              className={cn("min-h-0 w-full touch-pan-y", className)}
               {...props}
             />
           )

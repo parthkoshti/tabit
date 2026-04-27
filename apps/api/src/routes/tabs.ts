@@ -10,6 +10,7 @@ import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
 import { tabService, settlementService } from "services";
 import { expensesRoutes } from "./expenses.js";
+import { recurringExpensesRoutes } from "./recurring-expenses.js";
 
 export const tabsRoutes = new Hono<{ Variables: { auth: AuthContext } }>();
 
@@ -32,6 +33,7 @@ tabsRoutes.get("/:tabId", async (c) => {
 });
 
 tabsRoutes.route("/:tabId/expenses", expensesRoutes);
+tabsRoutes.route("/:tabId/recurring-expenses", recurringExpensesRoutes);
 
 tabsRoutes.get("/:tabId/settlements", async (c) => {
   const { userId } = c.get("auth");

@@ -1,0 +1,1 @@
+ALTER TABLE "recurring_expense_rule" DROP COLUMN "ruleName";

@@ -31,6 +31,7 @@ Commercial expense-splitting apps can change the rules overnight. Free tiers get
 - [x] 1-on-1 and group expense tracking
 - [x] Split types when adding or editing: equal (default), custom amounts per person, percentages (must total 100%), and shares; expense detail shows how each share was set
 - [x] Multi-currency tabs and expenses
+- [x] Recurring expenses per tab (interval, monthly, weekly weekdays), pause/resume, FX per occurrence, tab list shows recurring-linked expenses
 - [x] Splitwise CSV import
 - [x] Expense audit logs
 
@@ -123,7 +124,7 @@ Edit `.env` with your values. Required variables:
 
 Redis is included in the compose stack. `REDIS_URL` is set automatically for the api and notifications services.
 
-Optional: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` for web push; `GOOGLE_GENERATIVE_AI_API_KEY` for AI expense parsing.
+Optional: `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` for web push; `GOOGLE_GENERATIVE_AI_API_KEY` for AI expense parsing; `TIMEZONE_IP_LOOKUP=0` on the API to skip optional IP-based timezone suggestion for profile preferences (proxy headers such as `CF-Timezone` are still honored when present).
 
 ### Step 3: Start the Stack
 

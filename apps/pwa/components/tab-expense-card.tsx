@@ -1,4 +1,4 @@
-import { BanknoteArrowUp } from "lucide-react";
+import { BanknoteArrowUp, CalendarSync } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
@@ -35,6 +35,8 @@ export function TabExpenseCard({
   currentUserId,
   getMemberUser,
 }: TabExpenseCardProps) {
+  const isRecurring = Boolean(item.recurringRuleId);
+
   return (
     <Card
       className={`cursor-pointer hover:bg-muted/50 ${
@@ -66,15 +68,23 @@ export function TabExpenseCard({
                   </span>
                 )}
               </div>
-              <span
-                className={`text-sm shrink-0 font-medium tabular-nums ${
-                  item.deletedAt
-                    ? "text-muted-foreground"
-                    : "text-foreground"
-                }`}
-              >
-                {formatAmount(item.amount, tabCurrency)}
-              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {isRecurring && (
+                  <CalendarSync
+                    className="h-4 w-4 shrink-0 text-muted-foreground"
+                    aria-label="Recurring expense"
+                  />
+                )}
+                <span
+                  className={`text-sm font-medium tabular-nums ${
+                    item.deletedAt
+                      ? "text-muted-foreground"
+                      : "text-foreground"
+                  }`}
+                >
+                  {formatAmount(item.amount, tabCurrency)}
+                </span>
+              </div>
             </div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-0 min-w-0">
@@ -148,15 +158,23 @@ export function TabExpenseCard({
                   </span>
                 )}
               </div>
-              <span
-                className={`text-sm shrink-0 font-medium ${
-                  item.deletedAt
-                    ? "text-muted-foreground"
-                    : "text-foreground"
-                }`}
-              >
-                {formatAmount(item.amount, tabCurrency)}
-              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {isRecurring && (
+                  <CalendarSync
+                    className="h-4 w-4 shrink-0 text-muted-foreground"
+                    aria-label="Recurring expense"
+                  />
+                )}
+                <span
+                  className={`text-sm font-medium ${
+                    item.deletedAt
+                      ? "text-muted-foreground"
+                      : "text-foreground"
+                  }`}
+                >
+                  {formatAmount(item.amount, tabCurrency)}
+                </span>
+              </div>
             </div>
             <div className="flex items-center justify-between gap-2 mb-2">
               <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">

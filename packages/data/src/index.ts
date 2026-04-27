@@ -1,5 +1,8 @@
 export { fxRate } from "./fx-rate.js";
 
+export { recurringExpense } from "./recurring-expense.js";
+export type { RecurringRuleRow, InsertRecurringRuleInput } from "./recurring-expense.js";
+
 export { expense } from "./expense.js";
 export type {
   CreateExpenseInput,

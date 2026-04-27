@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -88,7 +87,7 @@ export function ExpenseAddedDialog({
             currentUserId={currentUserId}
           />
         </div>
-        <DialogFooter className="gap-2 sm:gap-0">
+        <DialogFooter className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
           <Button type="button" onClick={handleAddAnother}>
             Add another expense
           </Button>

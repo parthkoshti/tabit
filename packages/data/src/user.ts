@@ -7,6 +7,8 @@ export type User = {
   username: string | null;
   email: string;
   defaultCurrency: string | null;
+  /** IANA timezone when set. */
+  timezone?: string | null;
 };
 
 export const user = {
@@ -18,6 +20,7 @@ export const user = {
         username: userTable.username,
         email: userTable.email,
         defaultCurrency: userTable.defaultCurrency,
+        timezone: userTable.timezone,
       })
       .from(userTable)
       .where(eq(userTable.id, userId))
@@ -33,6 +36,7 @@ export const user = {
         username: userTable.username,
         email: userTable.email,
         defaultCurrency: userTable.defaultCurrency,
+        timezone: userTable.timezone,
       })
       .from(userTable)
       .where(eq(userTable.username, username.trim().toLowerCase()))
@@ -48,6 +52,7 @@ export const user = {
         username: userTable.username,
         email: userTable.email,
         defaultCurrency: userTable.defaultCurrency,
+        timezone: userTable.timezone,
       })
       .from(userTable)
       .where(eq(userTable.email, email))
@@ -73,6 +78,7 @@ export const user = {
         id: userTable.id,
         name: userTable.name,
         username: userTable.username,
+        timezone: userTable.timezone,
       })
       .from(userTable)
       .where(inArray(userTable.id, userIds));
@@ -81,12 +87,14 @@ export const user = {
 
   updateProfile: async (
     userId: string,
-    updates: { name?: string | null; defaultCurrency?: string | null },
+    updates: { name?: string | null; defaultCurrency?: string | null; timezone?: string | null },
   ): Promise<void> => {
     const set: Record<string, unknown> = { updatedAt: new Date() };
     if (updates.name !== undefined) set.name = updates.name;
     if (updates.defaultCurrency !== undefined) set.defaultCurrency = updates.defaultCurrency;
-    const hasUpdates = "name" in updates || "defaultCurrency" in updates;
+    if (updates.timezone !== undefined) set.timezone = updates.timezone;
+    const hasUpdates =
+      "name" in updates || "defaultCurrency" in updates || "timezone" in updates;
     if (!hasUpdates) return;
     await db.update(userTable).set(set).where(eq(userTable.id, userId));
   },

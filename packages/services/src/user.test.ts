@@ -137,12 +137,20 @@ describe("userService", () => {
   describe("getPreferences", () => {
     test("returns preferences", async () => {
       vi.mocked(preferenceData.getByUserId).mockResolvedValue([]);
+      vi.mocked(userData.getById).mockResolvedValue({
+        id: "user1",
+        name: null,
+        username: null,
+        email: "u@test.com",
+        defaultCurrency: null,
+        timezone: null,
+      });
 
       const result = await userService.getPreferences("user1");
 
       expect(result.success).toBe(true);
       if (result.success) {
-        expect(result.data).toEqual({});
+        expect(result.data).toEqual({ timezone: null });
       }
     });
   });

@@ -12,6 +12,7 @@ import {
   createPokeNotificationPayload,
   createTabInviteNotificationPayload,
   createTabInviteAcceptedNotificationPayload,
+  createRecurringRuleNeedsFixNotificationPayload,
 } from "models";
 
 let redis: Redis | null = null;
@@ -48,9 +49,28 @@ export const notificationService = {
       recipientOweAmount?: string;
       currencySymbol?: string;
       createdAt: Date;
+      recurringRuleId?: string;
+      recurringRuleTitle?: string;
+      ruleOwnerName?: string | null;
+      editRulePath?: string;
     },
   ): Promise<void> => {
     const payload = createExpenseAddedNotificationPayload(params);
+    await publish(userId, payload);
+  },
+
+  publishRecurringRuleNeedsFixToUser: async (
+    userId: string,
+    params: {
+      ruleId: string;
+      tabId: string;
+      tabName: string;
+      reason: "validation_failed" | "not_tab_member" | "unknown";
+      editRulePath: string;
+      createdAt: Date;
+    },
+  ): Promise<void> => {
+    const payload = createRecurringRuleNeedsFixNotificationPayload(params);
     await publish(userId, payload);
   },
 

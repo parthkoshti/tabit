@@ -107,6 +107,10 @@ function getPushTitle(payload: {
   isDirect?: boolean;
   emoji?: string;
   currencySymbol?: string;
+  recurringRuleId?: string;
+  recurringRuleTitle?: string;
+  ruleOwnerName?: string | null;
+  editRulePath?: string;
 }): string {
   if (payload.forcePush)
     return payload.type === "tab_invite"
@@ -132,6 +136,15 @@ function getPushTitle(payload: {
   ) {
     return `${payload.fromUserName} joined ${payload.tabName}`;
   }
+  if (
+    payload.type === "expense_added" &&
+    payload.recurringRuleId &&
+    payload.ruleOwnerName
+  ) {
+    const desc = payload.description || "an expense";
+    const rule = payload.recurringRuleTitle || "a recurring rule";
+    return `Tab created ${desc} based on ${rule} by ${payload.ruleOwnerName}`;
+  }
   if (payload.type === "expense_added" && payload.fromUserName) {
     const desc = payload.description || "expense";
     const sym = payload.currencySymbol ?? "$";
@@ -144,6 +157,9 @@ function getPushTitle(payload: {
     return payload.tabName
       ? `${payload.fromUserName} paid${amt} for ${desc} in ${payload.tabName}`
       : `${payload.fromUserName} paid${amt} for ${desc}`;
+  }
+  if (payload.type === "recurring_rule_needs_fix" && payload.tabName) {
+    return `Recurring rule needs attention: ${payload.tabName}`;
   }
   if (payload.type === "expense_updated" && payload.fromUserName) {
     const desc = payload.description || "expense";
@@ -229,6 +245,10 @@ function getPushBody(payload: {
   fromUserName?: string | null;
   emoji?: string;
   currencySymbol?: string;
+  recurringRuleId?: string;
+  recurringRuleTitle?: string;
+  ruleOwnerName?: string | null;
+  editRulePath?: string;
 }): string {
   if (payload.forcePush) return "This is a test notification";
   if (payload.type === "friend_request") return "New friend request";
@@ -237,10 +257,24 @@ function getPushBody(payload: {
     return "Accepted your friend request";
   if (payload.type === "tab_invite_accepted") return "Joined your tab";
   if (payload.type === "expense_added") {
+    if (payload.recurringRuleId && payload.ruleOwnerName) {
+      const desc = payload.description || "an expense";
+      const rule = payload.recurringRuleTitle || "a recurring rule";
+      const sym = payload.currencySymbol ?? "$";
+      const owe =
+        payload.recipientOweAmount != null
+          ? ` You owe ${sym}${payload.recipientOweAmount}.`
+          : "";
+      return `Tab created ${desc} based on ${rule} by ${payload.ruleOwnerName}.${owe}`;
+    }
     const sym = payload.currencySymbol ?? "$";
     return payload.recipientOweAmount
       ? `You owe ${sym}${payload.recipientOweAmount}`
       : "New expense added";
+  }
+  if (payload.type === "recurring_rule_needs_fix") {
+    const t = payload.tabName ?? "your tab";
+    return `Update the recurring expense rule for ${t} so posting can resume.`;
   }
   if (payload.type === "expense_updated") {
     const sym = payload.currencySymbol ?? "$";
@@ -285,6 +319,7 @@ function getNavigatePath(payload: {
   tabId?: string;
   expenseId?: string;
   friendTabId?: string;
+  editRulePath?: string;
 }): string {
   if (payload.type === "tab_invite") return "/tabs";
   if (payload.type === "friend_request_accepted" && payload.friendTabId) {
@@ -292,6 +327,11 @@ function getNavigatePath(payload: {
   }
   if (payload.type === "tab_invite_accepted" && payload.tabId) {
     return `/tabs/${payload.tabId}`;
+  }
+  if (payload.type === "recurring_rule_needs_fix" && payload.editRulePath) {
+    return payload.editRulePath.startsWith("/")
+      ? payload.editRulePath
+      : `/${payload.editRulePath}`;
   }
   if (
     (payload.type === "expense_added" ||
