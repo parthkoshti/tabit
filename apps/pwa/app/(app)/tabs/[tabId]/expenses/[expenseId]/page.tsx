@@ -434,6 +434,35 @@ export function ExpensePage() {
                         {formatAbsoluteDateTime(entry.performedAt)}
                       </>
                     )}
+                    {entry.action === "create_from_recurring" && (
+                      <>
+                        Tab created{" "}
+                        <span className="font-medium text-foreground">
+                          {expense?.description ?? "this expense"}
+                        </span>{" "}
+                        based on{" "}
+                        {(() => {
+                          const ch = entry.changes as
+                            | { recurringRuleId?: string; ruleTitle?: string }
+                            | null;
+                          const rid = ch?.recurringRuleId;
+                          const title = ch?.ruleTitle ?? "recurring rule";
+                          return rid ? (
+                            <Link
+                              to={`/expense/recurring/${rid}`}
+                              className="text-primary underline underline-offset-2"
+                            >
+                              {title}
+                            </Link>
+                          ) : (
+                            <span>{title}</span>
+                          );
+                        })()}{" "}
+                        by{" "}
+                        {getDisplayName(entry.performedBy, currentUserId)}{" "}
+                        {formatAbsoluteDateTime(entry.performedAt)}
+                      </>
+                    )}
                     {entry.action === "update" && (
                       <>
                         <span className="block text-foreground/90">

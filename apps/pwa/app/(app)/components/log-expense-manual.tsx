@@ -90,6 +90,19 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
         friendId: f.friend.id,
       });
     });
+    const lastExpenseMs = (d: string | Date | null | undefined) => {
+      if (d == null) return 0;
+      const t = typeof d === "string" ? Date.parse(d) : d.getTime();
+      return Number.isFinite(t) ? t : 0;
+    };
+    items.sort((a, b) => {
+      const countA = a.expenseCount ?? 0;
+      const countB = b.expenseCount ?? 0;
+      if (countB !== countA) return countB - countA;
+      return (
+        lastExpenseMs(b.lastExpenseDate) - lastExpenseMs(a.lastExpenseDate)
+      );
+    });
     return items;
   }, [tabs, friends]);
 
@@ -244,7 +257,7 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="space-y-4 py-4"
+                className="space-y-4 py-2"
               >
                 <Button
                   type="button"
@@ -274,7 +287,7 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.25 }}
-                className="space-y-4"
+                className="space-y-2"
               >
                 <Button
                   type="button"

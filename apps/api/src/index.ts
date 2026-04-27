@@ -4,7 +4,7 @@ import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { auth } from "auth";
-import { warmLatestRatesForBases } from "services";
+import { warmLatestRatesForBases, recurringExpenseService } from "services";
 import type { AuthContext } from "./auth.js";
 import { log } from "./lib/logger.js";
 import { friendsRoutes } from "./routes/friends.js";
@@ -18,6 +18,7 @@ import { pushRoutes } from "./routes/push.js";
 import { aiRoutes } from "./routes/ai.js";
 import { notificationsRoutes } from "./routes/notifications.js";
 import { preferencesRoutes } from "./routes/preferences.js";
+import { recurringExpensesRootRoutes } from "./routes/recurring-expenses-root.js";
 import { authMiddleware } from "./auth.js";
 
 const app = new Hono<{ Variables: { auth: AuthContext } }>();
@@ -65,6 +66,7 @@ v1.route("/push", pushRoutes);
 v1.route("/ai", aiRoutes);
 v1.route("/notifications", notificationsRoutes);
 v1.route("/preferences", preferencesRoutes);
+v1.route("/recurring-expenses", recurringExpensesRootRoutes);
 
 app.route("/v1", v1);
 
@@ -83,6 +85,16 @@ cron.schedule(
     void warmLatestRatesForBases(["EUR", "USD"]);
   },
   { timezone: "Europe/Berlin" },
+);
+
+/** Recurring expense posts (creator-local dates; catch-up at most once per tick). */
+cron.schedule(
+  "*/15 * * * *",
+  () => {
+    void recurringExpenseService.runTick().catch((e) => {
+      log("error", "recurringExpenseService.runTick failed", { error: String(e) });
+    });
+  },
 );
 
 void warmLatestRatesForBases(["EUR", "USD"]);

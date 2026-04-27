@@ -23,11 +23,13 @@
   "dependencies": {
     "data": "workspace:*",
     "ioredis": "^5.4.1",
+    "luxon": "^3.5.0",
     "models": "workspace:*",
     "shared": "workspace:*",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/luxon": "^3.4.2",
     "@types/node": "^22.0.0",
     "typescript": "^5.0.0",
     "vitest": "^3.2.4"

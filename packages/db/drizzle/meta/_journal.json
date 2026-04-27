@@ -141,6 +141,20 @@
       "when": 1774300000000,
       "tag": "0019_split_weights",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1777300349545,
+      "tag": "0020_pretty_slyde",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1777306588585,
+      "tag": "0021_past_viper",
+      "breakpoints": true
     }
   ]
 }

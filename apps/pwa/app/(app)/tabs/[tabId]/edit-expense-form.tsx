@@ -28,7 +28,10 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
+import {
+  Calendar,
+  CALENDAR_POPOVER_CONTENT_CLASSNAME,
+} from "@/components/ui/calendar";
 import { formatAbsoluteDate } from "@/lib/format-date";
 import { Calendar as CalendarIcon, CornerDownLeft, Trash2 } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
@@ -431,9 +434,10 @@ export function EditExpenseForm({
               </Button>
             </PopoverTrigger>
             <PopoverContent
-              className="w-auto min-w-72 rounded-lg border-border p-0 shadow-md overflow-clip"
+              className={CALENDAR_POPOVER_CONTENT_CLASSNAME}
               align="end"
               sideOffset={4}
+              collisionPadding={12}
             >
               <Calendar
                 mode="single"

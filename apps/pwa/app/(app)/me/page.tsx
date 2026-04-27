@@ -34,6 +34,7 @@ import {
   ExternalLink,
   Mic,
   RefreshCw,
+  ChevronDown,
 } from "lucide-react";
 import {
   useSpeechRecognitionSettings,
@@ -57,6 +58,8 @@ import {
 import QRCode from "qrcode";
 import { CURATED_CURRENCIES, getCurrency, formatAmount } from "shared";
 import { useBustCache } from "@/lib/use-bust-cache";
+import { getSupportedIanaTimeZones } from "@/lib/iana-timezones";
+import { useQueryClient } from "@tanstack/react-query";
 
 const USERNAME_REGEX = /^[a-zA-Z0-9_]{5,12}$/;
 
@@ -107,7 +110,61 @@ export function MePage() {
   const [currencyLoading, setCurrencyLoading] = useState(false);
   const [currencyError, setCurrencyError] = useState<string | null>(null);
   const [currencySuccess, setCurrencySuccess] = useState(false);
+  const [timezone, setTimezone] = useState("UTC");
+  const [timezoneLoading, setTimezoneLoading] = useState(false);
   const setNavTitle = useNavTitle();
+  const queryClient = useQueryClient();
+
+  const { data: prefsData, isPending: preferencesPending } = useQuery({
+    queryKey: ["preferences"],
+    queryFn: () => api.preferences.get(),
+  });
+
+  const deviceTimeZone = useMemo(
+    () => Intl.DateTimeFormat().resolvedOptions().timeZone ?? "",
+    [],
+  );
+
+  const suggestedTimeZone = useMemo(() => {
+    if (prefsData?.success) {
+      const fromRequest = prefsData.suggestedTimezoneFromRequest?.trim();
+      if (fromRequest) return fromRequest;
+    }
+    return deviceTimeZone.trim() || null;
+  }, [prefsData, deviceTimeZone]);
+
+  const suggestedSourceLabel = useMemo(() => {
+    if (prefsData?.success && prefsData.suggestedTimezoneFromRequest?.trim()) {
+      return "network";
+    }
+    if (deviceTimeZone.trim()) return "device";
+    return null;
+  }, [prefsData, deviceTimeZone]);
+
+  /** Suggested zone first, then the rest (UTC next, then alphabetical). */
+  const timezoneSelectOptions = useMemo(() => {
+    const base = getSupportedIanaTimeZones();
+    const set = new Set(base);
+    for (const z of [timezone, suggestedTimeZone]) {
+      if (z && !set.has(z)) set.add(z);
+    }
+    const suggested = suggestedTimeZone?.trim() || null;
+    const rest = [...set].filter((z) => z !== suggested);
+    rest.sort((a, b) => {
+      if (a === "UTC") return -1;
+      if (b === "UTC") return 1;
+      return a.localeCompare(b);
+    });
+    return suggested ? [suggested, ...rest] : rest;
+  }, [timezone, suggestedTimeZone]);
+
+  useEffect(() => {
+    if (!prefsData?.success) return;
+    const saved = prefsData.timezone?.trim();
+    setTimezone(
+      saved && timezoneSelectOptions.includes(saved) ? saved : saved || "UTC",
+    );
+  }, [prefsData, timezoneSelectOptions]);
 
   useEffect(() => {
     setNavTitle?.({ title: "Profile", backHref: "/tabs" });
@@ -186,6 +243,29 @@ export function MePage() {
       setCurrencyError(result.error ?? "Failed to update currency");
     }
     setCurrencyLoading(false);
+  }
+
+  async function handleTimezoneChange(value: string) {
+    if (prefsData?.success) {
+      const persisted = prefsData.timezone?.trim() || "UTC";
+      if (value === persisted) return;
+    }
+
+    const previous = timezone;
+    setTimezone(value);
+    setTimezoneLoading(true);
+    const tz = value.trim();
+    const result = await api.preferences.update({
+      timezone: tz === "UTC" ? null : tz,
+    });
+    setTimezoneLoading(false);
+    if (result.success) {
+      void queryClient.invalidateQueries({ queryKey: ["preferences"] });
+      toast.success("Timezone updated");
+    } else {
+      setTimezone(previous);
+      toast.error(result.error ?? "Failed to update timezone");
+    }
   }
 
   return (
@@ -288,6 +368,52 @@ export function MePage() {
               Used when creating new tabs. Existing tabs keep their own
               currency.
             </p>
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/50 p-4">
+            <h3 className="text-sm font-medium">Timezone</h3>
+            <p className="text-xs text-muted-foreground">
+              Used for recurring expenses and calendar dates. Choose UTC for
+              coordinated universal time. The first option is your suggested
+              zone when we can detect it (connection or this device).
+            </p>
+            <div className="space-y-1">
+              <Label htmlFor="timezone" className="sr-only">
+                Timezone
+              </Label>
+              <Select
+                value={timezone}
+                onValueChange={handleTimezoneChange}
+                disabled={timezoneLoading || preferencesPending}
+              >
+                <SelectTrigger id="timezone" className="w-60">
+                  <SelectValue placeholder="Select timezone" />
+                  <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                </SelectTrigger>
+                <SelectContent className="max-h-60">
+                  {timezoneSelectOptions.map((z) => {
+                    const isSuggestedRow =
+                      Boolean(suggestedTimeZone) &&
+                      z === suggestedTimeZone &&
+                      suggestedSourceLabel;
+                    return (
+                      <SelectItem key={z} value={z} className="py-2">
+                        {isSuggestedRow ? (
+                          <span className="flex items-center gap-2">
+                            <span className="font-medium">{z}</span>
+                            <span className="font-normal text-muted-foreground">
+                              (suggested)
+                            </span>
+                          </span>
+                        ) : (
+                          z
+                        )}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <Dialog open={nameDialogOpen} onOpenChange={setNameDialogOpen}>

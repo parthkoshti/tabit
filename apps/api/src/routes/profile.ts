@@ -11,7 +11,11 @@ profileRoutes.patch("/", async (c) => {
   const { userId } = c.get("auth");
   const body = await c.req.json().catch(() => ({}));
 
-  const updates: { name?: string | null; defaultCurrency?: string | null } = {};
+  const updates: {
+    name?: string | null;
+    defaultCurrency?: string | null;
+    timezone?: string | null;
+  } = {};
   if ("name" in body) {
     updates.name =
       body.name === null || body.name === undefined
@@ -26,6 +30,14 @@ profileRoutes.patch("/", async (c) => {
         ? null
         : typeof body.defaultCurrency === "string"
           ? body.defaultCurrency.trim() || null
+          : null;
+  }
+  if ("timezone" in body) {
+    updates.timezone =
+      body.timezone === null || body.timezone === undefined
+        ? null
+        : typeof body.timezone === "string"
+          ? body.timezone.trim() || null
           : null;
   }
 

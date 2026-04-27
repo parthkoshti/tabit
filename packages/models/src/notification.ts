@@ -12,6 +12,7 @@ export const notificationTypeSchema = z.enum([
   "expenses_bulk_imported",
   "poke",
   "expense_reaction",
+  "recurring_rule_needs_fix",
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
@@ -81,7 +82,26 @@ export const expenseAddedNotificationPayloadSchema = z.object({
   recipientOweAmount: z.string().optional(),
   currencySymbol: z.string().optional(),
   createdAt: z.string(),
+  /** When set, expense was created by a recurring rule (copy for push/UI). */
+  recurringRuleId: z.string().optional(),
+  recurringRuleTitle: z.string().optional(),
+  ruleOwnerName: z.string().nullable().optional(),
+  /** Path only, e.g. /expense/recurring/abc — client may prefix origin. */
+  editRulePath: z.string().optional(),
 });
+
+export const recurringRuleNeedsFixNotificationPayloadSchema = z.object({
+  type: z.literal("recurring_rule_needs_fix"),
+  ruleId: z.string(),
+  tabId: z.string(),
+  tabName: z.string(),
+  reason: z.enum(["validation_failed", "not_tab_member", "unknown"]),
+  editRulePath: z.string(),
+  createdAt: z.string(),
+});
+export type RecurringRuleNeedsFixNotificationPayload = z.infer<
+  typeof recurringRuleNeedsFixNotificationPayloadSchema
+>;
 export type ExpenseAddedNotificationPayload = z.infer<
   typeof expenseAddedNotificationPayloadSchema
 >;
@@ -196,6 +216,7 @@ export const notificationPayloadSchema = z.discriminatedUnion("type", [
   expensesBulkImportedNotificationPayloadSchema,
   pokeNotificationPayloadSchema,
   expenseReactionNotificationPayloadSchema,
+  recurringRuleNeedsFixNotificationPayloadSchema,
 ]);
 export type NotificationPayload = z.infer<typeof notificationPayloadSchema>;
 
@@ -289,6 +310,10 @@ export function createExpenseAddedNotificationPayload(data: {
   recipientOweAmount?: string;
   currencySymbol?: string;
   createdAt: Date;
+  recurringRuleId?: string;
+  recurringRuleTitle?: string;
+  ruleOwnerName?: string | null;
+  editRulePath?: string;
 }): ExpenseAddedNotificationPayload {
   return {
     type: "expense_added",
@@ -302,6 +327,29 @@ export function createExpenseAddedNotificationPayload(data: {
     amount: data.amount,
     recipientOweAmount: data.recipientOweAmount,
     currencySymbol: data.currencySymbol,
+    createdAt: data.createdAt.toISOString(),
+    recurringRuleId: data.recurringRuleId,
+    recurringRuleTitle: data.recurringRuleTitle,
+    ruleOwnerName: data.ruleOwnerName,
+    editRulePath: data.editRulePath,
+  };
+}
+
+export function createRecurringRuleNeedsFixNotificationPayload(data: {
+  ruleId: string;
+  tabId: string;
+  tabName: string;
+  reason: RecurringRuleNeedsFixNotificationPayload["reason"];
+  editRulePath: string;
+  createdAt: Date;
+}): RecurringRuleNeedsFixNotificationPayload {
+  return {
+    type: "recurring_rule_needs_fix",
+    ruleId: data.ruleId,
+    tabId: data.tabId,
+    tabName: data.tabName,
+    reason: data.reason,
+    editRulePath: data.editRulePath,
     createdAt: data.createdAt.toISOString(),
   };
 }

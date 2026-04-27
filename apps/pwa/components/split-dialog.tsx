@@ -77,10 +77,11 @@ function expenseToTabAmounts(
 }
 
 export function splitConfigLabel(config: SplitConfig | null): string {
-  if (config == null || config.splitType === "equal") return "Split equally";
-  if (config.splitType === "shares") return "Split by shares";
-  if (config.splitType === "percent") return "Split by %";
-  return "Custom amounts";
+  if (config == null || config.splitType === "equal")
+    return "Splitting equally";
+  if (config.splitType === "shares") return "Splitting by shares";
+  if (config.splitType === "percent") return "Splitting by %";
+  return "Custom split";
 }
 
 export function SplitDialog({
@@ -405,7 +406,7 @@ export function SplitDialog({
                   <div className="flex min-w-0 flex-1 items-center justify-end border-l border-input px-3 text-right text-sm tabular-nums">
                     {shareParsed.ok && sharePreviewTab[i] != null ? (
                       <span className="text-muted-foreground">
-                        <span className="text-foreground">
+                        <span className="text-muted-foreground">
                           {formatAmount(sharePreviewTab[i]!, tabCurrency)}
                         </span>
                         {showBothCurrencies ? (

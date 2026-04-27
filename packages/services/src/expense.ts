@@ -1,10 +1,22 @@
-import { expense, tab, user as userData } from "data";
+import { expense, recurringExpense, tab, user as userData } from "data";
 import type { GetExpensesForTabOptions } from "data";
-import { createExpenseSchema } from "models";
+import {
+  createExpenseSchema,
+  createRecurringExpenseRuleSchema,
+  recurringExpenseTemplateSchema,
+  recurringScheduleSchema,
+  type CreateRecurringExpenseRuleInput,
+} from "models";
 import { CURRENCY_CODES, getCurrency } from "shared";
+import { DateTime } from "luxon";
 import { ok, err, type Result } from "./types.js";
 import { notificationService } from "./notification.js";
 import { convertToTabCurrency } from "./fx-rate.js";
+import {
+  dateKeyCompare,
+  nextScheduleKeyAfter,
+  resolveIanaZone,
+} from "./recurring-schedule.js";
 
 function roundTo2(n: number): number {
   return Math.round(n * 100) / 100;
@@ -202,6 +214,8 @@ export type CreateExpenseInput = {
   expenseDate: Date;
   participantIds?: string[];
   splits?: Array<{ userId: string; amount?: number; weight?: number }>;
+  /** When set, rule + occurrence + expense link are created in one DB transaction after the expense row is validated. */
+  createRecurringRule?: CreateRecurringExpenseRuleInput;
 };
 
 export type CreateExpenseSuccess = {
@@ -326,7 +340,7 @@ export const expenseService = {
     }
     const splits = splitResult.splits;
 
-    const expenseId = await expense.create({
+    const expensePayload = {
       tabId: input.tabId,
       paidById: input.paidById,
       amount: amountTab,
@@ -337,7 +351,51 @@ export const expenseService = {
       expenseDate: input.expenseDate,
       splits,
       performedById,
-    });
+    };
+
+    let expenseId: string;
+    if (input.createRecurringRule) {
+      const crParsed = createRecurringExpenseRuleSchema.safeParse(input.createRecurringRule);
+      if (!crParsed.success) {
+        return err(crParsed.error.flatten().formErrors[0] ?? "Invalid recurring rule", 400);
+      }
+      const cr = crParsed.data;
+      const owner = await userData.getById(performedById);
+      const zone = resolveIanaZone(owner?.timezone);
+      const schedule = recurringScheduleSchema.parse(cr.schedule);
+      const template = recurringExpenseTemplateSchema.parse(cr.template);
+      const expenseDateKey = DateTime.fromJSDate(input.expenseDate, { zone }).toFormat(
+        "yyyy-LL-dd",
+      );
+      if (dateKeyCompare(expenseDateKey, cr.startsOn) < 0) {
+        return err("Expense date must be on or after the recurring rule start date", 400);
+      }
+      const nextDueKey = nextScheduleKeyAfter(
+        schedule,
+        expenseDateKey,
+        zone,
+        cr.endsOn ?? null,
+      );
+      const linked = await recurringExpense.insertRuleAndExpenseInTransaction(
+        {
+          tabId: input.tabId,
+          ownerUserId: performedById,
+          status: "active",
+          schedule,
+          template,
+          startsOn: cr.startsOn,
+          endsOn: cr.endsOn ?? null,
+          maxCount: cr.maxCount ?? null,
+          postedCount: 1,
+          nextDueKey,
+        },
+        expensePayload,
+        expenseDateKey,
+      );
+      expenseId = linked.expenseId;
+    } else {
+      expenseId = await expense.create(expensePayload);
+    }
 
     const tabInfo = await tab.getTabInfoForNotifications(input.tabId, performedById);
     const payerUser = await userData.getById(input.paidById);
@@ -404,6 +462,142 @@ export const expenseService = {
         expenseCurrency !== tabCurrency ? conv.data.rateDate : undefined,
       participants,
     });
+  },
+
+  /**
+   * Create an expense from a recurring rule (idempotent per ruleId + occurrenceKey).
+   * `performedById` for audit/notifications is always `ruleOwnerId`.
+   */
+  postRecurringOccurrence: async (
+    ruleId: string,
+    occurrenceKey: string,
+    ruleTitle: string,
+    ruleOwnerId: string,
+    input: CreateExpenseInput,
+  ): Promise<Result<{ expenseId: string; created: boolean }>> => {
+    const performedById = ruleOwnerId;
+    const isMember = await tab.isMember(input.tabId, performedById);
+    if (!isMember) {
+      return err("Not a member of this tab", 403);
+    }
+
+    const payerIsMember = await tab.isMember(input.tabId, input.paidById);
+    if (!payerIsMember) {
+      return err("Payer must be a member", 400);
+    }
+
+    const allMembers = await tab.getMembers(input.tabId);
+    const participantIds =
+      input.participantIds && input.participantIds.length > 0
+        ? input.participantIds
+        : allMembers.map((m) => m.userId);
+    const useExplicitParticipants =
+      input.participantIds && input.participantIds.length > 0;
+    const members = useExplicitParticipants
+      ? orderMembersByParticipantIds(allMembers, participantIds)
+      : allMembers.map((m) => ({ userId: m.userId }));
+
+    if (members.length < 1) {
+      return err("At least one person must be in the split", 400);
+    }
+    if (members.length === 1 && members[0]!.userId === input.paidById) {
+      return err("Payer cannot be the only member of the split", 400);
+    }
+
+    const tabCurrency = (await tab.getCurrency(input.tabId)) ?? "USD";
+    const expenseCurrency = (input.currency?.trim() || tabCurrency).toUpperCase();
+    if (!(CURRENCY_CODES as readonly string[]).includes(expenseCurrency)) {
+      return err("Invalid currency code", 400);
+    }
+
+    const conv = await convertToTabCurrency({
+      originalAmount: input.amount,
+      from: expenseCurrency,
+      tabCurrency,
+      asOfDate: input.expenseDate,
+    });
+    if (!conv.success) {
+      return conv;
+    }
+    const amountTab = conv.data.amountTab;
+
+    const splitResult = calculateSplits(amountTab, members, input.splitType, input.splits);
+    if ("error" in splitResult) {
+      return err(splitResult.error, 400);
+    }
+    const splits = splitResult.splits;
+
+    const dataInput = {
+      tabId: input.tabId,
+      paidById: input.paidById,
+      amount: amountTab,
+      currency: expenseCurrency,
+      originalAmount: input.amount,
+      description: input.description,
+      splitType: input.splitType,
+      expenseDate: input.expenseDate,
+      splits,
+      performedById,
+      recurringRuleId: ruleId,
+      auditAction: "create_from_recurring",
+      auditChanges: {
+        recurringRuleId: ruleId,
+        ruleTitle,
+        occurrenceKey,
+      } as Record<string, unknown>,
+    };
+
+    const tryRes = await recurringExpense.tryPostOccurrence(ruleId, occurrenceKey, dataInput);
+    if (tryRes === null) {
+      const existingId = await recurringExpense.getOccurrenceExpenseId(ruleId, occurrenceKey);
+      if (!existingId) {
+        return err("Could not create or resolve recurring occurrence", 500);
+      }
+      return ok({ expenseId: existingId, created: false });
+    }
+    const expenseId = tryRes.expenseId;
+
+    const tabInfo = await tab.getTabInfoForNotifications(input.tabId, performedById);
+    const payerUser = await userData.getById(input.paidById);
+    const payerDisplayName =
+      payerUser?.name ?? (payerUser?.username ? `@${payerUser.username}` : null);
+    const ownerUser = await userData.getById(ruleOwnerId);
+    const ruleOwnerName =
+      ownerUser?.name ?? (ownerUser?.username ? `@${ownerUser.username}` : null);
+    const splitByUser = new Map(splits.map((s) => [s.userId, s.amount]));
+
+    const notifyAmount =
+      expenseCurrency !== tabCurrency
+        ? `${input.amount} ${expenseCurrency} (${amountTab} ${tabCurrency})`
+        : String(amountTab);
+    const currencySymbol = getCurrency(tabCurrency)?.symbol ?? "$";
+    const editRulePath = `/expense/recurring/${ruleId}`;
+
+    if (tabInfo) {
+      for (const m of members) {
+        if (m.userId !== performedById) {
+          await notificationService.publishExpenseAddedToUser(m.userId, {
+            tabId: input.tabId,
+            expenseId,
+            tabName: tabInfo.name,
+            isDirect: tabInfo.isDirect,
+            fromUserId: input.paidById,
+            fromUserName: payerDisplayName,
+            description: input.description,
+            amount: notifyAmount,
+            recipientOweAmount: splitByUser.get(m.userId)?.toString(),
+            currencySymbol,
+            createdAt: new Date(),
+            recurringRuleId: ruleId,
+            recurringRuleTitle: ruleTitle,
+            ruleOwnerName,
+            editRulePath,
+          });
+        }
+      }
+    }
+
+    return ok({ expenseId, created: true });
   },
 
   update: async (

@@ -15,6 +15,7 @@ import { AddByQrPage } from "@/app/(app)/friends/add-by-qr/page";
 import { ActivityPage } from "@/app/(app)/activity/page";
 import { MePage } from "@/app/(app)/me/page";
 import { LogExpensePage } from "@/app/(app)/expense/new/page";
+import { RecurringExpenseRulePage } from "@/app/(app)/expense/recurring/[ruleId]/page";
 
 export const appLayoutRoutes = (
   <>
@@ -39,6 +40,10 @@ export const appLayoutRoutes = (
     <Route path="activity" element={<ActivityPage />} />
     <Route path="me" element={<MePage />} />
     <Route path="expense/new" element={<LogExpensePage />} />
+    <Route
+      path="expense/recurring/:ruleId"
+      element={<RecurringExpenseRulePage />}
+    />
     <Route path="*" element={<NotFoundPage />} />
   </>
 );

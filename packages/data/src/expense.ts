@@ -36,6 +36,7 @@ export type GetExpensesForTabResult = {
     expenseDate: Date;
     createdAt: Date;
     deletedAt: Date | null;
+    recurringRuleId?: string | null;
     paidBy: { id: string };
     splits: Array<{
       id: string;
@@ -62,6 +63,7 @@ type FlatRow = {
   expenseDate: Date;
   createdAt: Date;
   deletedAt: Date | null;
+  recurringRuleId: string | null;
   splitId: string | null;
   splitExpenseId: string | null;
   splitUserId: string | null;
@@ -103,6 +105,7 @@ function buildExpensesFromFlatRows(
       expenseDate: first.expenseDate,
       createdAt: first.createdAt,
       deletedAt: first.deletedAt ?? null,
+      recurringRuleId: first.recurringRuleId ?? null,
       paidBy: { id: first.paidById },
       splits,
       reactions: reactionsByExpenseId.get(expenseId) ?? [],
@@ -165,6 +168,10 @@ export type CreateExpenseInput = {
   expenseDate: Date;
   splits: { userId: string; amount: number; weight?: number | null }[];
   performedById: string;
+  recurringRuleId?: string | null;
+  /** Defaults to `create`. */
+  auditAction?: string;
+  auditChanges?: Record<string, unknown> | null;
 };
 
 export type UpdateExpenseInput = {
@@ -184,6 +191,7 @@ export type Expense = {
   id: string;
   tabId: string;
   paidById: string;
+  recurringRuleId?: string | null;
   amount: number;
   currency: string;
   originalAmount: number;
@@ -219,7 +227,7 @@ export type ExpenseAuditLogEntry = {
   id: string;
   expenseId: string;
   tabId: string;
-  action: "create" | "update" | "delete" | "restore";
+  action: "create" | "update" | "delete" | "restore" | "create_from_recurring";
   performedById: string;
   performedAt: Date;
   changes: Record<string, { from: unknown; to: unknown }> | null;
@@ -231,6 +239,46 @@ export type ExpenseAuditLogEntry = {
   };
 };
 
+async function insertExpenseWithClient(
+  client: typeof db,
+  input: CreateExpenseInput,
+): Promise<string> {
+  const [inserted] = await client
+    .insert(expenseTable)
+    .values({
+      tabId: input.tabId,
+      paidById: input.paidById,
+      recurringRuleId: input.recurringRuleId ?? null,
+      amount: input.amount.toString(),
+      currency: input.currency,
+      originalAmount: input.originalAmount.toString(),
+      description: input.description,
+      splitType: input.splitType,
+      expenseDate: input.expenseDate,
+    })
+    .returning({ id: expenseTable.id });
+  const expenseId = inserted!.id;
+
+  for (const s of input.splits) {
+    await client.insert(expenseSplit).values({
+      expenseId,
+      userId: s.userId,
+      amount: s.amount.toString(),
+      weight: s.weight != null ? String(s.weight) : null,
+    });
+  }
+
+  await client.insert(expenseAuditLog).values({
+    expenseId,
+    tabId: input.tabId,
+    action: input.auditAction ?? "create",
+    performedById: input.performedById,
+    changes: input.auditChanges ?? null,
+  });
+
+  return expenseId;
+}
+
 export const expense = {
   getById: async (expenseId: string) => {
     const [row] = await db
@@ -238,6 +286,7 @@ export const expense = {
         id: expenseTable.id,
         tabId: expenseTable.tabId,
         paidById: expenseTable.paidById,
+        recurringRuleId: expenseTable.recurringRuleId,
         amount: expenseTable.amount,
         currency: expenseTable.currency,
         originalAmount: expenseTable.originalAmount,
@@ -279,6 +328,7 @@ export const expense = {
 
     return {
       ...row,
+      recurringRuleId: row.recurringRuleId ?? null,
       amount: Number(row.amount),
       originalAmount: Number(row.originalAmount),
       deletedAt: row.deletedAt ?? null,
@@ -356,7 +406,7 @@ export const expense = {
       id: r.id,
       expenseId: r.expenseId,
       tabId: r.tabId,
-      action: r.action as "create" | "update" | "delete" | "restore",
+      action: r.action as ExpenseAuditLogEntry["action"],
       performedById: r.performedById,
       performedAt: r.performedAt,
       changes: r.changes as Record<string, { from: unknown; to: unknown }> | null,
@@ -413,6 +463,7 @@ export const expense = {
         expenseDate: expenseTable.expenseDate,
         createdAt: expenseTable.createdAt,
         deletedAt: expenseTable.deletedAt,
+        recurringRuleId: expenseTable.recurringRuleId,
       })
       .from(expenseTable)
       .where(filterWhere)
@@ -440,6 +491,7 @@ export const expense = {
           expenseDate: paginated.expenseDate,
           createdAt: paginated.createdAt,
           deletedAt: paginated.deletedAt,
+          recurringRuleId: paginated.recurringRuleId,
           splitId: expenseSplit.id,
           splitExpenseId: expenseSplit.expenseId,
           splitUserId: expenseSplit.userId,
@@ -463,39 +515,17 @@ export const expense = {
   },
 
   create: async (input: CreateExpenseInput): Promise<string> => {
-    const [inserted] = await db
-      .insert(expenseTable)
-      .values({
-        tabId: input.tabId,
-        paidById: input.paidById,
-        amount: input.amount.toString(),
-        currency: input.currency,
-        originalAmount: input.originalAmount.toString(),
-        description: input.description,
-        splitType: input.splitType,
-        expenseDate: input.expenseDate,
-      })
-      .returning({ id: expenseTable.id });
-    const expenseId = inserted!.id;
+    return insertExpenseWithClient(db, input);
+  },
 
-    for (const s of input.splits) {
-      await db.insert(expenseSplit).values({
-        expenseId,
-        userId: s.userId,
-        amount: s.amount.toString(),
-        weight: s.weight != null ? String(s.weight) : null,
-      });
-    }
-
-    await db.insert(expenseAuditLog).values({
-      expenseId,
-      tabId: input.tabId,
-      action: "create",
-      performedById: input.performedById,
-      changes: null,
-    });
-
-    return expenseId;
+  /**
+   * Same as create but uses the given client (e.g. transaction) for inserts.
+   */
+  insertWithClient: async (
+    client: typeof db,
+    input: CreateExpenseInput,
+  ): Promise<string> => {
+    return insertExpenseWithClient(client, input);
   },
 
   update: async (
