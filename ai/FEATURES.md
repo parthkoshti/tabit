@@ -23,7 +23,7 @@ A running list of features in the app.
 
 ## Tabs
 
-- Record settlements in any supported currency (converted to tab currency for balances; same Frankfurter FX pipeline as expenses)
+- **Multi-currency (expenses and settlements)**: Both can be recorded in any supported currency; amounts convert to the tab's currency using Frankfurter rates by expense date or settlement date (same FX pipeline for both)—suited to travel and cross-currency groups
 - Settlements have a settlement date (like expense date) used for FX conversion and shown in activity and detail views
 - 1 on 1 tab (direct tabs with friends)
 - **Payment reminders**: On a direct tab, when the friend **owes you**, **Remind** opens a dialog of iOS-style push previews; pick a tone (`gentle`, `friendly`, `firm`, `blunt`, `urgent`, `overkill` — some are playful or very direct) then **Send reminder**. The API is `POST /v1/friends/payment-reminder` with `{ friendTabId, tone }`; the server checks you are a member of that direct tab and that your balance is owed before publishing. Push title/body copy is defined in `packages/models` (`getPaymentReminderPushCopy`, `PAYMENT_REMINDER_TONE_META`)

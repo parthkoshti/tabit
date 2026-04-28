@@ -22,6 +22,9 @@ import {
   ChevronLeft,
   Settings,
   PieChart,
+  BellRing,
+  CalendarClock,
+  Link2,
 } from "lucide-react";
 
 const staggerChild = {
@@ -41,7 +44,7 @@ const features = [
     icon: Mic,
     title: "Log expenses in seconds",
     description:
-      'Just say what happened: "Alex paid 30 for pizza," and it\'s done. No tapping through forms.',
+      'Just say what happened: "Alex paid 30 for pizza in Roomies," and it\'s done.',
   },
   {
     icon: Monitor,
@@ -57,9 +60,9 @@ const features = [
   },
   {
     icon: QrCode,
-    title: "Add people instantly",
+    title: "QR and link invites",
     description:
-      "Show a QR code, they scan it, they're in. No usernames to type, no links to copy.",
+      "Add friends or invite people to tabs with a QR code or a shareable link. Whatever works for you and your friends.",
   },
   {
     icon: MessageCircle,
@@ -77,19 +80,43 @@ const features = [
     icon: ReceiptText,
     title: "Works for trips abroad",
     description:
-      "Pick the tab's currency, log expenses in another, and Tab converts to the tab using live rates. Just log it and move on.",
+      "Road trips and mixed wallets—log what you paid in local money without juggling spreadsheets. Tab rolls everything into your tab's currency.",
   },
   {
     icon: Users,
     title: "For any situation",
     description:
-      "Roommates, road trips, couples, friend groups. Create as many tabs as you need, with no limits.",
+      "Roommates, road trips, couples, friend groups. Filter expenses by what you're owed or what you owe. Unlimited tabs.",
   },
   {
     icon: Download,
     title: "Already on Splitwise?",
     description:
       "Bring your history with you. Import your Splitwise data and pick up right where you left off.",
+  },
+  {
+    icon: CalendarClock,
+    title: "Recurring bills, handled",
+    description:
+      "Rent, subscriptions, splits that happen weekly or monthly. Pause anytime; timezone-aware schedules.",
+  },
+  {
+    icon: BellRing,
+    title: "Payment reminders",
+    description:
+      "On a one-on-one tab, when your friend owes you, send a push reminder and choose how direct you want the tone to be.",
+  },
+  {
+    icon: BanknoteArrowUp,
+    title: "Any currency",
+    description:
+      "Pick the tab's home currency, then record each expense and each settlement in whatever currency you actually used. Live rates convert by transaction date. Built for travel and everyday splits.",
+  },
+  {
+    icon: Link2,
+    title: "1-on-1 meets group context",
+    description:
+      "See shared group tabs right from a friend's tab, including each net balance, so nothing gets lost between conversations.",
   },
 ] as const;
 
@@ -331,7 +358,7 @@ function FeatureShowcase() {
           </p>
         </motion.div>
 
-        <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-16 grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -390,9 +417,12 @@ function FeatureShowcase() {
               animate={{ opacity: [0.2, 0.5, 0.2] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
-            <h3 className="font-semibold text-foreground">QR invites</h3>
+            <h3 className="font-semibold text-foreground">
+              QR and link invites
+            </h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Show a QR. Friend scans. They're in. Same for tabs. No typing.
+              Invite friends or pull someone into a tab with a QR scan or a
+              link. No usernames to hunt down.
             </p>
           </motion.div>
 
@@ -422,6 +452,49 @@ function FeatureShowcase() {
             <p className="mt-2 text-sm text-muted-foreground">
               New expense? You see who paid. Reactions, invites, and settlements
               too. Always in sync.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="relative overflow-hidden rounded-2xl border border-border/20 bg-card/50 p-8 dark:bg-card/30"
+          >
+            <motion.div
+              className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary"
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            >
+              <CalendarClock className="h-7 w-7" />
+            </motion.div>
+            <h3 className="font-semibold text-foreground">
+              Recurring expenses
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Weekly, monthly, or pick weekdays. Rent and subscriptions post on
+              schedule. Pause, resume, or cap how many times it runs.
+            </p>
+          </motion.div>
+
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={isInView ? { opacity: 1, y: 0 } : {}}
+            transition={{ delay: 0.35, duration: 0.5 }}
+            className="relative overflow-hidden rounded-2xl border border-border/20 bg-card/50 p-8 dark:bg-card/30"
+          >
+            <motion.div
+              className="mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary/10 text-primary"
+              whileHover={{ scale: 1.05 }}
+              transition={{ type: "spring", stiffness: 400, damping: 20 }}
+            >
+              <BellRing className="h-7 w-7" />
+            </motion.div>
+            <h3 className="font-semibold text-foreground">Payment reminders</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              When someone owes you on a direct tab, send a push with a tone
+              that matches the situation: from a light nudge to unmistakably
+              clear.
             </p>
           </motion.div>
         </div>
@@ -544,11 +617,23 @@ export function HomePageContent() {
                   className="inline-flex items-center gap-2"
                 >
                   <Github className="h-4 w-4" />
-                  Star on GitHub
+                  Self host
                 </Link>
               </Button>
             ) : null}
           </motion.div>
+          <motion.p
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{
+              duration: 0.45,
+              delay: 0.4,
+              ease: [0.25, 0.46, 0.45, 0.94],
+            }}
+            className="mt-6 text-sm text-muted-foreground"
+          >
+            100% free hosted. Or self-host. No feature gates or limits.
+          </motion.p>
           <HeroPreview />
         </div>
       </section>
@@ -559,28 +644,48 @@ export function HomePageContent() {
             Why free?
           </p>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-            Because a paywall killed the habit.
+            Because the paywall was a shitty experience.
           </h2>
           <div className="mt-6 space-y-4 text-base leading-relaxed text-muted-foreground sm:text-lg">
             <p>
               Splitwise used to be free. Then they introduced a paid plan and
-              started nudging you toward it constantly. Three expenses and you
-              hit a limit. Add another and you're staring at an upgrade prompt.
+              started nudging you toward it constantly, very annoyingly. Three
+              expenses and you hit a limit. Now you have to wait for the timer
+              to reset.
             </p>
             <p>
-              The subscription isn't worth it for what the app does. And the
-              friction made me dread logging expenses, which meant I'd stop,
-              lose track, and have no idea what I owed people or what they owed
-              me.
+              It was supposed to an app for people, typically college students,
+              travellers, and young couple, to help track their expenses. People
+              who typically aren't flush with cash. It was a huge success, and
+              then turned into a money-grab.
             </p>
             <p>
-              That's the real cost. Not the subscription fee. It's the mental
-              overhead of not knowing where you stand with people you care
-              about.{" "}
+              Maybe the subscription is worth it for what the app does? Maybe
+              it's not. But I hated this money-grab so much that it made me
+              dread logging expenses, which meant I'd stop, lose track, and have
+              no idea what I owed people or what they owed me.
+            </p>
+            <p>
+              So I made this.{" "}
               <span className="font-medium text-foreground">
-                Tab is free because the moment it costs you something to log an
-                expense, you stop logging.
-              </span>
+                Tab is free because I'd rather spend money on server costs than
+                on a Splitwise subscription.
+              </span>{" "}
+              It doesn't cost much to run, really, and I hope people like using
+              it to keep their finances in order.
+            </p>
+            <p>Like my partner and I do.</p>
+            <p className="">
+              -{" "}
+              <Link
+                href="https://www.parthkoshti.com?ref=tab"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:underline underline-offset-4 decoration-dotted text-foreground"
+              >
+                Parth Koshti
+              </Link>
+              , creator of Tab
             </p>
           </div>
           <div className="mt-6">
@@ -597,7 +702,7 @@ export function HomePageContent() {
         </AnimatedSection>
       </section>
 
-      <FeatureShowcase />
+      {/* <FeatureShowcase /> */}
 
       <section
         id="features"
@@ -618,8 +723,9 @@ export function HomePageContent() {
               Everything you need. Nothing you don't.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-              Simple enough that logging an expense takes seconds. Powerful
-              enough for uneven splits, roommates, trips, and mixed currencies.
+              Voice logging, recurring splits, reminders when you're owed, and
+              multi-currency expenses and settlements. Built for roommates,
+              trips, and everyday bills.
             </p>
           </motion.div>
           <motion.div
