@@ -11,6 +11,7 @@ export const notificationTypeSchema = z.enum([
   "expense_restored",
   "expenses_bulk_imported",
   "poke",
+  "payment_reminder",
   "expense_reaction",
   "recurring_rule_needs_fix",
 ]);
@@ -187,6 +188,110 @@ export type PokeNotificationPayload = z.infer<
   typeof pokeNotificationPayloadSchema
 >;
 
+export const paymentReminderToneSchema = z.enum([
+  "gentle",
+  "friendly",
+  "firm",
+  "blunt",
+  "urgent",
+  "overkill",
+]);
+export type PaymentReminderTone = z.infer<typeof paymentReminderToneSchema>;
+
+export const paymentReminderRequestSchema = z.object({
+  friendTabId: z.string().min(1),
+  tone: paymentReminderToneSchema,
+});
+
+/** Copy for push title/body (recipient sees sender as `fromUserName`). */
+export function getPaymentReminderPushCopy(
+  tone: PaymentReminderTone | string,
+  fromUserName: string | null,
+  amountDisplay: string,
+): { title: string; body: string } {
+  const parsed = paymentReminderToneSchema.safeParse(tone);
+  const t: PaymentReminderTone = parsed.success ? parsed.data : "gentle";
+  const name = (fromUserName?.trim() || "Someone").slice(0, 80);
+  const amt = amountDisplay.trim() || "a balance";
+
+  switch (t) {
+    case "gentle":
+      return {
+        title: `Soft reminder from ${name}`,
+        body: `Just a heads-up — you still owe ${amt} on Tab.`,
+      };
+    case "friendly":
+      return {
+        title: `${name} ~politely~ wants money`,
+        body: `${amt} is still outstanding. We're all pretending not to notice... we noticed.`,
+      };
+    case "firm":
+      return {
+        title: "Payment reminder",
+        body: `${name} is waiting on ${amt} on your shared tab.`,
+      };
+    case "blunt":
+      return {
+        title: `You owe ${amt}`,
+        body: `${name} doesn't ask for much, only the ${amt} you owe them.`,
+      };
+    case "urgent":
+      return {
+        title: `Yo pay me ${amt} now`,
+        body: `${name} is out of patience. ${amt} gets paid today. Settle it before this gets uglier.`,
+      };
+    case "overkill":
+      return {
+        title: `PAY UP: ${amt} 🔪🔪🔪`,
+        body: `${name} wants their ${amt} back. Pay before a knife gets involved.`,
+      };
+  }
+}
+
+export const PAYMENT_REMINDER_TONE_META: readonly {
+  tone: PaymentReminderTone;
+  label: string;
+}[] = [
+  {
+    tone: "gentle",
+    label: "Gentle",
+  },
+  {
+    tone: "friendly",
+    label: "Friendly",
+  },
+  {
+    tone: "firm",
+    label: "Firm",
+  },
+  {
+    tone: "blunt",
+    label: "Blunt",
+  },
+  {
+    tone: "urgent",
+    label: "Urgent",
+  },
+  {
+    tone: "overkill",
+    label: "Overkill",
+  },
+];
+
+export const paymentReminderNotificationPayloadSchema = z.object({
+  type: z.literal("payment_reminder"),
+  friendTabId: z.string(),
+  fromUserId: z.string(),
+  fromUserName: z.string().nullable(),
+  fromUserUsername: z.string().nullable(),
+  tone: paymentReminderToneSchema,
+  amountDisplay: z.string(),
+  createdAt: z.string(),
+});
+export type PaymentReminderNotificationPayload = z.infer<
+  typeof paymentReminderNotificationPayloadSchema
+>;
+
 export const expenseReactionNotificationPayloadSchema = z.object({
   type: z.literal("expense_reaction"),
   tabId: z.string(),
@@ -215,6 +320,7 @@ export const notificationPayloadSchema = z.discriminatedUnion("type", [
   expenseRestoredNotificationPayloadSchema,
   expensesBulkImportedNotificationPayloadSchema,
   pokeNotificationPayloadSchema,
+  paymentReminderNotificationPayloadSchema,
   expenseReactionNotificationPayloadSchema,
   recurringRuleNeedsFixNotificationPayloadSchema,
 ]);
@@ -477,6 +583,27 @@ export function createPokeNotificationPayload(data: {
     fromUserId: data.fromUserId,
     fromUserName: data.fromUserName,
     fromUserUsername: data.fromUserUsername,
+    createdAt: data.createdAt.toISOString(),
+  };
+}
+
+export function createPaymentReminderNotificationPayload(data: {
+  friendTabId: string;
+  fromUserId: string;
+  fromUserName: string | null;
+  fromUserUsername: string | null;
+  tone: PaymentReminderTone;
+  amountDisplay: string;
+  createdAt: Date;
+}): PaymentReminderNotificationPayload {
+  return {
+    type: "payment_reminder",
+    friendTabId: data.friendTabId,
+    fromUserId: data.fromUserId,
+    fromUserName: data.fromUserName,
+    fromUserUsername: data.fromUserUsername,
+    tone: data.tone,
+    amountDisplay: data.amountDisplay,
     createdAt: data.createdAt.toISOString(),
   };
 }

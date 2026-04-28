@@ -14,6 +14,7 @@ A running list of features in the app.
 
 - Real-time notifications
 - Connection state (disconnected/reconnecting) shown on bottom navbar via border styling
+- Web push type **`payment_reminder`**: sent when someone uses **Remind** on a direct tab (friend must be owed); deep link opens that tab
 
 ## Social
 
@@ -25,7 +26,8 @@ A running list of features in the app.
 - Record settlements in any supported currency (converted to tab currency for balances; same Frankfurter FX pipeline as expenses)
 - Settlements have a settlement date (like expense date) used for FX conversion and shown in activity and detail views
 - 1 on 1 tab (direct tabs with friends)
-- On a direct tab, a “Shared tabs” section lists group tabs you share with that friend (above balances)
+- **Payment reminders**: On a direct tab, when the friend **owes you**, **Remind** opens a dialog of iOS-style push previews; pick a tone (`gentle`, `friendly`, `firm`, `blunt`, `urgent`, `overkill` — some are playful or very direct) then **Send reminder**. The API is `POST /v1/friends/payment-reminder` with `{ friendTabId, tone }`; the server checks you are a member of that direct tab and that your balance is owed before publishing. Push title/body copy is defined in `packages/models` (`getPaymentReminderPushCopy`, `PAYMENT_REMINDER_TONE_META`)
+- On a direct tab, a “Shared tabs” section lists group tabs you share with that friend (above balances), each with your net balance in that tab (same wording as the tabs list: you’re owed / you owe / settled)
 - Group tabs
 - Tab members can set expense currency via manage page
 - Sort tabs by name, most recent expense, or most expenses

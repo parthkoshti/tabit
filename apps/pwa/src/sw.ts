@@ -64,12 +64,19 @@ self.addEventListener("push", function (event) {
           ? "New tab invite"
           : data.type === "poke"
             ? "Poke them back!"
-            : "You have a new notification");
+            : data.type === "payment_reminder"
+              ? "Open your tab to settle up."
+              : "You have a new notification");
     const url =
       decl?.navigate ||
       data.url ||
       new URL(
-        data.type === "tab_invite" ? "/tabs" : "/friends",
+        data.type === "tab_invite"
+          ? "/tabs"
+          : data.type === "payment_reminder" &&
+              typeof data.friendTabId === "string"
+            ? `/tabs/${data.friendTabId}`
+            : "/friends",
         self.location.origin,
       ).href;
     const tag =
@@ -79,7 +86,9 @@ self.addEventListener("push", function (event) {
           ? "tab_invite"
           : data.type === "poke"
             ? "poke"
-            : "default";
+            : data.type === "payment_reminder"
+              ? "payment_reminder"
+              : "default";
 
     const actions =
       data.type === "friend_request" || data.type === "tab_invite"
@@ -101,7 +110,7 @@ self.addEventListener("push", function (event) {
       requireInteraction:
         data.type === "friend_request" ||
         data.type === "tab_invite" ||
-        data.type === "poke",
+        data.type === "poke" || data.type === "payment_reminder",
       data: { url, ...data },
       ...(actions && { actions }),
     };

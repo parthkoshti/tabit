@@ -11,6 +11,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "models": "workspace:*",
     "otel": "workspace:*",
     "db": "workspace:*",
     "drizzle-orm": "^0.41.0",

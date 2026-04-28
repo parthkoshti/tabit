@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { paymentReminderRequestSchema } from "models";
 import { authMiddleware, type AuthContext } from "../auth.js";
 import { log } from "../lib/logger.js";
 import { friendService } from "services";
@@ -141,5 +142,35 @@ friendsRoutes.post("/poke", async (c) => {
   }
 
   log("info", "User poked", { fromUserId: userId, friendTabId: friendTabId?.trim() });
+  return c.json({ success: true });
+});
+
+friendsRoutes.post("/payment-reminder", async (c) => {
+  const { userId } = c.get("auth");
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = paymentReminderRequestSchema.safeParse(body);
+  if (!parsed.success) {
+    const msg =
+      parsed.error.flatten().formErrors[0] ??
+      parsed.error.flatten().fieldErrors.friendTabId?.[0] ??
+      parsed.error.flatten().fieldErrors.tone?.[0] ??
+      "Invalid request";
+    return c.json({ success: false, error: msg }, 400);
+  }
+
+  const result = await friendService.sendPaymentReminder(
+    userId,
+    parsed.data.friendTabId,
+    parsed.data.tone,
+  );
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
+  }
+
+  log("info", "Payment reminder sent", {
+    fromUserId: userId,
+    friendTabId: parsed.data.friendTabId.trim(),
+    tone: parsed.data.tone,
+  });
   return c.json({ success: true });
 });

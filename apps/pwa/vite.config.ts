@@ -66,6 +66,10 @@ export default defineConfig({
           { src: "/icon-1024x1024.png", sizes: "1024x1024", type: "image/png" },
         ],
       },
+      injectManifest: {
+        // Default 2 MiB; main bundle can exceed that and fail the build.
+        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+      },
       workbox: {
         navigateFallbackDenylist: [/^\/api/],
       },

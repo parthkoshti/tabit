@@ -45,6 +45,8 @@ export type SharedGroupTabListItem = {
   currency: string;
   createdAt: Date;
   memberUserIds: string[];
+  /** Net for `forUserId` in this tab: positive = owed to them, negative = they owe. */
+  balance: number;
 };
 
 /** Return type of getBalancesForTab. Use string | Date for JSON API responses. */
@@ -529,7 +531,9 @@ export const tab = {
   listGroupTabsSharedBetweenUsers: async (
     userId1: string,
     userId2: string,
+    options?: { forUserId?: string },
   ): Promise<SharedGroupTabListItem[]> => {
+    const forUserId = options?.forUserId ?? userId1;
     const tabMemberB = alias(tabMember, "tab_member_b");
     const rows = await db
       .select({
@@ -565,10 +569,18 @@ export const tab = {
       byTab.set(m.tabId, list);
     }
 
-    return rows.map((r) => ({
+    const base = rows.map((r) => ({
       ...r,
       memberUserIds: byTab.get(r.id) ?? [],
     }));
+
+    return Promise.all(
+      base.map(async (r) => {
+        const balances = await getBalancesForTab(r.id);
+        const mine = balances.find((b) => b.userId === forUserId);
+        return { ...r, balance: mine?.amount ?? 0 };
+      }),
+    );
   },
 
   createDirect: async (

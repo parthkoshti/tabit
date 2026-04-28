@@ -107,6 +107,7 @@ vi.mock("../notification.js", () => ({
     publishFriendRequest: vi.fn(),
     publishFriendRequestAccepted: vi.fn(),
     publishPoke: vi.fn(),
+    publishPaymentReminder: vi.fn(),
     publishTabInvite: vi.fn(),
     publishTabInviteAccepted: vi.fn(),
   },

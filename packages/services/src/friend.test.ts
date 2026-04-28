@@ -257,4 +257,119 @@ describe("friendService", () => {
       }
     });
   });
+
+  describe("sendPaymentReminder", () => {
+    test("returns error if friendTabId empty", async () => {
+      const result = await friendService.sendPaymentReminder(
+        "user1",
+        "   ",
+        "gentle",
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("friendTabId is required");
+      }
+    });
+
+    test("returns error if not owed", async () => {
+      vi.mocked(friendData.isUserInDirectTab).mockResolvedValue(true);
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        id: "t1",
+        name: "D",
+        currency: "USD",
+        isDirect: true,
+        createdAt: new Date(),
+        members: [
+          {
+            userId: "user1",
+            role: "member",
+            user: { id: "user1", email: "a@a.com", name: "A", username: null },
+          },
+          {
+            userId: "user2",
+            role: "member",
+            user: { id: "user2", email: "b@b.com", name: "B", username: null },
+          },
+        ],
+      });
+      vi.mocked(friendData.getOtherMemberOfDirectTab).mockResolvedValue("user2");
+      vi.mocked(tab.getBalancesForTab).mockResolvedValue([
+        {
+          userId: "user1",
+          amount: -10,
+          user: { id: "user1", email: "", name: null, username: null },
+        },
+      ]);
+      vi.mocked(userData.getById).mockResolvedValue({
+        id: "user1",
+        name: "A",
+        username: null,
+      } as Awaited<ReturnType<typeof userData.getById>>);
+
+      const result = await friendService.sendPaymentReminder(
+        "user1",
+        "t1",
+        "gentle",
+      );
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("You are not owed on this tab");
+      }
+    });
+
+    test("sends reminder when user is owed", async () => {
+      vi.mocked(friendData.isUserInDirectTab).mockResolvedValue(true);
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        id: "t1",
+        name: "D",
+        currency: "USD",
+        isDirect: true,
+        createdAt: new Date(),
+        members: [
+          {
+            userId: "user1",
+            role: "member",
+            user: { id: "user1", email: "a@a.com", name: "A", username: null },
+          },
+          {
+            userId: "user2",
+            role: "member",
+            user: { id: "user2", email: "b@b.com", name: "B", username: null },
+          },
+        ],
+      });
+      vi.mocked(friendData.getOtherMemberOfDirectTab).mockResolvedValue("user2");
+      vi.mocked(tab.getBalancesForTab).mockResolvedValue([
+        {
+          userId: "user1",
+          amount: 24.5,
+          user: { id: "user1", email: "", name: null, username: null },
+        },
+      ]);
+      vi.mocked(userData.getById).mockResolvedValue({
+        id: "user1",
+        name: "Alice",
+        username: "alice",
+      } as Awaited<ReturnType<typeof userData.getById>>);
+
+      const result = await friendService.sendPaymentReminder(
+        "user1",
+        "t1",
+        "firm",
+      );
+
+      expect(result.success).toBe(true);
+      expect(notificationService.publishPaymentReminder).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: "user2",
+          friendTabId: "t1",
+          fromUserId: "user1",
+          fromUserName: "Alice",
+          tone: "firm",
+        }),
+      );
+    });
+  });
 });

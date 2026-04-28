@@ -38,6 +38,7 @@ import { AnimatedCard } from "@/components/motion/animated-card";
 import { formatAmount } from "@/lib/format-amount";
 import { TabExpenseCard } from "@/components/tab-expense-card";
 import { TabSettlementCard } from "@/components/tab-settlement-card";
+import { PaymentReminderDialog } from "@/components/payment-reminder-dialog";
 
 export function TabPage() {
   const { tabId } = useParams<{ tabId: string }>();
@@ -148,6 +149,7 @@ export function TabPage() {
   });
 
   const [settleUpOpen, setSettleUpOpen] = useState(false);
+  const [remindOpen, setRemindOpen] = useState(false);
 
   const [infiniteRef] = useInfiniteScroll({
     loading: isLoadingMoreExpenses,
@@ -259,6 +261,25 @@ export function TabPage() {
     balances?.filter((b) => b.userId === currentUserId && b.amount > 0) ?? [];
   const others = balances?.filter((b) => b.userId !== currentUserId) ?? [];
 
+  const otherMemberUserId =
+    tab.members.find((m) => m.userId !== currentUserId)?.userId ?? "";
+  const friendDisplayName = otherMember
+    ? getDisplayName(otherMember, currentUserId)
+    : "Friend";
+
+  let directMyNet = 0;
+  if (tab.isDirect && balances && balances.length > 0) {
+    const mine = balances.find((b) => b.userId === currentUserId);
+    if (mine !== undefined) {
+      directMyNet = mine.amount;
+    } else {
+      const otherRows = balances.filter((b) => b.userId !== currentUserId);
+      if (otherRows.length === 1 && tab.members.length === 2) {
+        directMyNet = -otherRows[0].amount;
+      }
+    }
+  }
+
   return (
     <div className="p-4">
       <div className="mx-auto max-w-3xl space-y-6 pb-60">
@@ -341,6 +362,14 @@ export function TabPage() {
                     ? currentUserFirst.slice(0, 2)
                     : currentUserFirst.slice(0, 3);
                   const extraCount = hasExtra ? currentUserFirst.length - 2 : 0;
+                  const sharedBalance = st.balance ?? 0;
+                  const sharedCurrency = st.currency ?? "USD";
+                  const sharedBalanceText =
+                    sharedBalance > 0
+                      ? `You're owed ${formatAmount(sharedBalance, sharedCurrency)}`
+                      : sharedBalance < 0
+                        ? `You owe ${formatAmount(Math.abs(sharedBalance), sharedCurrency)}`
+                        : "Settled";
 
                   return (
                     <Link
@@ -370,7 +399,20 @@ export function TabPage() {
                           </div>
                         )}
                       </div>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span
+                          className={
+                            sharedBalance > 0
+                              ? "max-w-36 truncate text-right text-xs font-medium text-positive"
+                              : sharedBalance < 0
+                                ? "max-w-36 truncate text-right text-xs font-medium text-negative"
+                                : "max-w-36 truncate text-right text-xs text-muted-foreground"
+                          }
+                        >
+                          {sharedBalanceText}
+                        </span>
+                        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      </div>
                     </Link>
                   );
                 })}
@@ -384,6 +426,59 @@ export function TabPage() {
             <CardContent className="p-4">
               {!balances || balances.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No balances yet</p>
+              ) : tab.isDirect ? (
+                <div className="flex items-center gap-4 text-sm justify-between">
+                  {directMyNet > 0 ? (
+                    <>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <UserAvatar
+                          userId={otherMemberUserId}
+                          size="sm"
+                          className="shrink-0"
+                        />
+                        <span className="min-w-0">
+                          <span className="text-foreground">
+                            {friendDisplayName}
+                          </span>{" "}
+                          <span className="text-muted-foreground">
+                            owes you
+                          </span>{" "}
+                          <span className="font-medium text-positive tabular-nums">
+                            {formatAmount(directMyNet, tabCurrency)}
+                          </span>
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-fit"
+                        onClick={() => setRemindOpen(true)}
+                      >
+                        Remind
+                      </Button>
+                    </>
+                  ) : directMyNet < 0 ? (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="shrink-0 text-muted-foreground">
+                        You owe
+                      </span>
+                      <UserAvatar
+                        userId={otherMemberUserId}
+                        size="sm"
+                        className="shrink-0"
+                      />
+                      <span className="min-w-0">
+                        <span className="font-medium">{friendDisplayName}</span>{" "}
+                        <span className="font-medium tabular-nums text-negative">
+                          {formatAmount(Math.abs(directMyNet), tabCurrency)}
+                        </span>
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">Settled up</p>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-2">
                   {youOwe.map((b) => (
@@ -414,6 +509,17 @@ export function TabPage() {
             </CardContent>
           </Card>
         </section>
+
+        {tab.isDirect && (
+          <PaymentReminderDialog
+            open={remindOpen}
+            onOpenChange={setRemindOpen}
+            friendTabId={tabIdOrEmpty}
+            friendDisplayName={friendDisplayName}
+            senderLabel={session?.user?.name?.trim() || "You"}
+            amountDisplay={formatAmount(Math.max(0, directMyNet), tabCurrency)}
+          />
+        )}
 
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">

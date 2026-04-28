@@ -95,6 +95,14 @@ export const api = {
         method: "POST",
         body: { friendTabId },
       }),
+    sendPaymentReminder: (friendTabId: string, tone: string) =>
+      request<{ success: boolean; error?: string }>(
+        "/friends/payment-reminder",
+        {
+          method: "POST",
+          body: { friendTabId, tone },
+        },
+      ),
   },
   tabInvites: {
     getByToken: (token: string) =>

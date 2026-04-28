@@ -1,4 +1,5 @@
-import { createShortId } from "shared";
+import { createShortId, formatAmount } from "shared";
+import type { PaymentReminderTone } from "models";
 import { tab, friend as friendData, user as userData } from "data";
 import { ok, err, type Result } from "./types.js";
 import { notificationService } from "./notification.js";
@@ -236,6 +237,64 @@ export const friendService = {
       fromUserId: userId,
       fromUserName: sender?.name ?? null,
       fromUserUsername: sender?.username ?? null,
+      createdAt: new Date(),
+    });
+
+    return ok(undefined);
+  },
+
+  sendPaymentReminder: async (
+    userId: string,
+    friendTabId: string,
+    tone: PaymentReminderTone,
+  ): Promise<Result<void>> => {
+    const trimmed = friendTabId.trim();
+    if (!trimmed) {
+      return err("friendTabId is required", 400);
+    }
+
+    const isInTab = await friendData.isUserInDirectTab(trimmed, userId);
+    if (!isInTab) {
+      return err("Tab not found or you are not a member", 404);
+    }
+
+    const tabData = await tab.getWithMembers(trimmed);
+    if (!tabData?.isDirect) {
+      return err("Only direct tabs support payment reminders", 400);
+    }
+
+    const friendUserId = await friendData.getOtherMemberOfDirectTab(
+      trimmed,
+      userId,
+    );
+    if (!friendUserId) {
+      return err("Friend not found", 404);
+    }
+
+    const balances = await tab.getBalancesForTab(trimmed);
+    const mine = balances.find((b) => b.userId === userId);
+    let myNet = mine?.amount ?? 0;
+    if (mine === undefined && balances.length === 1) {
+      const only = balances[0];
+      if (only && only.userId !== userId) {
+        myNet = -only.amount;
+      }
+    }
+    if (myNet <= 0) {
+      return err("You are not owed on this tab", 400);
+    }
+
+    const sender = await userData.getById(userId);
+    const amountDisplay = formatAmount(myNet, tabData.currency ?? "USD");
+
+    await notificationService.publishPaymentReminder({
+      userId: friendUserId,
+      friendTabId: trimmed,
+      fromUserId: userId,
+      fromUserName: sender?.name ?? null,
+      fromUserUsername: sender?.username ?? null,
+      tone,
+      amountDisplay,
       createdAt: new Date(),
     });
 

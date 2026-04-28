@@ -1,5 +1,5 @@
 import { Redis } from "ioredis";
-import type { NotificationPayload } from "models";
+import type { NotificationPayload, PaymentReminderTone } from "models";
 import {
   createExpenseAddedNotificationPayload,
   createExpenseUpdatedNotificationPayload,
@@ -10,6 +10,7 @@ import {
   createFriendRequestNotificationPayload,
   createFriendRequestAcceptedNotificationPayload,
   createPokeNotificationPayload,
+  createPaymentReminderNotificationPayload,
   createTabInviteNotificationPayload,
   createTabInviteAcceptedNotificationPayload,
   createRecurringRuleNeedsFixNotificationPayload,
@@ -204,6 +205,20 @@ export const notificationService = {
     createdAt: Date;
   }): Promise<void> => {
     const payload = createPokeNotificationPayload(params);
+    await publish(params.userId, payload);
+  },
+
+  publishPaymentReminder: async (params: {
+    userId: string;
+    friendTabId: string;
+    fromUserId: string;
+    fromUserName: string | null;
+    fromUserUsername: string | null;
+    tone: PaymentReminderTone;
+    amountDisplay: string;
+    createdAt: Date;
+  }): Promise<void> => {
+    const payload = createPaymentReminderNotificationPayload(params);
     await publish(params.userId, payload);
   },
 

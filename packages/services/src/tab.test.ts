@@ -125,6 +125,7 @@ describe("tabService", () => {
           currency: "USD",
           createdAt: new Date(),
           memberUserIds: ["user1", "user2", "user3"],
+          balance: 25.5,
         },
       ];
       vi.mocked(tab.getWithMembers).mockResolvedValue({

@@ -675,8 +675,8 @@ export function MakeRecurringExpenseDialog({
               <Label htmlFor="maxCount" className="sr-only">
                 Repeat count (leave empty for unlimited)
               </Label>
-              <div className="flex h-10 min-w-0 items-center gap-0 rounded-md border border-input bg-input-bg text-sm shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
-                <span className="shrink-0 pl-3 text-sm leading-none text-muted-foreground">
+              <div className="flex h-10 min-w-0 items-center gap-0 rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
+                <span className="shrink-0 pl-3 leading-none text-muted-foreground">
                   Repeat{" "}
                 </span>
                 <Input
@@ -707,9 +707,9 @@ export function MakeRecurringExpenseDialog({
                       ? `${Math.min(6, Math.max(1, maxCount.length)) + 0.35}ch`
                       : "2.5ch",
                   }}
-                  className="box-content h-10 min-w-0 shrink-0 border-0 bg-transparent p-0 text-center text-sm leading-none text-foreground placeholder:text-muted-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 tabular-nums flex-none pl-0.5"
+                  className="box-content h-10 min-w-0 shrink-0 border-0 bg-transparent p-0 text-center leading-none text-foreground placeholder:text-muted-foreground shadow-none focus-visible:ring-0 focus-visible:ring-offset-0 tabular-nums flex-none pl-0.5"
                 />
-                <span className="min-w-0 flex-1 truncate pl-0.5 pr-3 text-sm leading-none text-muted-foreground tabular-nums">
+                <span className="min-w-0 flex-1 truncate pl-0.5 pr-3 leading-none text-muted-foreground tabular-nums">
                   {(() => {
                     const n = parsedMaxCountFromField(maxCount);
                     if (n === 1) return "time";

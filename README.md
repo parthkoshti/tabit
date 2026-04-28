@@ -47,6 +47,7 @@ Commercial expense-splitting apps can change the rules overnight. Free tiers get
 
 - [x] QR code invites for friends and tabs
 - [x] Poke friends for fun
+- [x] Payment reminders on direct tabs (Remind when you are owed; friend receives web push `payment_reminder`; choose tone in the PWA)
 - [x] Sort friends and tabs by name, recency, or activity
 
 ### Privacy and Control

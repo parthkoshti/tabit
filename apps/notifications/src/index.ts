@@ -11,6 +11,7 @@ import webpush from "web-push";
 import { db, pushSubscription } from "db";
 import { eq, and } from "drizzle-orm";
 import { log as otelLog } from "otel";
+import { getPaymentReminderPushCopy } from "models";
 
 const LOG_PREFIX = "[notifications]";
 
@@ -102,6 +103,8 @@ function getPushTitle(payload: {
   tabName?: string;
   description?: string;
   amount?: string;
+  amountDisplay?: string;
+  tone?: string;
   count?: number;
   forcePush?: boolean;
   isDirect?: boolean;
@@ -208,6 +211,14 @@ function getPushTitle(payload: {
     return `${payload.fromUserName} poked you`;
   }
   if (payload.type === "poke") return "Someone poked you";
+  if (payload.type === "payment_reminder") {
+    const { title } = getPaymentReminderPushCopy(
+      typeof payload.tone === "string" ? payload.tone : "gentle",
+      payload.fromUserName ?? null,
+      typeof payload.amountDisplay === "string" ? payload.amountDisplay : "",
+    );
+    return title;
+  }
   if (payload.type === "expense_reaction" && payload.fromUserName) {
     const desc = payload.description || "expense";
     if (payload.isDirect) {
@@ -236,6 +247,8 @@ function getPushBody(payload: {
   type: string;
   description?: string;
   amount?: string;
+  amountDisplay?: string;
+  tone?: string;
   tabName?: string;
   count?: number;
   forcePush?: boolean;
@@ -307,6 +320,14 @@ function getPushBody(payload: {
     return `${payload.count} expense${payload.count !== 1 ? "s" : ""} imported to ${payload.tabName}`;
   }
   if (payload.type === "poke") return "Poke them back!";
+  if (payload.type === "payment_reminder") {
+    const { body } = getPaymentReminderPushCopy(
+      typeof payload.tone === "string" ? payload.tone : "gentle",
+      payload.fromUserName ?? null,
+      typeof payload.amountDisplay === "string" ? payload.amountDisplay : "",
+    );
+    return body;
+  }
   if (payload.type === "expense_reaction") {
     const desc = payload.description || "expense";
     return `${payload.fromUserName ?? "Someone"} reacted ${payload.emoji} to ${desc}`;
@@ -349,6 +370,9 @@ function getNavigatePath(payload: {
     return `/tabs/${payload.tabId}`;
   }
   if (payload.type === "poke") return "/friends";
+  if (payload.type === "payment_reminder" && payload.friendTabId) {
+    return `/tabs/${payload.friendTabId}`;
+  }
   return "/friends";
 }
 
