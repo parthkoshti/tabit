@@ -25,6 +25,7 @@ import {
   BellRing,
   CalendarClock,
   Link2,
+  UserRound,
 } from "lucide-react";
 
 const staggerChild = {
@@ -87,6 +88,12 @@ const features = [
     title: "For any situation",
     description:
       "Roommates, road trips, couples, friend groups. Filter expenses by what you're owed or what you owe. Unlimited tabs.",
+  },
+  {
+    icon: UserRound,
+    title: "Placeholder friends",
+    description:
+      "Someone is not on the tab yet? Add a named placeholder so you can split and settle now. When they join, merge that placeholder into their account in one step.",
   },
   {
     icon: Download,
@@ -723,9 +730,10 @@ export function HomePageContent() {
               Everything you need. Nothing you don't.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-              Voice logging, recurring splits, reminders when you're owed, and
-              multi-currency expenses and settlements. Built for roommates,
-              trips, and everyday bills.
+              Voice logging, recurring splits, reminders when you're owed,
+              multi-currency expenses and settlements, and placeholder friends
+              when not everyone has joined yet. Built for roommates, trips, and
+              everyday bills.
             </p>
           </motion.div>
           <motion.div

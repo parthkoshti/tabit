@@ -45,6 +45,7 @@ Commercial expense-splitting apps can change the rules overnight. Free tiers get
 
 ### Social and Collaboration
 
+- [x] **Placeholder friends** on group tabs: add named stand-ins before someone has an account or joins the tab; they count in splits, settlements, recurring rules, and balances like members. Tab owners can **merge** a placeholder into a real member in one step (history and ledger move over). Managed from the tab **Members** screen in the PWA.
 - [x] QR code invites for friends and tabs
 - [x] Poke friends for fun
 - [x] Payment reminders on direct tabs (Remind when you are owed; friend receives web push `payment_reminder`; choose tone in the PWA)

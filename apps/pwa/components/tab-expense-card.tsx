@@ -11,6 +11,17 @@ import { ExpenseReactions } from "@/components/expense-reactions";
 import { ExpenseYourBalance } from "@/components/expense-your-balance";
 import type { Expense } from "data";
 
+function splitIsForPayer(s: Expense["splits"][number], expense: Expense): boolean {
+  if (expense.paidById != null && s.userId === expense.paidById) return true;
+  if (
+    expense.paidByParticipantId != null &&
+    s.participantId === expense.paidByParticipantId
+  ) {
+    return true;
+  }
+  return false;
+}
+
 export type TabMemberUser = {
   id: string;
   email?: string;
@@ -24,6 +35,8 @@ type TabExpenseCardProps = {
   tabId: string;
   isDirect: boolean;
   currentUserId: string;
+  /** Current viewer's member participant id on this tab, when known. */
+  currentUserParticipantId?: string | null;
   getMemberUser: (userId: string) => TabMemberUser;
 };
 
@@ -33,9 +46,17 @@ export function TabExpenseCard({
   tabId,
   isDirect,
   currentUserId,
+  currentUserParticipantId = null,
   getMemberUser,
 }: TabExpenseCardProps) {
   const isRecurring = Boolean(item.recurringRuleId);
+  const yourShare =
+    item.splits.find(
+      (s) =>
+        s.userId === currentUserId ||
+        (!!currentUserParticipantId &&
+          s.participantId === currentUserParticipantId),
+    )?.amount ?? null;
 
   return (
     <Card
@@ -90,8 +111,8 @@ export function TabExpenseCard({
               <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mb-0 min-w-0">
                 Paid by{" "}
                 <span className="inline-flex items-center gap-1.5">
-                  <UserAvatar userId={item.paidById} size="xs" />
-                  {getDisplayName(getMemberUser(item.paidById), currentUserId)}
+                  <UserAvatar userId={item.paidBy.id} size="xs" />
+                  {getDisplayName(item.paidBy, currentUserId)}
                 </span>
               </p>
               {item.currency !== tabCurrency ? (
@@ -112,11 +133,10 @@ export function TabExpenseCard({
                   expenseAmount={item.amount}
                   tabCurrency={tabCurrency}
                   paidById={item.paidById}
+                  paidByParticipantId={item.paidByParticipantId}
                   currentUserId={currentUserId}
-                  yourShare={
-                    item.splits.find((s) => s.userId === currentUserId)
-                      ?.amount ?? null
-                  }
+                  currentUserParticipantId={currentUserParticipantId}
+                  yourShare={yourShare}
                   deleted={!!item.deletedAt}
                 />
                 {!item.deletedAt && (
@@ -180,8 +200,8 @@ export function TabExpenseCard({
               <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
                 Paid by{" "}
                 <span className="inline-flex items-center gap-1.5">
-                  <UserAvatar userId={item.paidById} size="xs" />
-                  {getDisplayName(getMemberUser(item.paidById), currentUserId)}
+                  <UserAvatar userId={item.paidBy.id} size="xs" />
+                  {getDisplayName(item.paidBy, currentUserId)}
                 </span>
                 <span>· {formatAppDate(item.createdAt)}</span>
               </p>
@@ -197,10 +217,17 @@ export function TabExpenseCard({
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-xs text-muted-foreground">
               <div className="flex flex-wrap gap-x-4 gap-y-2">
                 {item.splits
-                  .filter((s) => s.userId !== item.paidById)
+                  .filter((s) => !splitIsForPayer(s, item))
                   .map((s) => {
-                    const owesCurrentUser = item.paidById === currentUserId;
-                    const currentUserOwes = s.userId === currentUserId;
+                    const owesCurrentUser =
+                      item.paidById === currentUserId ||
+                      (!!item.paidByParticipantId &&
+                        !!currentUserParticipantId &&
+                        item.paidByParticipantId === currentUserParticipantId);
+                    const currentUserOwes =
+                      s.userId === currentUserId ||
+                      (!!currentUserParticipantId &&
+                        s.participantId === currentUserParticipantId);
                     const amountClass = owesCurrentUser
                       ? "text-positive"
                       : currentUserOwes
@@ -208,19 +235,13 @@ export function TabExpenseCard({
                         : "text-muted-foreground";
                     return (
                       <span
-                        key={s.userId}
+                        key={s.id}
                         className="inline-flex items-center gap-1.5"
                       >
-                        <UserAvatar userId={s.userId} size="xs" />
-                        {getDisplayName(
-                          getMemberUser(s.userId),
-                          currentUserId,
-                        )}{" "}
+                        <UserAvatar userId={s.user.id} size="xs" />
+                        {getDisplayName(s.user, currentUserId)}{" "}
                         {currentUserOwes ? "owe" : "owes"}{" "}
-                        {getDisplayName(
-                          getMemberUser(item.paidById),
-                          currentUserId,
-                        )}{" "}
+                        {getDisplayName(item.paidBy, currentUserId)}{" "}
                         <span className={amountClass}>
                           {item.splitType === "percent" && s.weight != null ? (
                             <>

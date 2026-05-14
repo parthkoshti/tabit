@@ -24,9 +24,46 @@ const baseMembers = [
   { userId: "user2", role: "member" },
 ];
 
+const baseTabDetail = {
+  id: "tab1",
+  name: "Test tab",
+  currency: "USD",
+  isDirect: false,
+  createdAt: new Date(),
+  members: [
+    {
+      userId: "user1",
+      role: "member",
+      user: { id: "user1", email: "a@test.com", name: "U1", username: "u1" },
+    },
+    {
+      userId: "user2",
+      role: "member",
+      user: { id: "user2", email: "b@test.com", name: "U2", username: "u2" },
+    },
+  ],
+  participants: [
+    {
+      id: "pid-user1",
+      kind: "member",
+      userId: "user1",
+      displayName: "U1",
+      user: { id: "user1", email: "a@test.com", name: "U1", username: "u1" },
+    },
+    {
+      id: "pid-user2",
+      kind: "member",
+      userId: "user2",
+      displayName: "U2",
+      user: { id: "user2", email: "b@test.com", name: "U2", username: "u2" },
+    },
+  ],
+};
+
 describe("expenseService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(tab.getWithMembers).mockResolvedValue(baseTabDetail);
   });
 
   describe("getForTab", () => {
@@ -50,6 +87,7 @@ describe("expenseService", () => {
             id: "exp1",
             tabId: "tab1",
             paidById: "user1",
+            paidByParticipantId: "pid-user1",
             amount: 100,
             currency: "USD",
             originalAmount: 100,
@@ -126,13 +164,18 @@ describe("expenseService", () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toBe("Payer must be a member");
+        expect(result.error).toBe("Payer must be a tab participant");
       }
     });
 
     test("validates at least one participant", async () => {
       vi.mocked(tab.isMember).mockResolvedValue(true);
       vi.mocked(tab.getMembers).mockResolvedValue([]);
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        ...baseTabDetail,
+        members: [],
+        participants: [],
+      });
 
       const result = await expenseService.create(
         { ...baseCreateInput, participantIds: [] },
@@ -148,6 +191,11 @@ describe("expenseService", () => {
     test("validates payer cannot be only participant", async () => {
       vi.mocked(tab.isMember).mockResolvedValue(true);
       vi.mocked(tab.getMembers).mockResolvedValue([{ userId: "user1", role: "member" }]);
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        ...baseTabDetail,
+        members: [baseTabDetail.members[0]!],
+        participants: [baseTabDetail.participants[0]!],
+      });
 
       const result = await expenseService.create(baseCreateInput, "user1");
 
@@ -251,6 +299,27 @@ describe("expenseService", () => {
         ...baseMembers,
         { userId: "user3", role: "member" },
       ]);
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        ...baseTabDetail,
+        members: [
+          ...baseTabDetail.members,
+          {
+            userId: "user3",
+            role: "member",
+            user: { id: "user3", email: "c@test.com", name: "U3", username: "u3" },
+          },
+        ],
+        participants: [
+          ...baseTabDetail.participants,
+          {
+            id: "pid-user3",
+            kind: "member",
+            userId: "user3",
+            displayName: "U3",
+            user: { id: "user3", email: "c@test.com", name: "U3", username: "u3" },
+          },
+        ],
+      });
       vi.mocked(tab.getTabInfoForNotifications).mockResolvedValue({
         name: "Test Tab",
         isDirect: false,
@@ -319,8 +388,8 @@ describe("expenseService", () => {
       expect(result.success).toBe(true);
       const createCall = vi.mocked(expense.create).mock.calls[0][0];
       expect(createCall.splits).toEqual([
-        { userId: "user1", amount: 60, weight: null },
-        { userId: "user2", amount: 40, weight: null },
+        { participantId: "pid-user1", userId: "user1", amount: 60, weight: null },
+        { participantId: "pid-user2", userId: "user2", amount: 40, weight: null },
       ]);
     });
 
@@ -485,6 +554,8 @@ describe("expenseService", () => {
         id: "exp1",
         tabId: "tab1",
         paidById: "user1",
+        paidByParticipantId: "pid-user1",
+        payerPartName: null,
         recurringRuleId: null,
         amount: 100,
         currency: "USD",
@@ -503,6 +574,7 @@ describe("expenseService", () => {
             id: "s1",
             expenseId: "exp1",
             userId: "user2",
+            participantId: "pid-user2",
             amount: 50,
             weight: null,
             user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" },
@@ -550,6 +622,8 @@ describe("expenseService", () => {
         id: "exp1",
         tabId: "tab1",
         paidById: "user1",
+        paidByParticipantId: "pid-user1",
+        payerPartName: null,
         recurringRuleId: null,
         amount: 100,
         currency: "USD",
@@ -568,6 +642,7 @@ describe("expenseService", () => {
             id: "s1",
             expenseId: "exp1",
             userId: "user2",
+            participantId: "pid-user2",
             amount: 50,
             weight: null,
             user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" },
@@ -596,6 +671,8 @@ describe("expenseService", () => {
         id: "exp1",
         tabId: "tab1",
         paidById: "user1",
+        paidByParticipantId: "pid-user1",
+        payerPartName: null,
         recurringRuleId: null,
         amount: 100,
         currency: "USD",
@@ -629,6 +706,8 @@ describe("expenseService", () => {
         id: "exp1",
         tabId: "tab1",
         paidById: "user1",
+        paidByParticipantId: "pid-user1",
+        payerPartName: null,
         recurringRuleId: null,
         amount: 100,
         currency: "USD",
@@ -674,6 +753,8 @@ describe("expenseService", () => {
         id: "exp1",
         tabId: "tab1",
         paidById: "user1",
+        paidByParticipantId: "pid-user1",
+        payerPartName: null,
         recurringRuleId: null,
         amount: 100,
         currency: "USD",

@@ -155,6 +155,13 @@
       "when": 1777306588585,
       "tag": "0021_past_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1778792929400,
+      "tag": "0022_last_taskmaster",
+      "breakpoints": true
     }
   ]
 }

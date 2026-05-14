@@ -12,6 +12,22 @@ const tabWithMembers = {
     { userId: "user1", role: "member", user: { id: "user1", email: "u1@test.com", name: "User 1", username: "user1" } },
     { userId: "user2", role: "member", user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" } },
   ],
+  participants: [
+    {
+      id: "pid-user1",
+      kind: "member",
+      userId: "user1",
+      displayName: "User 1",
+      user: { id: "user1", email: "u1@test.com", name: "User 1", username: "user1" },
+    },
+    {
+      id: "pid-user2",
+      kind: "member",
+      userId: "user2",
+      displayName: "User 2",
+      user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" },
+    },
+  ],
 };
 
 describe("settlementService", () => {
@@ -36,6 +52,15 @@ describe("settlementService", () => {
       vi.mocked(tab.getWithMembers).mockResolvedValue({
         ...tabWithMembers,
         members: [{ userId: "user2", role: "member", user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" } }],
+        participants: [
+          {
+            id: "pid-user2",
+            kind: "member",
+            userId: "user2",
+            displayName: "User 2",
+            user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" },
+          },
+        ],
       });
 
       const result = await settlementService.getForTab("tab1", "user1");
@@ -65,6 +90,15 @@ describe("settlementService", () => {
       vi.mocked(tab.getWithMembers).mockResolvedValue({
         ...tabWithMembers,
         members: [{ userId: "user2", role: "member", user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" } }],
+        participants: [
+          {
+            id: "pid-user2",
+            kind: "member",
+            userId: "user2",
+            displayName: "User 2",
+            user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" },
+          },
+        ],
       });
 
       const result = await settlementService.getById("tab1", "set1", "user1");
@@ -111,7 +145,7 @@ describe("settlementService", () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toBe("Both payer and payee must be tab members");
+        expect(result.error).toBe("Payer must be a tab member when paying as a user");
       }
     });
 
@@ -125,7 +159,7 @@ describe("settlementService", () => {
 
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error).toBe("Both payer and payee must be tab members");
+        expect(result.error).toBe("Payee must be a tab member when receiving as a user");
       }
     });
 
@@ -150,6 +184,8 @@ describe("settlementService", () => {
         tabId: "tab1",
         fromUserId: "user1",
         toUserId: "user2",
+        fromParticipantId: "pid-user1",
+        toParticipantId: "pid-user2",
         amount: 50,
         currency: null,
         originalAmount: null,
@@ -184,6 +220,8 @@ describe("settlementService", () => {
         tabId: "tab1",
         fromUserId: "user1",
         toUserId: "user2",
+        fromParticipantId: "pid-user1",
+        toParticipantId: "pid-user2",
         amount: 50,
         currency: null,
         originalAmount: null,
@@ -215,6 +253,8 @@ describe("settlementService", () => {
         tabId: "tab1",
         fromUserId: "user1",
         toUserId: "user2",
+        fromParticipantId: "pid-user1",
+        toParticipantId: "pid-user2",
         amount: 50,
         currency: null,
         originalAmount: null,
@@ -238,6 +278,8 @@ describe("settlementService", () => {
       expect(settlement.update).toHaveBeenCalledWith("set1", "tab1", {
         fromUserId: "user1",
         toUserId: "user2",
+        fromParticipantId: "pid-user1",
+        toParticipantId: "pid-user2",
         amount: 60,
         currency: null,
         originalAmount: null,
@@ -265,6 +307,8 @@ describe("settlementService", () => {
         tabId: "tab1",
         fromUserId: "user1",
         toUserId: "user2",
+        fromParticipantId: "pid-user1",
+        toParticipantId: "pid-user2",
         amount: 50,
         currency: null,
         originalAmount: null,

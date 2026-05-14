@@ -10,6 +10,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  foreignKey,
 } from "drizzle-orm/pg-core";
 import { createId } from "shared";
 import { user } from "./auth.js";
@@ -64,6 +65,62 @@ export const tabMember = pgTable(
   (t) => [primaryKey({ columns: [t.tabId, t.userId] })],
 );
 
+/** Ledger identity for tab members and placeholders (split/settle/payer). */
+export const tabParticipant = pgTable(
+  "tab_participant",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    tabId: text("tabId")
+      .notNull()
+      .references(() => tab.id, { onDelete: "cascade" }),
+    /** member | placeholder */
+    kind: text("kind").notNull(),
+    userId: text("userId").references(() => user.id, { onDelete: "cascade" }),
+    displayName: text("displayName").notNull(),
+    createdByUserId: text("createdByUserId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    mergedIntoParticipantId: text("mergedIntoParticipantId"),
+    mergedAt: timestamp("mergedAt"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (t) => [
+    index("tab_participant_tabId_idx").on(t.tabId),
+    uniqueIndex("tab_participant_tabId_userId_uidx").on(t.tabId, t.userId),
+    foreignKey({
+      columns: [t.mergedIntoParticipantId],
+      foreignColumns: [t.id],
+      name: "tab_participant_merged_into_fk",
+    }).onDelete("set null"),
+  ],
+);
+
+/** Tab-level activity (e.g. placeholder merge) for the global activity feed. */
+export const tabEvent = pgTable(
+  "tab_event",
+  {
+    id: text("id")
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    tabId: text("tabId")
+      .notNull()
+      .references(() => tab.id, { onDelete: "cascade" }),
+    /** placeholder_merged | ... */
+    type: text("type").notNull(),
+    performedByUserId: text("performedByUserId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    payload: jsonb("payload").notNull().$type<Record<string, unknown>>(),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (t) => [
+    index("tab_event_tabId_createdAt_idx").on(t.tabId, t.createdAt),
+  ],
+);
+
 /** Recurring expense template and schedule (cron posts expenses from template). */
 export const recurringExpenseRule = pgTable(
   "recurring_expense_rule",
@@ -109,9 +166,10 @@ export const expense = pgTable(
     tabId: text("tabId")
       .notNull()
       .references(() => tab.id, { onDelete: "cascade" }),
-    paidById: text("paidById")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    paidById: text("paidById").references(() => user.id, { onDelete: "cascade" }),
+    paidByParticipantId: text("paidByParticipantId").references(() => tabParticipant.id, {
+      onDelete: "restrict",
+    }),
     recurringRuleId: text("recurringRuleId").references(() => recurringExpenseRule.id, {
       onDelete: "set null",
     }),
@@ -195,9 +253,10 @@ export const expenseSplit = pgTable("expense_split", {
   expenseId: text("expenseId")
     .notNull()
     .references(() => expense.id, { onDelete: "cascade" }),
-  userId: text("userId")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+  userId: text("userId").references(() => user.id, { onDelete: "cascade" }),
+  participantId: text("participantId").references(() => tabParticipant.id, {
+    onDelete: "restrict",
+  }),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   /** Percent or share count for splitType percent/shares; null for equal/custom. */
   weight: decimal("weight", { precision: 10, scale: 6 }),
@@ -242,12 +301,16 @@ export const settlement = pgTable("settlement", {
   tabId: text("tabId")
     .notNull()
     .references(() => tab.id, { onDelete: "cascade" }),
-  fromUserId: text("fromUserId")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
-  toUserId: text("toUserId")
-    .notNull()
-    .references(() => user.id, { onDelete: "cascade" }),
+  /** Null when the payer side is a placeholder participant (see `fromParticipantId`). */
+  fromUserId: text("fromUserId").references(() => user.id, { onDelete: "cascade" }),
+  /** Null when the payee side is a placeholder participant (see `toParticipantId`). */
+  toUserId: text("toUserId").references(() => user.id, { onDelete: "cascade" }),
+  fromParticipantId: text("fromParticipantId").references(() => tabParticipant.id, {
+    onDelete: "restrict",
+  }),
+  toParticipantId: text("toParticipantId").references(() => tabParticipant.id, {
+    onDelete: "restrict",
+  }),
   amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
   /** When set, payment was entered in this currency; `originalAmount` is the entered total. */
   currency: text("currency"),
@@ -265,7 +328,7 @@ export const expenseAuditLog = pgTable("expense_audit_log", {
   tabId: text("tabId")
     .notNull()
     .references(() => tab.id, { onDelete: "cascade" }),
-  action: text("action").notNull(), // create | update | delete
+  action: text("action").notNull(), // create | update | delete | placeholder_merge | ...
   performedById: text("performedById")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),

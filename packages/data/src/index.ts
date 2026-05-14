@@ -24,6 +24,17 @@ export type {
   SharedGroupTabListItem,
 } from "./tab.js";
 
+export {
+  ensureMemberParticipantsForTab,
+  getParticipantIdForTabUser,
+  listActiveParticipantsForTab,
+  getParticipantById,
+  mergePlaceholderIntoMember,
+  createPlaceholderParticipant,
+  renamePlaceholderParticipant,
+} from "./tab-participant.js";
+export type { MergePlaceholderResult, TabParticipantRow } from "./tab-participant.js";
+
 export { settlement } from "./settlement.js";
 export type {
   RecordSettlementInput,

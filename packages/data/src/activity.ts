@@ -6,10 +6,15 @@ import {
   user,
   tab as tabTable,
   tabMember,
+  tabEvent,
+  tabParticipant,
 } from "db";
-import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
-import { unionAll } from "drizzle-orm/pg-core";
+import { and, desc, eq, inArray, ne, sql, or } from "drizzle-orm";
+import { alias, unionAll } from "drizzle-orm/pg-core";
 import { tab } from "./tab.js";
+
+const splitParticipant = alias(tabParticipant, "split_participant");
+const payerParticipant = alias(tabParticipant, "payer_participant");
 
 /** Other member in a 1:1 direct tab (for "You split with …" copy). */
 export type ActivityDirectOtherUser = {
@@ -28,7 +33,8 @@ export type ActivityItem =
       tabCurrency: string;
       tabIsDirect: boolean;
       directOtherUser: ActivityDirectOtherUser | null;
-      paidById: string;
+      paidById: string | null;
+      paidByParticipantId: string | null;
       paidByEmail: string;
       paidByName: string | null;
       paidByUsername: string | null;
@@ -51,11 +57,11 @@ export type ActivityItem =
       tabCurrency: string;
       tabIsDirect: boolean;
       directOtherUser: ActivityDirectOtherUser | null;
-      fromUserId: string;
+      fromUserId: string | null;
       fromUserEmail: string;
       fromUserName: string | null;
       fromUserUsername: string | null;
-      toUserId: string;
+      toUserId: string | null;
       toUserEmail: string;
       toUserName: string | null;
       toUserUsername: string | null;
@@ -63,6 +69,22 @@ export type ActivityItem =
       settlementCurrency: string | null;
       originalAmount: number | null;
       settlementDate: Date;
+      createdAt: Date;
+    }
+  | {
+      type: "placeholder_merge";
+      id: string;
+      tabId: string;
+      tabName: string;
+      tabCurrency: string;
+      tabIsDirect: boolean;
+      directOtherUser: ActivityDirectOtherUser | null;
+      performedByUserId: string;
+      performedByEmail: string;
+      performedByName: string | null;
+      performedByUsername: string | null;
+      placeholderDisplayName: string;
+      targetDisplayName: string;
       createdAt: Date;
     };
 
@@ -159,7 +181,26 @@ export const activity = {
       .from(settlement)
       .where(inArray(settlement.tabId, tabIds));
 
-    const combined = unionAll(expenseUnion, settlementUnion);
+    const tabEventUnion =
+      tabIds.length > 0
+        ? db
+            .select({
+              kind: sql<string>`'placeholder_merge'`.as("kind"),
+              id: tabEvent.id,
+              sortAt: sql`${tabEvent.createdAt}`.as("sortAt"),
+            })
+            .from(tabEvent)
+            .where(
+              and(
+                inArray(tabEvent.tabId, tabIds),
+                eq(tabEvent.type, "placeholder_merged"),
+              ),
+            )
+        : null;
+
+    const combined = tabEventUnion
+      ? unionAll(unionAll(expenseUnion, settlementUnion), tabEventUnion)
+      : unionAll(expenseUnion, settlementUnion);
     const orderedQuery = combined
       .orderBy(desc(sql`"sortAt"`))
       .limit(limit)
@@ -176,7 +217,18 @@ export const activity = {
               .select({ count: sql<number>`count(*)::int` })
               .from(settlement)
               .where(inArray(settlement.tabId, tabIds)),
-          ]).then(([e, s]) => (e[0]?.count ?? 0) + (s[0]?.count ?? 0))
+            tabIds.length > 0
+              ? db
+                  .select({ count: sql<number>`count(*)::int` })
+                  .from(tabEvent)
+                  .where(
+                    and(
+                      inArray(tabEvent.tabId, tabIds),
+                      eq(tabEvent.type, "placeholder_merged"),
+                    ),
+                  )
+              : Promise.resolve([{ count: 0 }]),
+          ]).then(([e, s, te]) => (e[0]?.count ?? 0) + (s[0]?.count ?? 0) + (te[0]?.count ?? 0))
         : Promise.resolve(0),
       orderedQuery,
     ]);
@@ -187,6 +239,9 @@ export const activity = {
     const settlementIdsOrdered = orderedRows
       .filter((r) => r.kind === "settlement")
       .map((r) => r.id);
+    const mergeEventIdsOrdered = orderedRows
+      .filter((r) => r.kind === "placeholder_merge")
+      .map((r) => r.id);
 
     const expenses =
       expenseIdsOrdered.length > 0
@@ -195,6 +250,7 @@ export const activity = {
               id: expense.id,
               tabId: expense.tabId,
               paidById: expense.paidById,
+              paidByParticipantId: expense.paidByParticipantId,
               amount: expense.amount,
               currency: expense.currency,
               originalAmount: expense.originalAmount,
@@ -202,12 +258,20 @@ export const activity = {
               expenseDate: expense.expenseDate,
               createdAt: expense.createdAt,
               deletedAt: expense.deletedAt,
-              paidByEmail: user.email,
-              paidByName: user.name,
+              paidByEmail: sql<string>`coalesce(${user.email}, ${payerParticipant.displayName}, '')`.as(
+                "paidByEmail",
+              ),
+              paidByName: sql<string | null>`coalesce(${user.name}, ${payerParticipant.displayName})`.as(
+                "paidByName",
+              ),
               paidByUsername: user.username,
             })
             .from(expense)
-            .innerJoin(user, eq(expense.paidById, user.id))
+            .leftJoin(user, eq(expense.paidById, user.id))
+            .leftJoin(
+              payerParticipant,
+              eq(expense.paidByParticipantId, payerParticipant.id),
+            )
             .where(inArray(expense.id, expenseIdsOrdered))
         : [];
 
@@ -219,8 +283,27 @@ export const activity = {
             .where(inArray(settlement.id, settlementIdsOrdered))
         : [];
 
+    const mergeRows =
+      mergeEventIdsOrdered.length > 0
+        ? await db
+            .select({
+              id: tabEvent.id,
+              tabId: tabEvent.tabId,
+              payload: tabEvent.payload,
+              createdAt: tabEvent.createdAt,
+              performedByUserId: tabEvent.performedByUserId,
+              performedByEmail: user.email,
+              performedByName: user.name,
+              performedByUsername: user.username,
+            })
+            .from(tabEvent)
+            .innerJoin(user, eq(tabEvent.performedByUserId, user.id))
+            .where(inArray(tabEvent.id, mergeEventIdsOrdered))
+        : [];
+
     const expenseById = new Map(expenses.map((e) => [e.id, e]));
     const settlementById = new Map(settlementRows.map((s) => [s.id, s]));
+    const mergeById = new Map(mergeRows.map((m) => [m.id, m]));
 
     const expenseIds = expenses.map((e) => e.id);
     const viewerShareByExpenseId = new Map<string, number>();
@@ -231,10 +314,17 @@ export const activity = {
           amount: expenseSplit.amount,
         })
         .from(expenseSplit)
+        .leftJoin(
+          splitParticipant,
+          eq(expenseSplit.participantId, splitParticipant.id),
+        )
         .where(
           and(
             inArray(expenseSplit.expenseId, expenseIds),
-            eq(expenseSplit.userId, userId),
+            or(
+              eq(expenseSplit.userId, userId),
+              eq(splitParticipant.userId, userId),
+            ),
           ),
         );
       for (const row of viewerSplits) {
@@ -243,9 +333,12 @@ export const activity = {
     }
 
     const userIds = new Set<string>();
+    const settlementParticipantIds = new Set<string>();
     for (const s of settlementRows) {
-      userIds.add(s.fromUserId);
-      userIds.add(s.toUserId);
+      if (s.fromUserId) userIds.add(s.fromUserId);
+      if (s.toUserId) userIds.add(s.toUserId);
+      if (s.fromParticipantId) settlementParticipantIds.add(s.fromParticipantId);
+      if (s.toParticipantId) settlementParticipantIds.add(s.toParticipantId);
     }
     const users =
       userIds.size > 0
@@ -260,6 +353,20 @@ export const activity = {
             .where(inArray(user.id, Array.from(userIds)))
         : [];
     const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
+
+    const settlementParticipantMeta =
+      settlementParticipantIds.size > 0
+        ? await db
+            .select({
+              id: tabParticipant.id,
+              displayName: tabParticipant.displayName,
+            })
+            .from(tabParticipant)
+            .where(inArray(tabParticipant.id, [...settlementParticipantIds]))
+        : [];
+    const settlementPartMap = Object.fromEntries(
+      settlementParticipantMeta.map((p) => [p.id, p]),
+    );
 
     const items: ActivityItem[] = [];
     for (const row of orderedRows) {
@@ -279,6 +386,7 @@ export const activity = {
             ? directOtherByTabId.get(e.tabId) ?? null
             : null,
           paidById: e.paidById,
+          paidByParticipantId: e.paidByParticipantId ?? null,
           paidByEmail: e.paidByEmail,
           paidByName: e.paidByName,
           paidByUsername: e.paidByUsername,
@@ -293,11 +401,17 @@ export const activity = {
           createdAt: e.createdAt,
           deletedAt: e.deletedAt ?? null,
         });
-      } else {
+      } else if (row.kind === "settlement") {
         const s = settlementById.get(row.id);
         if (!s) continue;
         const tabInfo = tabMap[s.tabId];
         const isDirect = tabInfo?.isDirect ?? false;
+        const fromU = s.fromUserId ? userMap[s.fromUserId] : undefined;
+        const toU = s.toUserId ? userMap[s.toUserId] : undefined;
+        const fromP = s.fromParticipantId
+          ? settlementPartMap[s.fromParticipantId]
+          : undefined;
+        const toP = s.toParticipantId ? settlementPartMap[s.toParticipantId] : undefined;
         items.push({
           type: "settlement",
           id: s.id,
@@ -309,19 +423,46 @@ export const activity = {
             ? directOtherByTabId.get(s.tabId) ?? null
             : null,
           fromUserId: s.fromUserId,
-          fromUserEmail: userMap[s.fromUserId]?.email ?? "",
-          fromUserName: userMap[s.fromUserId]?.name ?? null,
-          fromUserUsername: userMap[s.fromUserId]?.username ?? null,
+          fromUserEmail: fromU?.email ?? "",
+          fromUserName: fromU?.name ?? fromP?.displayName ?? null,
+          fromUserUsername: fromU?.username ?? null,
           toUserId: s.toUserId,
-          toUserEmail: userMap[s.toUserId]?.email ?? "",
-          toUserName: userMap[s.toUserId]?.name ?? null,
-          toUserUsername: userMap[s.toUserId]?.username ?? null,
+          toUserEmail: toU?.email ?? "",
+          toUserName: toU?.name ?? toP?.displayName ?? null,
+          toUserUsername: toU?.username ?? null,
           amount: Number(s.amount),
           settlementCurrency: s.currency ?? null,
           originalAmount:
             s.originalAmount != null ? Number(s.originalAmount) : null,
           settlementDate: s.settlementDate,
           createdAt: s.createdAt,
+        });
+      } else if (row.kind === "placeholder_merge") {
+        const m = mergeById.get(row.id);
+        if (!m) continue;
+        const tabInfo = tabMap[m.tabId];
+        const isDirect = tabInfo?.isDirect ?? false;
+        const p = m.payload as {
+          placeholderDisplayName?: string;
+          targetDisplayName?: string;
+        };
+        items.push({
+          type: "placeholder_merge",
+          id: m.id,
+          tabId: m.tabId,
+          tabName: tabInfo?.name ?? "",
+          tabCurrency: tabInfo?.currency ?? "USD",
+          tabIsDirect: isDirect,
+          directOtherUser: isDirect
+            ? directOtherByTabId.get(m.tabId) ?? null
+            : null,
+          performedByUserId: m.performedByUserId,
+          performedByEmail: m.performedByEmail,
+          performedByName: m.performedByName,
+          performedByUsername: m.performedByUsername,
+          placeholderDisplayName: p.placeholderDisplayName ?? "Placeholder",
+          targetDisplayName: p.targetDisplayName ?? "Member",
+          createdAt: m.createdAt,
         });
       }
     }

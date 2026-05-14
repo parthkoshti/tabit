@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { api } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -41,6 +41,7 @@ import {
   CALENDAR_POPOVER_CONTENT_CLASSNAME,
 } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import type { Settlement } from "data";
 
 type Member = {
   userId: string;
@@ -53,29 +54,24 @@ type Member = {
   };
 };
 
-type Settlement = {
+type TabParticipant = {
   id: string;
-  tabId: string;
-  fromUserId: string;
-  toUserId: string;
-  amount: number;
-  currency?: string | null;
-  originalAmount?: number | null;
-  settlementDate?: Date | string;
-  createdAt: Date | string;
-  fromUser: {
-    id: string;
-    email: string;
-    name: string | null;
-    username?: string | null;
-  };
-  toUser: {
-    id: string;
-    email: string;
-    name: string | null;
-    username?: string | null;
-  };
+  kind: string;
+  userId: string | null;
+  displayName: string;
+  user: Member["user"] | null;
 };
+
+function participantLabel(p: TabParticipant, currentUserId: string): string {
+  const base = p.user
+    ? getDisplayName(p.user, currentUserId)
+    : p.displayName;
+  return p.kind === "placeholder" ? `${base} (placeholder)` : base;
+}
+
+function participantAvatarSeed(p: TabParticipant): string {
+  return p.userId ?? p.id;
+}
 
 export function EditSettlementForm({
   settlementId,
@@ -83,6 +79,7 @@ export function EditSettlementForm({
   tabCurrency,
   settlement,
   members,
+  participants,
   currentUserId,
   onSuccess,
   onDeleteSuccess,
@@ -93,6 +90,7 @@ export function EditSettlementForm({
   tabCurrency: string;
   settlement: Settlement;
   members: Member[];
+  participants: TabParticipant[];
   currentUserId: string;
   onSuccess?: () => void;
   onDeleteSuccess?: () => void;
@@ -105,8 +103,22 @@ export function EditSettlementForm({
     return typeof raw === "string" ? new Date(raw) : raw;
   }
 
-  const [fromUserId, setFromUserId] = useState(settlement.fromUserId);
-  const [toUserId, setToUserId] = useState(settlement.toUserId);
+  const tabParticipants = useMemo((): TabParticipant[] => {
+    if (participants.length > 0) return participants;
+    return members.map((m) => ({
+      id: m.userId,
+      kind: "member",
+      userId: m.userId,
+      displayName:
+        m.user.name?.trim() ||
+        (m.user.username ? `@${m.user.username}` : "") ||
+        m.user.email,
+      user: m.user,
+    }));
+  }, [participants, members]);
+
+  const [fromParticipantId, setFromParticipantId] = useState("");
+  const [toParticipantId, setToParticipantId] = useState("");
   const [settlementDate, setSettlementDate] = useState<Date>(() =>
     toDate(settlement.settlementDate, settlement.createdAt),
   );
@@ -155,6 +167,20 @@ export function EditSettlementForm({
         : settlement.amount;
     setAmount(displayAmount.toFixed(2));
   }, [settlement, tabCurrency]);
+
+  useEffect(() => {
+    if (tabParticipants.length === 0) return;
+    const from =
+      settlement.fromParticipantId ??
+      tabParticipants.find((p) => p.userId === settlement.fromUserId)?.id ??
+      "";
+    const to =
+      settlement.toParticipantId ??
+      tabParticipants.find((p) => p.userId === settlement.toUserId)?.id ??
+      "";
+    setFromParticipantId(from);
+    setToParticipantId(to);
+  }, [settlement, tabParticipants]);
 
   useEffect(() => {
     const parsed = parseAmount(amount);
@@ -207,24 +233,43 @@ export function EditSettlementForm({
       return;
     }
 
-    if (fromUserId === toUserId) {
+    if (!fromParticipantId || !toParticipantId) {
+      setError("Please select both payer and payee");
+      setLoading(false);
+      return;
+    }
+
+    if (fromParticipantId === toParticipantId) {
       setError("Payer and payee must be different people");
       setLoading(false);
       return;
     }
 
+    const fromP = tabParticipants.find((p) => p.id === fromParticipantId);
+    const toP = tabParticipants.find((p) => p.id === toParticipantId);
+    if (!fromP || !toP) {
+      setError("Invalid payer or payee");
+      setLoading(false);
+      return;
+    }
+
     const result = await api.settlements.update(tabId, settlementId, {
-      fromUserId,
-      toUserId,
+      fromUserId: fromP.userId,
+      toUserId: toP.userId,
+      fromParticipantId,
+      toParticipantId,
       amount: parsedAmount,
       settlementDate: settlementDate.toISOString(),
-      ...(currency !== tabCurrency ? { currency } : {}),
+      ...(currency !== tabCurrency
+        ? { currency, originalAmount: parsedAmount }
+        : {}),
     });
 
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["settlements", tabId] });
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       queryClient.invalidateQueries({
         queryKey: ["settlement", tabId, settlementId],
@@ -249,6 +294,7 @@ export function EditSettlementForm({
       queryClient.invalidateQueries({ queryKey: ["settlements", tabId] });
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       toast.success("Settlement deleted");
       const cb = onDeleteSuccess ?? onSuccess;
@@ -260,7 +306,9 @@ export function EditSettlementForm({
     setLoading(false);
   }
 
-  const otherMembers = members.filter((m) => m.userId !== fromUserId);
+  const otherParticipants = tabParticipants.filter(
+    (p) => p.id !== fromParticipantId,
+  );
 
   return (
     <>
@@ -268,32 +316,37 @@ export function EditSettlementForm({
         <div className="space-y-2">
           <Label>Paid by</Label>
           <Select
-            value={fromUserId}
+            value={fromParticipantId || undefined}
             onValueChange={(v) => {
-              setFromUserId(v);
-              if (toUserId === v) setToUserId("");
+              setFromParticipantId(v);
+              if (toParticipantId === v) setToParticipantId("");
             }}
             disabled={loading}
           >
             <SelectTrigger className="[&>span]:line-clamp-none">
               <SelectValue placeholder="Select who paid">
                 {(() => {
-                  const payer = members.find((m) => m.userId === fromUserId);
+                  const payer = tabParticipants.find(
+                    (p) => p.id === fromParticipantId,
+                  );
                   return payer ? (
                     <span className="flex items-center gap-2">
-                      <UserAvatar userId={payer.userId} size="xs" />
-                      {getDisplayName(payer.user, currentUserId)}
+                      <UserAvatar
+                        userId={participantAvatarSeed(payer)}
+                        size="xs"
+                      />
+                      {participantLabel(payer, currentUserId)}
                     </span>
                   ) : null;
                 })()}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {members.map((m) => (
-                <SelectItem key={m.userId} value={m.userId}>
+              {tabParticipants.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
                   <span className="flex items-center gap-2">
-                    <UserAvatar userId={m.userId} size="xs" />
-                    {getDisplayName(m.user, currentUserId)}
+                    <UserAvatar userId={participantAvatarSeed(p)} size="xs" />
+                    {participantLabel(p, currentUserId)}
                   </span>
                 </SelectItem>
               ))}
@@ -303,29 +356,34 @@ export function EditSettlementForm({
         <div className="space-y-2">
           <Label>Paid to</Label>
           <Select
-            value={toUserId}
-            onValueChange={setToUserId}
-            disabled={loading || !fromUserId}
+            value={toParticipantId || undefined}
+            onValueChange={setToParticipantId}
+            disabled={loading || !fromParticipantId}
           >
             <SelectTrigger className="[&>span]:line-clamp-none">
               <SelectValue placeholder="Select who received">
                 {(() => {
-                  const payee = members.find((m) => m.userId === toUserId);
+                  const payee = tabParticipants.find(
+                    (p) => p.id === toParticipantId,
+                  );
                   return payee ? (
                     <span className="flex items-center gap-2">
-                      <UserAvatar userId={payee.userId} size="xs" />
-                      {getDisplayName(payee.user, currentUserId)}
+                      <UserAvatar
+                        userId={participantAvatarSeed(payee)}
+                        size="xs"
+                      />
+                      {participantLabel(payee, currentUserId)}
                     </span>
                   ) : null;
                 })()}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {otherMembers.map((m) => (
-                <SelectItem key={m.userId} value={m.userId}>
+              {otherParticipants.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
                   <span className="flex items-center gap-2">
-                    <UserAvatar userId={m.userId} size="xs" />
-                    {getDisplayName(m.user, currentUserId)}
+                    <UserAvatar userId={participantAvatarSeed(p)} size="xs" />
+                    {participantLabel(p, currentUserId)}
                   </span>
                 </SelectItem>
               ))}

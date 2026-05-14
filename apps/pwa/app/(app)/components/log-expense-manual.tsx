@@ -250,67 +250,81 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
               >
                 Tab not found
               </motion.p>
-            ) : tab.members.length < 2 && !tab.isDirect ? (
-              <motion.div
-                key="tab-invite"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-4 py-2"
-              >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="-ml-2"
-                  onClick={() => {
-                    setPickedAnotherTab(true);
-                    setSelectedTabId(null);
-                  }}
-                >
-                  <ArrowLeft /> Pick another tab
-                </Button>
-                <p className="text-sm text-muted-foreground">
-                  Add members to this tab to start splitting expenses.
-                </p>
-                <Button asChild variant="outline" className="w-full">
-                  <Link to={`/tabs/${effectiveTabId}/members`}>
-                    Invite members
-                  </Link>
-                </Button>
-              </motion.div>
-            ) : (
-              <motion.div
-                key="tab-form"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-2"
-              >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="-ml-2"
-                  onClick={() => {
-                    setPickedAnotherTab(true);
-                    setSelectedTabId(null);
-                  }}
-                >
-                  <ArrowLeft /> Pick another tab
-                </Button>
-                <AddExpenseForm
-                  tabId={effectiveTabId}
-                  tabCurrency={tab.currency ?? "USD"}
-                  members={tab.members}
-                  currentUserId={currentUserId}
-                  onSuccess={onSuccess}
-                  onExpenseCreated={handleExpenseCreated}
-                />
-              </motion.div>
-            )}
+            ) : (() => {
+                const ledgerCount =
+                  tab.participants && tab.participants.length > 0
+                    ? tab.participants.length
+                    : tab.members.length;
+                const needsMorePeople = !tab.isDirect && ledgerCount < 2;
+
+                if (needsMorePeople) {
+                  return (
+                    <motion.div
+                      key="tab-invite"
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.25 }}
+                      className="space-y-4 py-2"
+                    >
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="-ml-2"
+                        onClick={() => {
+                          setPickedAnotherTab(true);
+                          setSelectedTabId(null);
+                        }}
+                      >
+                        <ArrowLeft /> Pick another tab
+                      </Button>
+                      <p className="text-sm text-muted-foreground">
+                        Add another member or a placeholder so you can split
+                        expenses.
+                      </p>
+                      <Button asChild variant="outline" className="w-full">
+                        <Link to={`/tabs/${effectiveTabId}/members`}>
+                          Members and placeholders
+                        </Link>
+                      </Button>
+                    </motion.div>
+                  );
+                }
+
+                return (
+                  <motion.div
+                    key="tab-form"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                    className="space-y-2"
+                  >
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="-ml-2"
+                      onClick={() => {
+                        setPickedAnotherTab(true);
+                        setSelectedTabId(null);
+                      }}
+                    >
+                      <ArrowLeft /> Pick another tab
+                    </Button>
+                    <AddExpenseForm
+                      tabId={effectiveTabId}
+                      tabCurrency={tab.currency ?? "USD"}
+                      members={tab.members}
+                      participants={tab.participants ?? []}
+                      currentUserId={currentUserId}
+                      onSuccess={onSuccess}
+                      onExpenseCreated={handleExpenseCreated}
+                    />
+                  </motion.div>
+                );
+              })()}
           </AnimatePresence>
         </div>
       )}

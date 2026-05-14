@@ -32,46 +32,49 @@ import { formatAbsoluteDate } from "@/lib/format-date";
 import { CURATED_CURRENCIES, getCurrency } from "shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import type { Balance } from "data";
 
-type Member = {
-  userId: string;
-  role: string;
+type TabParticipant = {
+  id: string;
+  kind: string;
+  userId: string | null;
+  displayName: string;
   user: {
     id: string;
     email: string;
     name: string | null;
     username?: string | null;
-  };
+  } | null;
 };
 
-type Balance = {
-  userId: string;
-  amount: number;
-  user: {
-    id: string;
-    email: string;
-    name: string | null;
-    username?: string | null;
-  };
-};
+function participantLabel(p: TabParticipant, currentUserId: string): string {
+  const base = p.user
+    ? getDisplayName(p.user, currentUserId)
+    : p.displayName;
+  return p.kind === "placeholder" ? `${base} (placeholder)` : base;
+}
+
+function participantAvatarSeed(p: TabParticipant): string {
+  return p.userId ?? p.id;
+}
 
 export function SettleUpForm({
   tabId,
   currentUserId,
-  members,
+  participants,
   balances,
   tabCurrency = "USD",
   onSuccess,
 }: {
   tabId: string;
   currentUserId: string;
-  members: Member[];
+  participants: TabParticipant[];
   balances: Balance[];
   tabCurrency?: string;
   onSuccess?: () => void;
 }) {
-  const [fromUserId, setFromUserId] = useState("");
-  const [toUserId, setToUserId] = useState("");
+  const [fromParticipantId, setFromParticipantId] = useState("");
+  const [toParticipantId, setToParticipantId] = useState("");
   const [settlementDate, setSettlementDate] = useState<Date>(() => new Date());
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [amount, setAmount] = useState("");
@@ -87,7 +90,7 @@ export function SettleUpForm({
   const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
 
   const balanceMap = Object.fromEntries(
-    balances.map((b) => [b.userId, b.amount]),
+    balances.map((b) => [b.participantId, b.amount]),
   );
 
   function parseAmount(value: string): number | null {
@@ -141,7 +144,7 @@ export function SettleUpForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!fromUserId || !toUserId) {
+    if (!fromParticipantId || !toParticipantId) {
       setError("Please select both payer and payee");
       return;
     }
@@ -150,29 +153,35 @@ export function SettleUpForm({
       setError("Please enter a valid amount");
       return;
     }
+    const fromP = participants.find((p) => p.id === fromParticipantId);
+    const toP = participants.find((p) => p.id === toParticipantId);
+    if (!fromP || !toP) {
+      setError("Invalid payer or payee");
+      return;
+    }
     setLoading(true);
     setError(null);
 
-    const result = await api.settlements.record(
-      tabId,
-      fromUserId,
-      toUserId,
-      parsed,
-      {
-        settlementDate: settlementDate.toISOString(),
-        ...(currency !== tabCurrency ? { currency } : {}),
-      },
-    );
+    const result = await api.settlements.record(tabId, {
+      fromUserId: fromP.userId,
+      toUserId: toP.userId,
+      fromParticipantId: fromP.id,
+      toParticipantId: toP.id,
+      amount: parsed,
+      settlementDate: settlementDate.toISOString(),
+      ...(currency !== tabCurrency ? { currency } : {}),
+    });
 
     if (result.success) {
-      setFromUserId("");
-      setToUserId("");
+      setFromParticipantId("");
+      setToParticipantId("");
       setAmount("");
       setSettlementDate(new Date());
       setCurrency(tabCurrency);
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["settlements", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       toast.success("Settlement recorded");
       onSuccess?.();
@@ -187,10 +196,10 @@ export function SettleUpForm({
       <div className="space-y-2">
         <Label>Paid by</Label>
         <Select
-          value={fromUserId || undefined}
+          value={fromParticipantId || undefined}
           onValueChange={(value) => {
-            setFromUserId(value);
-            setToUserId("");
+            setFromParticipantId(value);
+            setToParticipantId("");
             setAmount("");
             setCurrency(tabCurrency);
           }}
@@ -200,11 +209,11 @@ export function SettleUpForm({
             <SelectValue placeholder="Select who paid" />
           </SelectTrigger>
           <SelectContent>
-            {members.map((m) => (
-              <SelectItem key={m.userId} value={m.userId}>
+            {participants.map((p) => (
+              <SelectItem key={p.id} value={p.id}>
                 <span className="flex items-center gap-2">
-                  <UserAvatar userId={m.userId} size="sm" />
-                  {getDisplayName(m.user, currentUserId)}
+                  <UserAvatar userId={participantAvatarSeed(p)} size="sm" />
+                  {participantLabel(p, currentUserId)}
                 </span>
               </SelectItem>
             ))}
@@ -214,33 +223,33 @@ export function SettleUpForm({
       <div className="space-y-2">
         <Label>Paid to</Label>
         <Select
-          value={toUserId || undefined}
+          value={toParticipantId || undefined}
           onValueChange={(value) => {
-            setToUserId(value);
+            setToParticipantId(value);
             const owed = balanceMap[value] ?? 0;
             if (owed > 0) {
               setAmount(owed.toFixed(2));
               setCurrency(tabCurrency);
             }
           }}
-          disabled={loading || !fromUserId}
+          disabled={loading || !fromParticipantId}
         >
           <SelectTrigger>
             <SelectValue placeholder="Select who received" />
           </SelectTrigger>
           <SelectContent>
-            {members
-              .filter((m) => m.userId !== fromUserId)
-              .map((m) => (
-                <SelectItem key={m.userId} value={m.userId}>
+            {participants
+              .filter((p) => p.id !== fromParticipantId)
+              .map((p) => (
+                <SelectItem key={p.id} value={p.id}>
                   <span className="flex items-center gap-2">
-                    <UserAvatar userId={m.userId} size="sm" />
-                    {getDisplayName(m.user, currentUserId)}
-                    {(balanceMap[m.userId] ?? 0) > 0 && (
+                    <UserAvatar userId={participantAvatarSeed(p)} size="sm" />
+                    {participantLabel(p, currentUserId)}
+                    {(balanceMap[p.id] ?? 0) > 0 && (
                       <>
                         {" "}
                         (owed{" "}
-                        {formatAmount(balanceMap[m.userId] ?? 0, tabCurrency)})
+                        {formatAmount(balanceMap[p.id] ?? 0, tabCurrency)})
                       </>
                     )}
                   </span>

@@ -58,10 +58,19 @@ type Member = {
   };
 };
 
+type TabParticipant = {
+  id: string;
+  kind: string;
+  userId: string | null;
+  displayName: string;
+  user: Member["user"] | null;
+};
+
 type Expense = {
   id: string;
   tabId: string;
-  paidById: string;
+  paidById: string | null;
+  paidByParticipantId?: string | null;
   amount: number;
   currency?: string;
   originalAmount?: number;
@@ -75,12 +84,24 @@ type Expense = {
     username?: string | null;
   };
   splits: {
-    userId: string;
+    userId: string | null;
+    participantId: string | null;
     amount: number;
     weight?: number | null;
     user: { id: string; email: string; name: string | null };
   }[];
 };
+
+function splitRowKey(s: Expense["splits"][0]): string {
+  return s.participantId ?? s.userId ?? "";
+}
+
+function participantLabel(p: TabParticipant, currentUserId: string): string {
+  const base = p.user
+    ? getDisplayName(p.user, currentUserId)
+    : p.displayName;
+  return p.kind === "placeholder" ? `${base} (placeholder)` : base;
+}
 
 function inferSplitConfig(expense: Expense): SplitConfig | null {
   if (expense.splitType === "equal") return null;
@@ -91,7 +112,7 @@ function inferSplitConfig(expense: Expense): SplitConfig | null {
     return {
       splitType: "percent",
       splits: expense.splits.map((s) => ({
-        userId: s.userId,
+        userId: splitRowKey(s),
         weight: s.weight as number,
       })),
     };
@@ -103,7 +124,7 @@ function inferSplitConfig(expense: Expense): SplitConfig | null {
     return {
       splitType: "shares",
       splits: expense.splits.map((s) => ({
-        userId: s.userId,
+        userId: splitRowKey(s),
         weight: s.weight as number,
       })),
     };
@@ -115,7 +136,7 @@ function inferSplitConfig(expense: Expense): SplitConfig | null {
   return {
     splitType: "custom",
     splits: expense.splits.map((s) => ({
-      userId: s.userId,
+      userId: splitRowKey(s),
       amount: s.amount,
     })),
   };
@@ -127,6 +148,7 @@ export function EditExpenseForm({
   tabCurrency,
   expense,
   members,
+  participants,
   currentUserId,
   onSuccess,
   onDeleteSuccess,
@@ -137,6 +159,7 @@ export function EditExpenseForm({
   tabCurrency: string;
   expense: Expense;
   members: Member[];
+  participants: TabParticipant[];
   currentUserId: string;
   onSuccess?: () => void;
   onDeleteSuccess?: () => void;
@@ -153,9 +176,9 @@ export function EditExpenseForm({
   const [expenseDate, setExpenseDate] = useState<Date>(
     () => new Date(expense.expenseDate),
   );
-  const [paidById, setPaidById] = useState(expense.paidById);
+  const [paidByParticipantId, setPaidByParticipantId] = useState("");
   const [participantIds, setParticipantIds] = useState<Set<string>>(
-    () => new Set(expense.splits.map((s) => s.userId)),
+    () => new Set(),
   );
   const [loading, setLoading] = useState(false);
   const descriptionRef = useRef<HTMLInputElement>(null);
@@ -171,9 +194,38 @@ export function EditExpenseForm({
   );
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
 
+  const tabParticipants = useMemo((): TabParticipant[] => {
+    if (participants.length > 0) return participants;
+    return members.map((m) => ({
+      id: m.userId,
+      kind: "member",
+      userId: m.userId,
+      displayName:
+        m.user.name?.trim() ||
+        (m.user.username ? `@${m.user.username}` : "") ||
+        m.user.email,
+      user: m.user,
+    }));
+  }, [participants, members]);
+
   useEffect(() => {
+    if (tabParticipants.length === 0) return;
     setSplitConfig(inferSplitConfig(expense));
-  }, [expenseId]);
+    const initPayer =
+      expense.paidByParticipantId ??
+      tabParticipants.find((p) => p.userId != null && p.userId === expense.paidById)
+        ?.id ??
+      tabParticipants.find((p) => p.id === expense.paidById)?.id ??
+      tabParticipants[0]!.id;
+    setPaidByParticipantId(initPayer);
+    setParticipantIds(
+      new Set(
+        expense.splits
+          .map((s) => splitRowKey(s))
+          .filter((id) => id.length > 0),
+      ),
+    );
+  }, [expense, tabParticipants]);
 
   function parseAmount(value: string): number | null {
     const num = parseFloat(value);
@@ -229,8 +281,29 @@ export function EditExpenseForm({
   }, []);
 
   const selectedParticipants = useMemo(
-    () => members.filter((m) => participantIds.has(m.userId)),
-    [members, participantIds],
+    () => tabParticipants.filter((p) => participantIds.has(p.id)),
+    [tabParticipants, participantIds],
+  );
+
+  const hasPlaceholderInSplit = useMemo(
+    () => selectedParticipants.some((p) => p.kind === "placeholder"),
+    [selectedParticipants],
+  );
+
+  const splitDialogParticipants = useMemo(
+    () =>
+      selectedParticipants.map((p) => ({
+        userId: p.userId ?? p.id,
+        user:
+          p.user ??
+          ({
+            id: p.id,
+            email: "",
+            name: p.displayName,
+            username: null,
+          } as Member["user"]),
+      })),
+    [selectedParticipants],
   );
 
   const parsedAmountForSplit = useMemo(() => parseAmount(amount), [amount]);
@@ -245,18 +318,18 @@ export function EditExpenseForm({
     parsedAmountForSplit === null ||
     (currency !== tabCurrency && (fxPreviewLoading || tabTotalForSplit === null));
 
-  function toggleParticipant(userId: string) {
+  function toggleParticipant(participantId: string) {
     setSplitConfig(null);
     setParticipantIds((prev) => {
       const next = new Set(prev);
-      if (next.has(userId)) {
+      if (next.has(participantId)) {
         if (next.size <= 1) {
           setError("At least one person must be in the split");
           return prev;
         }
-        next.delete(userId);
+        next.delete(participantId);
       } else {
-        next.add(userId);
+        next.add(participantId);
         setError(null);
       }
       return next;
@@ -287,14 +360,14 @@ export function EditExpenseForm({
 
     if (
       selectedParticipants.length === 1 &&
-      selectedParticipants[0].userId === paidById
+      selectedParticipants[0]!.id === paidByParticipantId
     ) {
       setError("Payer cannot be the only member of the split");
       setLoading(false);
       return;
     }
 
-    const participantIdsList = selectedParticipants.map((p) => p.userId);
+    const participantIdsList = selectedParticipants.map((p) => p.id);
 
     const updateBody =
       splitConfig == null || splitConfig.splitType === "equal"
@@ -302,7 +375,7 @@ export function EditExpenseForm({
             amount: parsedAmount,
             currency,
             description,
-            paidById,
+            paidByParticipantId,
             splitType: "equal" as const,
             expenseDate: expenseDate.toISOString().slice(0, 10),
             participantIds: participantIdsList,
@@ -312,7 +385,7 @@ export function EditExpenseForm({
               amount: parsedAmount,
               currency,
               description,
-              paidById,
+              paidByParticipantId,
               splitType: "custom" as const,
               expenseDate: expenseDate.toISOString().slice(0, 10),
               participantIds: participantIdsList,
@@ -322,7 +395,7 @@ export function EditExpenseForm({
               amount: parsedAmount,
               currency,
               description,
-              paidById,
+              paidByParticipantId,
               splitType: splitConfig.splitType,
               expenseDate: expenseDate.toISOString().slice(0, 10),
               participantIds: participantIdsList,
@@ -337,6 +410,7 @@ export function EditExpenseForm({
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       queryClient.invalidateQueries({
         queryKey: ["expense", tabId, expenseId],
@@ -377,7 +451,7 @@ export function EditExpenseForm({
         <SplitDialog
           open={splitDialogOpen}
           onOpenChange={setSplitDialogOpen}
-          participants={selectedParticipants}
+          participants={splitDialogParticipants}
           tabTotal={tabTotalForSplit}
           expenseTotal={parsedAmountForSplit}
           expenseCurrency={currency}
@@ -390,18 +464,23 @@ export function EditExpenseForm({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex gap-2">
           <Select
-            value={paidById}
-            onValueChange={setPaidById}
+            value={paidByParticipantId}
+            onValueChange={setPaidByParticipantId}
             disabled={loading}
           >
             <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none">
               <SelectValue placeholder="Select who paid">
                 {(() => {
-                  const payer = members.find((m) => m.userId === paidById);
+                  const payer = tabParticipants.find(
+                    (p) => p.id === paidByParticipantId,
+                  );
                   return payer ? (
                     <span className="flex items-center gap-2">
-                      <UserAvatar userId={payer.userId} size="xs" />
-                      {getDisplayName(payer.user, currentUserId)}
+                      <UserAvatar
+                        userId={payer.userId ?? payer.id}
+                        size="xs"
+                      />
+                      {participantLabel(payer, currentUserId)}
                       <span className="text-muted-foreground">paid</span>
                     </span>
                   ) : null;
@@ -409,11 +488,11 @@ export function EditExpenseForm({
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {members.map((m) => (
-                <SelectItem key={m.userId} value={m.userId}>
+              {tabParticipants.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
                   <span className="flex items-center gap-2">
-                    <UserAvatar userId={m.userId} size="xs" />
-                    {getDisplayName(m.user, currentUserId)}
+                    <UserAvatar userId={p.userId ?? p.id} size="xs" />
+                    {participantLabel(p, currentUserId)}
                   </span>
                 </SelectItem>
               ))}
@@ -456,22 +535,22 @@ export function EditExpenseForm({
         <div className="space-y-2">
           <Label>Split with</Label>
           <div className="grid grid-cols-2 gap-2">
-            {members.map((m) => (
+            {tabParticipants.map((p) => (
               <button
-                key={m.userId}
+                key={p.id}
                 type="button"
-                onClick={() => toggleParticipant(m.userId)}
+                onClick={() => toggleParticipant(p.id)}
                 disabled={loading}
                 className={cn(
                   "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                  participantIds.has(m.userId)
+                  participantIds.has(p.id)
                     ? "border-primary/50 bg-primary/10 text-foreground"
                     : "border-border text-muted-foreground hover:bg-muted/50",
                 )}
               >
-                <UserAvatar userId={m.userId} size="xs" />
+                <UserAvatar userId={p.userId ?? p.id} size="xs" />
                 <span className="min-w-0 truncate">
-                  {getDisplayName(m.user, currentUserId)}
+                  {participantLabel(p, currentUserId)}
                 </span>
               </button>
             ))}
@@ -480,7 +559,9 @@ export function EditExpenseForm({
             type="button"
             variant="outline"
             className="w-full"
-            disabled={loading || splitButtonDisabled}
+            disabled={
+              loading || splitButtonDisabled || hasPlaceholderInSplit
+            }
             onClick={() => setSplitDialogOpen(true)}
           >
             {splitConfigLabel(splitConfig)}

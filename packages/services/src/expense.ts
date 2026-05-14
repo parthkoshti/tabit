@@ -1,4 +1,11 @@
-import { expense, recurringExpense, tab, user as userData } from "data";
+import {
+  expense,
+  recurringExpense,
+  tab,
+  user as userData,
+  ensureMemberParticipantsForTab,
+  getParticipantIdForTabUser,
+} from "data";
 import type { GetExpensesForTabOptions } from "data";
 import {
   createExpenseSchema,
@@ -22,28 +29,41 @@ function roundTo2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
+type LedgerMember = {
+  /** Null for placeholder participants. */
+  userId: string | null;
+  participantId: string;
+};
+
 type ResolvedSplitRow = {
-  userId: string;
+  userId: string | null;
+  participantId: string;
   amount: number;
   /** Stored for percent/shares; null for equal/custom. */
   weight: number | null;
 };
 
-function orderMembersByParticipantIds(
-  allMembers: Array<{ userId: string }>,
-  participantIds: string[],
-): Array<{ userId: string }> {
-  const map = new Map(allMembers.map((m) => [m.userId, m]));
-  const ordered: Array<{ userId: string }> = [];
-  for (const id of participantIds) {
-    const m = map.get(id);
-    if (m) ordered.push({ userId: m.userId });
+function resolveLedgerMembers(
+  tabParticipants: Array<{ id: string; userId: string | null }>,
+  orderedKeys: string[],
+): LedgerMember[] {
+  const out: LedgerMember[] = [];
+  for (const key of orderedKeys) {
+    const byId = tabParticipants.find((p) => p.id === key);
+    if (byId) {
+      out.push({ userId: byId.userId, participantId: byId.id });
+      continue;
+    }
+    const byUser = tabParticipants.find((p) => p.userId === key);
+    if (byUser) {
+      out.push({ userId: byUser.userId, participantId: byUser.id });
+    }
   }
-  return ordered;
+  return out;
 }
 
 function buildSplitInputMap(
-  members: Array<{ userId: string }>,
+  members: Array<{ userId: string; participantId: string }>,
   inputSplits: Array<{ userId: string; amount?: number; weight?: number }> | undefined,
 ): Map<string, { amount?: number; weight?: number }> | null {
   if (!inputSplits || inputSplits.length !== members.length) return null;
@@ -57,16 +77,34 @@ function buildSplitInputMap(
 
 function calculateSplits(
   amountTab: number,
-  members: Array<{ userId: string }>,
+  members: LedgerMember[],
   splitType: string,
   inputSplits?: Array<{ userId: string; amount?: number; weight?: number }>,
 ): { splits: ResolvedSplitRow[] } | { error: string } {
   if (members.length < 1) return { error: "Invalid split" };
 
+  if (splitType !== "equal") {
+    for (const m of members) {
+      if (m.userId == null) {
+        return {
+          error:
+            "Percent, shares, and custom splits require every participant to be a registered member",
+        };
+      }
+    }
+  }
+
   if (splitType === "equal") {
     if (members.length === 1) {
       return {
-        splits: [{ userId: members[0]!.userId, amount: roundTo2(amountTab), weight: null }],
+        splits: [
+          {
+            userId: members[0]!.userId,
+            participantId: members[0]!.participantId,
+            amount: roundTo2(amountTab),
+            weight: null,
+          },
+        ],
       };
     }
     const perPerson = Math.floor((amountTab / members.length) * 100) / 100;
@@ -74,13 +112,17 @@ function calculateSplits(
     return {
       splits: members.map((m, i) => ({
         userId: m.userId,
+        participantId: m.participantId,
         amount: i === members.length - 1 ? remainder : perPerson,
         weight: null,
       })),
     };
   }
 
-  const splitMap = buildSplitInputMap(members, inputSplits);
+  const splitMap = buildSplitInputMap(
+    members as Array<{ userId: string; participantId: string }>,
+    inputSplits,
+  );
   if (!splitMap) {
     return {
       error:
@@ -98,7 +140,8 @@ function calculateSplits(
     let sum = 0;
     const rows: ResolvedSplitRow[] = [];
     for (const m of members) {
-      const line = splitMap.get(m.userId)!;
+      const uid = m.userId as string;
+      const line = splitMap.get(uid)!;
       if (line.amount === undefined) {
         return { error: "Custom split requires an amount for each participant" };
       }
@@ -106,7 +149,12 @@ function calculateSplits(
         return { error: "Each participant must have a positive split amount" };
       }
       sum += line.amount;
-      rows.push({ userId: m.userId, amount: roundTo2(line.amount), weight: null });
+      rows.push({
+        userId: m.userId,
+        participantId: m.participantId,
+        amount: roundTo2(line.amount),
+        weight: null,
+      });
     }
     if (Math.abs(roundTo2(sum) - roundTo2(amountTab)) > 0.01) {
       return { error: "Custom split amounts must sum to the expense total" };
@@ -118,7 +166,8 @@ function calculateSplits(
     let weightSum = 0;
     const weights: number[] = [];
     for (const m of members) {
-      const w = splitMap.get(m.userId)!.weight;
+      const uid = m.userId as string;
+      const w = splitMap.get(uid)!.weight;
       if (w === undefined) {
         return { error: "Percent split requires a weight for each participant" };
       }
@@ -134,6 +183,7 @@ function calculateSplits(
         splits: [
           {
             userId: members[0]!.userId,
+            participantId: members[0]!.participantId,
             amount: roundTo2(amountTab),
             weight: weights[0]!,
           },
@@ -151,6 +201,7 @@ function calculateSplits(
     return {
       splits: members.map((m, i) => ({
         userId: m.userId,
+        participantId: m.participantId,
         amount: amounts[i]!,
         weight: weights[i]!,
       })),
@@ -161,7 +212,8 @@ function calculateSplits(
     let totalShares = 0;
     const weights: number[] = [];
     for (const m of members) {
-      const w = splitMap.get(m.userId)!.weight;
+      const uid = m.userId as string;
+      const w = splitMap.get(uid)!.weight;
       if (w === undefined) {
         return { error: "Shares split requires a weight for each participant" };
       }
@@ -177,6 +229,7 @@ function calculateSplits(
         splits: [
           {
             userId: members[0]!.userId,
+            participantId: members[0]!.participantId,
             amount: roundTo2(amountTab),
             weight: weights[0]!,
           },
@@ -194,6 +247,7 @@ function calculateSplits(
     return {
       splits: members.map((m, i) => ({
         userId: m.userId,
+        participantId: m.participantId,
         amount: amounts[i]!,
         weight: weights[i]!,
       })),
@@ -205,7 +259,8 @@ function calculateSplits(
 
 export type CreateExpenseInput = {
   tabId: string;
-  paidById: string;
+  paidById?: string;
+  paidByParticipantId?: string;
   /** Amount in `currency` (defaults to tab currency). */
   amount: number;
   currency?: string;
@@ -294,26 +349,43 @@ export const expenseService = {
       return err("Not a member of this tab", 403);
     }
 
-    const payerIsMember = await tab.isMember(input.tabId, input.paidById);
-    if (!payerIsMember) {
-      return err("Payer must be a member", 400);
+    const tabDetail = await tab.getWithMembers(input.tabId);
+    if (!tabDetail) {
+      return err("Tab not found", 404);
+    }
+    await ensureMemberParticipantsForTab(input.tabId);
+
+    const paidByParticipantId =
+      input.paidByParticipantId ??
+      (input.paidById
+        ? await getParticipantIdForTabUser(input.tabId, input.paidById)
+        : null);
+    if (!paidByParticipantId) {
+      return err("Invalid payer", 400);
+    }
+    const payerParticipant = tabDetail.participants.find((p) => p.id === paidByParticipantId);
+    if (!payerParticipant) {
+      return err("Invalid payer", 400);
+    }
+    const paidByUserId = payerParticipant.userId;
+    const payerOk =
+      payerParticipant.kind === "placeholder" ||
+      (!!paidByUserId && (await tab.isMember(input.tabId, paidByUserId)));
+    if (!payerOk) {
+      return err("Payer must be a tab participant", 400);
     }
 
-    const allMembers = await tab.getMembers(input.tabId);
-    const participantIds =
+    const participantKeyOrder =
       input.participantIds && input.participantIds.length > 0
         ? input.participantIds
-        : allMembers.map((m) => m.userId);
-    const useExplicitParticipants =
-      input.participantIds && input.participantIds.length > 0;
-    const members = useExplicitParticipants
-      ? orderMembersByParticipantIds(allMembers, participantIds)
-      : allMembers.map((m) => ({ userId: m.userId }));
+        : tabDetail.participants.map((p) => p.id);
+
+    const members = resolveLedgerMembers(tabDetail.participants, participantKeyOrder);
 
     if (members.length < 1) {
       return err("At least one person must be in the split", 400);
     }
-    if (members.length === 1 && members[0]!.userId === input.paidById) {
+    if (members.length === 1 && members[0]!.participantId === paidByParticipantId) {
       return err("Payer cannot be the only member of the split", 400);
     }
 
@@ -342,14 +414,20 @@ export const expenseService = {
 
     const expensePayload = {
       tabId: input.tabId,
-      paidById: input.paidById,
+      paidById: paidByUserId,
+      paidByParticipantId,
       amount: amountTab,
       currency: expenseCurrency,
       originalAmount: input.amount,
       description: input.description,
       splitType: input.splitType,
       expenseDate: input.expenseDate,
-      splits,
+      splits: splits.map((s) => ({
+        participantId: s.participantId,
+        userId: s.userId,
+        amount: s.amount,
+        weight: s.weight ?? undefined,
+      })),
       performedById,
     };
 
@@ -398,30 +476,27 @@ export const expenseService = {
     }
 
     const tabInfo = await tab.getTabInfoForNotifications(input.tabId, performedById);
-    const payerUser = await userData.getById(input.paidById);
+    const payerUser = paidByUserId ? await userData.getById(paidByUserId) : null;
     const payerDisplayName =
-      payerUser?.name ?? (payerUser?.username ? `@${payerUser.username}` : null);
-    const participantUserRows = await userData.getByIds(members.map((m) => m.userId));
-    const participantMap = new Map(
-      participantUserRows.map((r: { id: string; name: string | null; username: string | null }) => [
-        r.id,
-        { userId: r.id, name: r.name, username: r.username },
-      ]),
-    );
-    const splitByUser = new Map(splits.map((s) => [s.userId, s.amount]));
-    const participants = participantIds
-      .map((id) => participantMap.get(id))
-      .filter((p): p is { userId: string; name: string | null; username: string | null } => !!p)
-      .map((p) => {
-        const share = splitByUser.get(p.userId) ?? 0;
-        const isPayer = p.userId === input.paidById;
-        return {
-          userId: p.userId,
-          name: p.name ?? (p.username ? `@${p.username}` : null),
-          paid: isPayer ? amountTab : undefined,
-          owes: !isPayer ? share : undefined,
-        };
-      });
+      payerUser?.name ??
+      (payerUser?.username ? `@${payerUser.username}` : null) ??
+      payerParticipant.displayName;
+    const splitByParticipant = new Map(splits.map((s) => [s.participantId, s.amount]));
+    const participants = members.map((m) => {
+      const meta = tabDetail.participants.find((p) => p.id === m.participantId);
+      const name =
+        meta?.user?.name ??
+        meta?.displayName ??
+        (meta?.user?.username ? `@${meta.user.username}` : null);
+      const share = splitByParticipant.get(m.participantId) ?? 0;
+      const isPayer = m.participantId === paidByParticipantId;
+      return {
+        userId: m.userId ?? m.participantId,
+        name,
+        paid: isPayer ? amountTab : undefined,
+        owes: !isPayer ? share : undefined,
+      };
+    });
 
     const notifyAmount =
       expenseCurrency !== tabCurrency
@@ -429,19 +504,21 @@ export const expenseService = {
         : String(amountTab);
     const currencySymbol = getCurrency(tabCurrency)?.symbol ?? "$";
 
+    const notifyFromUserId = paidByUserId ?? performedById;
+
     if (tabInfo) {
       for (const m of members) {
-        if (m.userId !== performedById) {
+        if (m.userId != null && m.userId !== performedById) {
           await notificationService.publishExpenseAddedToUser(m.userId, {
             tabId: input.tabId,
             expenseId,
             tabName: tabInfo.name,
             isDirect: tabInfo.isDirect,
-            fromUserId: input.paidById,
+            fromUserId: notifyFromUserId,
             fromUserName: payerDisplayName,
             description: input.description,
             amount: notifyAmount,
-            recipientOweAmount: splitByUser.get(m.userId)?.toString(),
+            recipientOweAmount: splitByParticipant.get(m.participantId)?.toString(),
             currencySymbol,
             createdAt: new Date(),
           });
@@ -481,26 +558,43 @@ export const expenseService = {
       return err("Not a member of this tab", 403);
     }
 
-    const payerIsMember = await tab.isMember(input.tabId, input.paidById);
-    if (!payerIsMember) {
-      return err("Payer must be a member", 400);
+    const tabDetail = await tab.getWithMembers(input.tabId);
+    if (!tabDetail) {
+      return err("Tab not found", 404);
+    }
+    await ensureMemberParticipantsForTab(input.tabId);
+
+    const paidByParticipantId =
+      input.paidByParticipantId ??
+      (input.paidById
+        ? await getParticipantIdForTabUser(input.tabId, input.paidById)
+        : null);
+    if (!paidByParticipantId) {
+      return err("Invalid payer", 400);
+    }
+    const payerParticipant = tabDetail.participants.find((p) => p.id === paidByParticipantId);
+    if (!payerParticipant) {
+      return err("Invalid payer", 400);
+    }
+    const paidByUserId = payerParticipant.userId;
+    const payerOk =
+      payerParticipant.kind === "placeholder" ||
+      (!!paidByUserId && (await tab.isMember(input.tabId, paidByUserId)));
+    if (!payerOk) {
+      return err("Payer must be a tab participant", 400);
     }
 
-    const allMembers = await tab.getMembers(input.tabId);
-    const participantIds =
+    const participantKeyOrder =
       input.participantIds && input.participantIds.length > 0
         ? input.participantIds
-        : allMembers.map((m) => m.userId);
-    const useExplicitParticipants =
-      input.participantIds && input.participantIds.length > 0;
-    const members = useExplicitParticipants
-      ? orderMembersByParticipantIds(allMembers, participantIds)
-      : allMembers.map((m) => ({ userId: m.userId }));
+        : tabDetail.participants.map((p) => p.id);
+
+    const members = resolveLedgerMembers(tabDetail.participants, participantKeyOrder);
 
     if (members.length < 1) {
       return err("At least one person must be in the split", 400);
     }
-    if (members.length === 1 && members[0]!.userId === input.paidById) {
+    if (members.length === 1 && members[0]!.participantId === paidByParticipantId) {
       return err("Payer cannot be the only member of the split", 400);
     }
 
@@ -529,14 +623,20 @@ export const expenseService = {
 
     const dataInput = {
       tabId: input.tabId,
-      paidById: input.paidById,
+      paidById: paidByUserId,
+      paidByParticipantId,
       amount: amountTab,
       currency: expenseCurrency,
       originalAmount: input.amount,
       description: input.description,
       splitType: input.splitType,
       expenseDate: input.expenseDate,
-      splits,
+      splits: splits.map((s) => ({
+        participantId: s.participantId,
+        userId: s.userId,
+        amount: s.amount,
+        weight: s.weight ?? undefined,
+      })),
       performedById,
       recurringRuleId: ruleId,
       auditAction: "create_from_recurring",
@@ -558,13 +658,15 @@ export const expenseService = {
     const expenseId = tryRes.expenseId;
 
     const tabInfo = await tab.getTabInfoForNotifications(input.tabId, performedById);
-    const payerUser = await userData.getById(input.paidById);
+    const payerUser = paidByUserId ? await userData.getById(paidByUserId) : null;
     const payerDisplayName =
-      payerUser?.name ?? (payerUser?.username ? `@${payerUser.username}` : null);
+      payerUser?.name ??
+      (payerUser?.username ? `@${payerUser.username}` : null) ??
+      payerParticipant.displayName;
     const ownerUser = await userData.getById(ruleOwnerId);
     const ruleOwnerName =
       ownerUser?.name ?? (ownerUser?.username ? `@${ownerUser.username}` : null);
-    const splitByUser = new Map(splits.map((s) => [s.userId, s.amount]));
+    const splitByParticipant = new Map(splits.map((s) => [s.participantId, s.amount]));
 
     const notifyAmount =
       expenseCurrency !== tabCurrency
@@ -572,20 +674,21 @@ export const expenseService = {
         : String(amountTab);
     const currencySymbol = getCurrency(tabCurrency)?.symbol ?? "$";
     const editRulePath = `/expense/recurring/${ruleId}`;
+    const notifyFromUserId = paidByUserId ?? performedById;
 
     if (tabInfo) {
       for (const m of members) {
-        if (m.userId !== performedById) {
+        if (m.userId != null && m.userId !== performedById) {
           await notificationService.publishExpenseAddedToUser(m.userId, {
             tabId: input.tabId,
             expenseId,
             tabName: tabInfo.name,
             isDirect: tabInfo.isDirect,
-            fromUserId: input.paidById,
+            fromUserId: notifyFromUserId,
             fromUserName: payerDisplayName,
             description: input.description,
             amount: notifyAmount,
-            recipientOweAmount: splitByUser.get(m.userId)?.toString(),
+            recipientOweAmount: splitByParticipant.get(m.participantId)?.toString(),
             currencySymbol,
             createdAt: new Date(),
             recurringRuleId: ruleId,
@@ -619,26 +722,43 @@ export const expenseService = {
       return err("Not a member", 403);
     }
 
-    const payerIsMember = await tab.isMember(tabId, input.paidById);
-    if (!payerIsMember) {
-      return err("Payer must be a member", 400);
+    const tabDetail = await tab.getWithMembers(tabId);
+    if (!tabDetail) {
+      return err("Tab not found", 404);
+    }
+    await ensureMemberParticipantsForTab(tabId);
+
+    const paidByParticipantId =
+      input.paidByParticipantId ??
+      (input.paidById
+        ? await getParticipantIdForTabUser(tabId, input.paidById)
+        : null);
+    if (!paidByParticipantId) {
+      return err("Invalid payer", 400);
+    }
+    const payerParticipant = tabDetail.participants.find((p) => p.id === paidByParticipantId);
+    if (!payerParticipant) {
+      return err("Invalid payer", 400);
+    }
+    const paidByUserId = payerParticipant.userId;
+    const payerOk =
+      payerParticipant.kind === "placeholder" ||
+      (!!paidByUserId && (await tab.isMember(tabId, paidByUserId)));
+    if (!payerOk) {
+      return err("Payer must be a tab participant", 400);
     }
 
-    const allMembers = await tab.getMembers(tabId);
-    const participantIds =
+    const participantKeyOrder =
       input.participantIds && input.participantIds.length > 0
         ? input.participantIds
-        : allMembers.map((m) => m.userId);
-    const useExplicitParticipants =
-      input.participantIds && input.participantIds.length > 0;
-    const members = useExplicitParticipants
-      ? orderMembersByParticipantIds(allMembers, participantIds)
-      : allMembers.map((m) => ({ userId: m.userId }));
+        : tabDetail.participants.map((p) => p.id);
+
+    const members = resolveLedgerMembers(tabDetail.participants, participantKeyOrder);
 
     if (members.length < 1) {
       return err("At least one person must be in the split", 400);
     }
-    if (members.length === 1 && members[0]!.userId === input.paidById) {
+    if (members.length === 1 && members[0]!.participantId === paidByParticipantId) {
       return err("Payer cannot be the only member of the split", 400);
     }
 
@@ -669,26 +789,34 @@ export const expenseService = {
       expenseId,
       tabId,
       {
-        paidById: input.paidById,
+        paidById: paidByUserId,
+        paidByParticipantId,
         amount: amountTab,
         currency: expenseCurrency,
         originalAmount: input.amount,
         description: input.description,
         splitType: input.splitType,
         expenseDate: input.expenseDate,
-        splits,
+        splits: splits.map((s) => ({
+          participantId: s.participantId,
+          userId: s.userId,
+          amount: s.amount,
+          weight: s.weight ?? undefined,
+        })),
         performedById,
       },
       {
         amount: existingExp.amount.toString(),
         description: existingExp.description,
         paidById: existingExp.paidById,
+        paidByParticipantId: existingExp.paidByParticipantId,
         expenseDate: existingExp.expenseDate,
         currency: existingExp.currency,
         originalAmount: existingExp.originalAmount.toString(),
       },
       existingExp.splits.map((s) => ({
         userId: s.userId,
+        participantId: s.participantId,
         amount: String(s.amount),
         weight: s.weight != null ? String(s.weight) : undefined,
       })),
@@ -709,7 +837,7 @@ export const expenseService = {
 
     if (tabInfo && fromUser) {
       for (const m of members) {
-        if (m.userId !== performedById) {
+        if (m.userId != null && m.userId !== performedById) {
           await notificationService.publishExpenseUpdatedToUser(m.userId, {
             tabId,
             expenseId,
@@ -719,7 +847,9 @@ export const expenseService = {
             fromUserName: fromUser.name ?? null,
             description: input.description ?? "",
             amount: notifyAmount,
-            recipientOweAmount: splits.find((s) => s.userId === m.userId)?.amount.toString(),
+            recipientOweAmount: splits
+              .find((s) => s.participantId === m.participantId)
+              ?.amount.toString(),
             currencySymbol,
             descriptionChanged,
             amountChanged,
@@ -758,10 +888,14 @@ export const expenseService = {
     const tabCurrency = (await tab.getCurrency(tabId)) ?? "USD";
     const currencySymbol = getCurrency(tabCurrency)?.symbol ?? "$";
     const deletedAt = new Date();
-    const participantIds = [...new Set([exp.paidById, ...exp.splits.map((s) => s.userId)])];
+    const notifyUserIds = new Set<string>();
+    if (exp.paidById) notifyUserIds.add(exp.paidById);
+    for (const s of exp.splits) {
+      if (s.userId) notifyUserIds.add(s.userId);
+    }
 
     if (tabInfo && fromUser) {
-      for (const participantId of participantIds) {
+      for (const participantId of notifyUserIds) {
         if (participantId !== userId) {
           await notificationService.publishExpenseDeletedToUser(participantId, {
             tabId,
@@ -808,10 +942,10 @@ export const expenseService = {
     const tabCurrency = (await tab.getCurrency(tabId)) ?? "USD";
     const currencySymbol = getCurrency(tabCurrency)?.symbol ?? "$";
     const restoredAt = new Date();
-    const participantIds = exp.splits.map((s) => s.userId);
+    const notifyUserIds = exp.splits.map((s) => s.userId).filter((u): u is string => u != null);
 
     if (tabInfo && fromUser) {
-      for (const participantId of participantIds) {
+      for (const participantId of notifyUserIds) {
         if (participantId !== userId) {
           await notificationService.publishExpenseRestoredToUser(participantId, {
             tabId,
@@ -852,7 +986,11 @@ export const expenseService = {
       return err("No expenses to import", 400);
     }
 
-    const allMembers = await tab.getMembers(tabId);
+    const tabDetail = await tab.getWithMembers(tabId);
+    if (!tabDetail) {
+      return err("Tab not found", 404);
+    }
+    await ensureMemberParticipantsForTab(tabId);
     const tabInfo = await tab.getTabInfoForNotifications(tabId, userId);
     const fromUser = await userData.getById(userId);
     const tabCurrency = (await tab.getCurrency(tabId)) ?? "USD";
@@ -860,14 +998,20 @@ export const expenseService = {
     const BATCH_SIZE = 500;
     const validated: Array<{
       tabId: string;
-      paidById: string;
+      paidById: string | null;
+      paidByParticipantId: string;
       amount: string;
       currency: string;
       originalAmount: string;
       description: string;
       splitType: string;
       expenseDate: Date;
-      splits: Array<{ userId: string; amount: string; weight?: string }>;
+      splits: Array<{
+        userId: string | null;
+        participantId: string;
+        amount: string;
+        weight?: string;
+      }>;
     }> = [];
     const errors: string[] = [];
 
@@ -884,19 +1028,27 @@ export const expenseService = {
         continue;
       }
 
-      const participantIds =
-        (item.participantIds as string[] | undefined) ?? allMembers.map((m) => m.userId);
-      const useExplicit =
-        Array.isArray(item.participantIds) && item.participantIds.length > 0;
-      const members = useExplicit
-        ? orderMembersByParticipantIds(allMembers, participantIds)
-        : allMembers.map((m) => ({ userId: m.userId }));
+      const participantKeys =
+        (item.participantIds as string[] | undefined) ??
+        tabDetail.participants.map((p) => p.id);
+      const members = resolveLedgerMembers(tabDetail.participants, participantKeys);
 
       if (members.length < 1) {
         errors.push(`Row ${i + 1}: At least one person must be in the split`);
         continue;
       }
-      if (members.length === 1 && members[0]!.userId === parsed.data.paidById) {
+
+      const paidByParticipantId =
+        parsed.data.paidByParticipantId ??
+        (parsed.data.paidById
+          ? await getParticipantIdForTabUser(tabId, parsed.data.paidById)
+          : null);
+      if (!paidByParticipantId) {
+        errors.push(`Row ${i + 1}: Invalid payer`);
+        continue;
+      }
+
+      if (members.length === 1 && members[0]!.participantId === paidByParticipantId) {
         errors.push(`Row ${i + 1}: Payer cannot be the only member of the split`);
         continue;
       }
@@ -937,7 +1089,8 @@ export const expenseService = {
 
       validated.push({
         tabId: parsed.data.tabId,
-        paidById: parsed.data.paidById,
+        paidById: parsed.data.paidById ?? null,
+        paidByParticipantId,
         amount: amountTab.toString(),
         currency: expenseCurrency,
         originalAmount: parsed.data.amount.toString(),
@@ -946,6 +1099,7 @@ export const expenseService = {
         expenseDate: parsed.data.expenseDate,
         splits: splits.map((s) => ({
           userId: s.userId,
+          participantId: s.participantId,
           amount: s.amount.toString(),
           weight: s.weight != null ? s.weight.toString() : undefined,
         })),
@@ -960,6 +1114,7 @@ export const expenseService = {
         const items = batch.map((v) => ({
           tabId: v.tabId,
           paidById: v.paidById,
+          paidByParticipantId: v.paidByParticipantId,
           amount: v.amount,
           currency: v.currency,
           originalAmount: v.originalAmount,
@@ -979,7 +1134,7 @@ export const expenseService = {
     }
 
     if (imported > 0 && tabInfo && fromUser) {
-      for (const m of allMembers) {
+      for (const m of tabDetail.members) {
         if (m.userId !== userId) {
           await notificationService.publishExpensesBulkImportedToUser(m.userId, {
             tabId,
@@ -1028,10 +1183,12 @@ export const expenseService = {
 
     const tabInfo = await tab.getTabInfoForNotifications(tabId, userId);
     const fromUser = await userData.getById(userId);
+    const rawNotifyIds = [exp.paidById, ...exp.splits.map((s) => s.userId)];
     const participantIds = [
-      exp.paidById,
-      ...exp.splits.map((s) => s.userId),
-    ].filter((id, i, arr) => arr.indexOf(id) === i && id !== userId);
+      ...new Set(
+        rawNotifyIds.filter((id): id is string => id != null && id !== "" && id !== userId),
+      ),
+    ];
 
     if (tabInfo && fromUser) {
       for (const participantId of participantIds) {

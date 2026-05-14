@@ -69,10 +69,56 @@ type Member = {
   };
 };
 
+type TabParticipant = {
+  id: string;
+  kind: string;
+  userId: string | null;
+  displayName: string;
+  user: Member["user"] | null;
+};
+
+function participantLabel(p: TabParticipant, currentUserId: string): string {
+  const base = p.user
+    ? getDisplayName(p.user, currentUserId)
+    : p.displayName;
+  return p.kind === "placeholder" ? `${base} (placeholder)` : base;
+}
+
+function participantAvatarSeed(p: TabParticipant): string {
+  return p.userId ?? p.id;
+}
+
+/** Ledger row for the signed-in user, if they belong to this tab. */
+function resolveMyParticipantId(
+  tabParticipants: TabParticipant[],
+  members: Member[],
+  currentUserId: string,
+): string | null {
+  if (!currentUserId || tabParticipants.length === 0) return null;
+  const uid = String(currentUserId);
+  const direct = tabParticipants.find(
+    (p) =>
+      (p.userId != null && String(p.userId) === uid) ||
+      (p.user != null && String(p.user.id) === uid),
+  );
+  if (direct) return direct.id;
+  const mem = members.find((m) => String(m.userId) === uid);
+  if (!mem) return null;
+  return (
+    tabParticipants.find(
+      (p) =>
+        p.kind === "member" &&
+        ((p.userId != null && String(p.userId) === String(mem.userId)) ||
+          (p.user != null && String(p.user.id) === String(mem.user.id))),
+    )?.id ?? null
+  );
+}
+
 export function AddExpenseForm({
   tabId,
   tabCurrency,
   members,
+  participants,
   currentUserId,
   onSuccess,
   onExpenseCreated,
@@ -80,6 +126,7 @@ export function AddExpenseForm({
   tabId: string;
   tabCurrency: string;
   members: Member[];
+  participants: TabParticipant[];
   currentUserId: string;
   onSuccess?: () => void;
   /** Called once the expense is saved (before the success dialog). Use to refresh lists outside this tab. */
@@ -89,10 +136,51 @@ export function AddExpenseForm({
   const [currency, setCurrency] = useState(tabCurrency);
   const [description, setDescription] = useState("");
   const [expenseDate, setExpenseDate] = useState<Date>(() => new Date());
-  const [paidById, setPaidById] = useState(currentUserId);
   const [participantIds, setParticipantIds] = useState<Set<string>>(
-    () => new Set(members.map((m) => m.userId)),
+    () => new Set(),
   );
+
+  const tabParticipants = useMemo((): TabParticipant[] => {
+    if (participants.length > 0) return participants;
+    return members.map((m) => ({
+      id: m.userId,
+      kind: "member",
+      userId: m.userId,
+      displayName:
+        m.user.name?.trim() ||
+        (m.user.username ? `@${m.user.username}` : "") ||
+        m.user.email,
+      user: m.user,
+    }));
+  }, [participants, members]);
+
+  const derivedDefaultPayerParticipantId = useMemo((): string => {
+    if (tabParticipants.length === 0) return "";
+    const mine = resolveMyParticipantId(
+      tabParticipants,
+      members,
+      currentUserId,
+    );
+    if (mine) return mine;
+    if (!currentUserId) return "";
+    return tabParticipants[0]!.id;
+  }, [tabParticipants, members, currentUserId]);
+
+  const [payerOverrideParticipantId, setPayerOverrideParticipantId] = useState<
+    string | null
+  >(null);
+
+  useEffect(() => {
+    setPayerOverrideParticipantId(null);
+  }, [tabId, derivedDefaultPayerParticipantId]);
+
+  const effectivePayerParticipantId =
+    payerOverrideParticipantId ?? derivedDefaultPayerParticipantId;
+
+  useEffect(() => {
+    if (tabParticipants.length === 0) return;
+    setParticipantIds(new Set(tabParticipants.map((p) => p.id)));
+  }, [tabParticipants]);
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -188,8 +276,29 @@ export function AddExpenseForm({
   }, [amount, currency, expenseDate, tabId, tabCurrency]);
 
   const selectedParticipants = useMemo(
-    () => members.filter((m) => participantIds.has(m.userId)),
-    [members, participantIds],
+    () => tabParticipants.filter((p) => participantIds.has(p.id)),
+    [tabParticipants, participantIds],
+  );
+
+  const hasPlaceholderInSplit = useMemo(
+    () => selectedParticipants.some((p) => p.kind === "placeholder"),
+    [selectedParticipants],
+  );
+
+  const splitDialogParticipants = useMemo(
+    () =>
+      selectedParticipants.map((p) => ({
+        userId: p.userId ?? p.id,
+        user:
+          p.user ??
+          ({
+            id: p.id,
+            email: "",
+            name: p.displayName,
+            username: null,
+          } as Member["user"]),
+      })),
+    [selectedParticipants],
   );
 
   const parsedAmountForSplit = useMemo(() => parseAmount(amount), [amount]);
@@ -220,7 +329,7 @@ export function AddExpenseForm({
     }
     if (
       selectedParticipants.length === 1 &&
-      selectedParticipants[0].userId === paidById
+      selectedParticipants[0]!.id === effectivePayerParticipantId
     ) {
       return {
         ok: false,
@@ -236,14 +345,21 @@ export function AddExpenseForm({
             : "Enter a valid amount or wait for tab-currency conversion",
       };
     }
-    const participantIdsList = selectedParticipants.map((p) => p.userId);
+    const participantIdsList = selectedParticipants.map((p) => p.id);
+    const payerParticipant = tabParticipants.find(
+      (p) => p.id === effectivePayerParticipantId,
+    );
+    const paidByForTemplate =
+      payerParticipant?.userId != null
+        ? payerParticipant.userId
+        : currentUserId;
     const template: RecurringTemplatePayload =
       splitConfig == null || splitConfig.splitType === "equal"
         ? {
             amount: parsedAmount,
             currency,
             description,
-            paidById,
+            paidById: paidByForTemplate,
             splitType: "equal",
             participantIds: participantIdsList,
           }
@@ -252,7 +368,7 @@ export function AddExpenseForm({
               amount: parsedAmount,
               currency,
               description,
-              paidById,
+              paidById: paidByForTemplate,
               splitType: "custom",
               participantIds: participantIdsList,
               splits: splitConfig.splits,
@@ -261,7 +377,7 @@ export function AddExpenseForm({
               amount: parsedAmount,
               currency,
               description,
-              paidById,
+              paidById: paidByForTemplate,
               splitType: splitConfig.splitType,
               participantIds: participantIdsList,
               splits: splitConfig.splits.map((s) => ({
@@ -279,19 +395,26 @@ export function AddExpenseForm({
       !description.trim() ||
       selectedParticipants.length < 1 ||
       (selectedParticipants.length === 1 &&
-        selectedParticipants[0].userId === paidById) ||
+        selectedParticipants[0]!.id === effectivePayerParticipantId) ||
       splitButtonDisabled,
     [
       loading,
       amount,
       description,
       selectedParticipants,
-      paidById,
+      effectivePayerParticipantId,
       splitButtonDisabled,
     ],
   );
 
   function handleMakeRecurringClick() {
+    const payerParticipant = tabParticipants.find(
+      (p) => p.id === effectivePayerParticipantId,
+    );
+    if (!payerParticipant?.userId) {
+      setError("Recurring expenses need a registered member as payer");
+      return;
+    }
     setError(null);
     const prep = prepareRecurringTemplate();
     if (!prep.ok) {
@@ -302,18 +425,18 @@ export function AddExpenseForm({
     setRecurringSetupOpen(true);
   }
 
-  function toggleParticipant(userId: string) {
+  function toggleParticipant(participantId: string) {
     setSplitConfig(null);
     setParticipantIds((prev) => {
       const next = new Set(prev);
-      if (next.has(userId)) {
+      if (next.has(participantId)) {
         if (next.size <= 1) {
           setError("At least one person must be in the split");
           return prev;
         }
-        next.delete(userId);
+        next.delete(participantId);
       } else {
-        next.add(userId);
+        next.add(participantId);
         setError(null);
       }
       return next;
@@ -334,13 +457,21 @@ export function AddExpenseForm({
     const parsedAmount = prep.template.amount;
     const participantIdsList = prep.template.participantIds;
 
+    const payerParticipant = tabParticipants.find(
+      (p) => p.id === effectivePayerParticipantId,
+    );
+    const payerPayload =
+      payerParticipant?.userId != null
+        ? { paidById: payerParticipant.userId }
+        : { paidByParticipantId: effectivePayerParticipantId };
+
     const createBody =
       splitConfig == null || splitConfig.splitType === "equal"
         ? {
             amount: parsedAmount,
             currency,
             description,
-            paidById,
+            ...payerPayload,
             splitType: "equal" as const,
             participantIds: participantIdsList,
             expenseDate: expenseDate.toISOString(),
@@ -350,7 +481,7 @@ export function AddExpenseForm({
               amount: parsedAmount,
               currency,
               description,
-              paidById,
+              ...payerPayload,
               splitType: "custom" as const,
               participantIds: participantIdsList,
               splits: splitConfig.splits,
@@ -360,7 +491,7 @@ export function AddExpenseForm({
               amount: parsedAmount,
               currency,
               description,
-              paidById,
+              ...payerPayload,
               splitType: splitConfig.splitType,
               participantIds: participantIdsList,
               splits: splitConfig.splits.map((s) => ({
@@ -395,6 +526,7 @@ export function AddExpenseForm({
       setPendingRecurring(null);
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       void queryClient.invalidateQueries({
         queryKey: ["recurring-expenses", tabId],
@@ -418,6 +550,7 @@ export function AddExpenseForm({
       setPendingRecurring(null);
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
       queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+      queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
       queryClient.invalidateQueries({ queryKey: ["activity"] });
       void queryClient.invalidateQueries({
         queryKey: ["recurring-expenses", tabId],
@@ -447,7 +580,7 @@ export function AddExpenseForm({
         <SplitDialog
           open={splitDialogOpen}
           onOpenChange={setSplitDialogOpen}
-          participants={selectedParticipants}
+          participants={splitDialogParticipants}
           tabTotal={tabTotalForSplit}
           expenseTotal={parsedAmountForSplit}
           expenseCurrency={currency}
@@ -525,18 +658,20 @@ export function AddExpenseForm({
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex gap-2">
           <Select
-            value={paidById}
-            onValueChange={setPaidById}
+            value={effectivePayerParticipantId || undefined}
+            onValueChange={setPayerOverrideParticipantId}
             disabled={loading}
           >
             <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none">
               <SelectValue placeholder="Select who paid">
                 {(() => {
-                  const payer = members.find((m) => m.userId === paidById);
+                  const payer = tabParticipants.find(
+                    (p) => p.id === effectivePayerParticipantId,
+                  );
                   return payer ? (
                     <span className="flex items-center gap-1">
-                      <UserAvatar userId={payer.userId} size="xs" />
-                      {getDisplayName(payer.user, currentUserId)}
+                      <UserAvatar userId={participantAvatarSeed(payer)} size="xs" />
+                      {participantLabel(payer, currentUserId)}
                       <span className="text-muted-foreground">paid</span>
                     </span>
                   ) : null;
@@ -544,11 +679,11 @@ export function AddExpenseForm({
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              {members.map((m) => (
-                <SelectItem key={m.userId} value={m.userId}>
+              {tabParticipants.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
                   <span className="flex items-center gap-2">
-                    <UserAvatar userId={m.userId} size="xs" />
-                    {getDisplayName(m.user, currentUserId)}
+                    <UserAvatar userId={participantAvatarSeed(p)} size="xs" />
+                    {participantLabel(p, currentUserId)}
                   </span>
                 </SelectItem>
               ))}
@@ -591,22 +726,22 @@ export function AddExpenseForm({
         <div className="space-y-2">
           <Label>Split with</Label>
           <div className="grid grid-cols-2 gap-2">
-            {members.map((m) => (
+            {tabParticipants.map((p) => (
               <button
-                key={m.userId}
+                key={p.id}
                 type="button"
-                onClick={() => toggleParticipant(m.userId)}
+                onClick={() => toggleParticipant(p.id)}
                 disabled={loading}
                 className={cn(
                   "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                  participantIds.has(m.userId)
+                  participantIds.has(p.id)
                     ? "border-primary/50 bg-primary/10 text-foreground"
                     : "border-border text-muted-foreground hover:bg-muted/50",
                 )}
               >
-                <UserAvatar userId={m.userId} size="xs" />
+                <UserAvatar userId={participantAvatarSeed(p)} size="xs" />
                 <span className="min-w-0 truncate">
-                  {getDisplayName(m.user, currentUserId)}
+                  {participantLabel(p, currentUserId)}
                 </span>
               </button>
             ))}
@@ -711,7 +846,7 @@ export function AddExpenseForm({
             type="button"
             variant="outline"
             className="min-w-0"
-            disabled={loading || splitButtonDisabled}
+            disabled={loading || splitButtonDisabled || hasPlaceholderInSplit}
             onClick={() => setSplitDialogOpen(true)}
           >
             <Split

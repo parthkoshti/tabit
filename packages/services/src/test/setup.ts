@@ -29,6 +29,37 @@ vi.mock("data", () => ({
     listGroupTabsSharedBetweenUsers: vi.fn(),
     createDirect: vi.fn(),
   },
+  ensureMemberParticipantsForTab: vi.fn().mockResolvedValue(undefined),
+  getParticipantIdForTabUser: vi
+    .fn()
+    .mockImplementation(async (_tabId: string, userId: string) => `pid-${userId}`),
+  getParticipantById: vi.fn().mockImplementation(async (participantId: string) => {
+    const uid = participantId.startsWith("pid-") ? participantId.slice(4) : null;
+    return {
+      id: participantId,
+      tabId: "tab1",
+      kind: uid ? "member" : "placeholder",
+      userId: uid,
+      displayName: uid ?? "Placeholder",
+      mergedIntoParticipantId: null,
+      mergedAt: null,
+    };
+  }),
+  listActiveParticipantsForTab: vi.fn(),
+  mergePlaceholderIntoMember: vi.fn(),
+  createPlaceholderParticipant: vi.fn().mockResolvedValue("ph-new"),
+  renamePlaceholderParticipant: vi.fn().mockResolvedValue(undefined),
+  recurringExpense: {
+    insertRuleAndExpenseInTransaction: vi.fn(),
+    tryPostOccurrence: vi.fn(),
+    getOccurrenceExpenseId: vi.fn(),
+    insertRule: vi.fn(),
+    getById: vi.fn(),
+    updateRule: vi.fn(),
+    deleteRule: vi.fn(),
+    listByTabId: vi.fn(),
+    listAllActiveRules: vi.fn(),
+  },
   settlement: {
     getForTab: vi.fn(),
     getById: vi.fn(),
@@ -110,5 +141,6 @@ vi.mock("../notification.js", () => ({
     publishPaymentReminder: vi.fn(),
     publishTabInvite: vi.fn(),
     publishTabInviteAccepted: vi.fn(),
+    publishPlaceholderMergedToUser: vi.fn(),
   },
 }));

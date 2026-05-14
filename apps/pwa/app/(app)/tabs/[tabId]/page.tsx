@@ -180,6 +180,11 @@ export function TabPage() {
   const otherMember = tab?.members?.find(
     (m) => m.userId !== currentUserId,
   )?.user;
+  const currentUserParticipantId = useMemo(
+    () =>
+      tab?.participants?.find((p) => p.userId === currentUserId)?.id ?? null,
+    [tab?.participants, currentUserId],
+  );
   const navTitle = tab
     ? tab.isDirect && otherMember
       ? `Tab with ${getDisplayName(otherMember, currentUserId)}`
@@ -203,11 +208,22 @@ export function TabPage() {
     if (expenseFilter === "settlements") return list;
     if (expenseFilter === "all") return list;
     return list.filter((s) => {
-      if (expenseFilter === "involved")
-        return s.fromUserId === currentUserId || s.toUserId === currentUserId;
+      if (expenseFilter === "involved") {
+        if (s.fromUserId === currentUserId || s.toUserId === currentUserId) {
+          return true;
+        }
+        if (
+          currentUserParticipantId &&
+          (s.fromParticipantId === currentUserParticipantId ||
+            s.toParticipantId === currentUserParticipantId)
+        ) {
+          return true;
+        }
+        return false;
+      }
       return true;
     });
-  }, [settlements, expenseFilter, currentUserId]);
+  }, [settlements, expenseFilter, currentUserId, currentUserParticipantId]);
 
   const expensesAndSettlements = useMemo(() => {
     return [
@@ -316,7 +332,7 @@ export function TabPage() {
               <SettleUpForm
                 tabId={tabIdOrEmpty}
                 currentUserId={currentUserId}
-                members={tab.members}
+                participants={tab.participants ?? []}
                 balances={balances ?? []}
                 tabCurrency={tabCurrency}
                 onSuccess={() => setSettleUpOpen(false)}
@@ -482,21 +498,21 @@ export function TabPage() {
               ) : (
                 <div className="space-y-2">
                   {youOwe.map((b) => (
-                    <p key={b.userId} className="text-negative text-sm">
+                    <p key={b.participantId} className="text-negative text-sm">
                       You owe {formatAmount(Math.abs(b.amount), tabCurrency)}
                     </p>
                   ))}
                   {owedToYou.map((b) => (
-                    <p key={b.userId} className="text-positive text-sm">
+                    <p key={b.participantId} className="text-positive text-sm">
                       You are owed {formatAmount(b.amount, tabCurrency)}
                     </p>
                   ))}
                   {others.map((b) => (
                     <div
-                      key={b.userId}
+                      key={b.participantId}
                       className="flex items-center gap-2 text-muted-foreground text-xs"
                     >
-                      <UserAvatar userId={b.userId} size="xs" />
+                      <UserAvatar userId={b.user.id} size="xs" />
                       <span>
                         {b.amount > 0
                           ? `${getDisplayName(b.user, currentUserId)} is owed ${formatAmount(b.amount, tabCurrency)}`
@@ -621,6 +637,7 @@ export function TabPage() {
                           tabId={tabIdOrEmpty}
                           isDirect={!!tab?.isDirect}
                           currentUserId={currentUserId}
+                          currentUserParticipantId={currentUserParticipantId}
                           getMemberUser={getMemberUser}
                         />
                       </AnimatedCard>

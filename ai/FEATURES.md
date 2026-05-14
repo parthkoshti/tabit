@@ -29,6 +29,7 @@ A running list of features in the app.
 - **Payment reminders**: On a direct tab, when the friend **owes you**, **Remind** opens a dialog of iOS-style push previews; pick a tone (`gentle`, `friendly`, `firm`, `blunt`, `urgent`, `overkill` — some are playful or very direct) then **Send reminder**. The API is `POST /v1/friends/payment-reminder` with `{ friendTabId, tone }`; the server checks you are a member of that direct tab and that your balance is owed before publishing. Push title/body copy is defined in `packages/models` (`getPaymentReminderPushCopy`, `PAYMENT_REMINDER_TONE_META`)
 - On a direct tab, a “Shared tabs” section lists group tabs you share with that friend (above balances), each with your net balance in that tab (same wording as the tabs list: you’re owed / you owe / settled)
 - Group tabs
+- **Placeholder friends (placeholder participants)**: add named stand-ins on a group tab before someone joins or has the app; they appear in splits, settlements, recurring templates, and balances like members. Tab owners can **merge** a placeholder into an existing member in one irreversible step (ledger, expense history, tab activity, and a notification to the merged user). Create, rename, and merge from the tab **Members** screen (`/tabs/:tabId/members`)
 - Tab members can set expense currency via manage page
 - Sort tabs by name, most recent expense, or most expenses
 - Set currency when creating a new tab

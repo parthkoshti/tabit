@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from "vitest";
 import { tabService } from "./tab.js";
-import { tab, user } from "data";
+import { tab, user, mergePlaceholderIntoMember, createPlaceholderParticipant, renamePlaceholderParticipant } from "data";
+import { notificationService } from "./notification.js";
 
 describe("tabService", () => {
   beforeEach(() => {
@@ -28,6 +29,15 @@ describe("tabService", () => {
         isDirect: false,
         createdAt: new Date(),
         members: [{ userId: "user2", role: "member", user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" } }],
+        participants: [
+          {
+            id: "p-user2",
+            kind: "member",
+            userId: "user2",
+            displayName: "User 2",
+            user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" },
+          },
+        ],
       });
 
       const result = await tabService.getWithMembers("tab1", "user1");
@@ -47,6 +57,15 @@ describe("tabService", () => {
         isDirect: false,
         createdAt: new Date(),
         members: [{ userId: "user1", role: "member", user: { id: "user1", email: "u1@test.com", name: "User 1", username: "user1" } }],
+        participants: [
+          {
+            id: "p-user1",
+            kind: "member",
+            userId: "user1",
+            displayName: "User 1",
+            user: { id: "user1", email: "u1@test.com", name: "User 1", username: "user1" },
+          },
+        ],
       };
       vi.mocked(tab.getWithMembers).mockResolvedValue(tabData);
 
@@ -68,6 +87,15 @@ describe("tabService", () => {
         isDirect: false,
         createdAt: new Date(),
         members: [{ userId: "user2", role: "member", user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" } }],
+        participants: [
+          {
+            id: "p-user2",
+            kind: "member",
+            userId: "user2",
+            displayName: "User 2",
+            user: { id: "user2", email: "u2@test.com", name: "User 2", username: "user2" },
+          },
+        ],
       });
 
       const result = await tabService.getBalancesForTab("tab1", "user1");
@@ -103,6 +131,15 @@ describe("tabService", () => {
           {
             userId: "user1",
             role: "member",
+            user: { id: "user1", email: "u1@test.com", name: "U1", username: null },
+          },
+        ],
+        participants: [
+          {
+            id: "p-user1",
+            kind: "member",
+            userId: "user1",
+            displayName: "U1",
             user: { id: "user1", email: "u1@test.com", name: "U1", username: null },
           },
         ],
@@ -143,6 +180,22 @@ describe("tabService", () => {
           {
             userId: "user2",
             role: "member",
+            user: { id: "user2", email: "u2@test.com", name: "U2", username: null },
+          },
+        ],
+        participants: [
+          {
+            id: "p-user1",
+            kind: "member",
+            userId: "user1",
+            displayName: "U1",
+            user: { id: "user1", email: "u1@test.com", name: "U1", username: null },
+          },
+          {
+            id: "p-user2",
+            kind: "member",
+            userId: "user2",
+            displayName: "U2",
             user: { id: "user2", email: "u2@test.com", name: "U2", username: null },
           },
         ],
@@ -226,6 +279,7 @@ describe("tabService", () => {
         createdAt: new Date(),
         isDirect: true,
         members: [],
+        participants: [],
       });
 
       const result = await tabService.update("tab1", "user1", { name: "New Name" });
@@ -245,6 +299,7 @@ describe("tabService", () => {
         isDirect: false,
         createdAt: new Date(),
         members: [],
+        participants: [],
       });
 
       const result = await tabService.update("tab1", "user1", { currency: "INVALID" });
@@ -264,6 +319,7 @@ describe("tabService", () => {
         isDirect: false,
         createdAt: new Date(),
         members: [],
+        participants: [],
       });
 
       const result = await tabService.update("tab1", "user1", { name: "New Name" });
@@ -379,6 +435,122 @@ describe("tabService", () => {
 
       expect(result.success).toBe(true);
       expect(tab.removeMember).toHaveBeenCalledWith("tab1", "user2");
+    });
+  });
+
+  describe("mergePlaceholder", () => {
+    test("returns 403 if requester is not owner", async () => {
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        id: "tab1",
+        name: "T",
+        currency: "USD",
+        isDirect: false,
+        createdAt: new Date(),
+        members: [
+          {
+            userId: "user1",
+            role: "member",
+            user: { id: "user1", email: "u1@test.com", name: "U1", username: null },
+          },
+          {
+            userId: "user2",
+            role: "member",
+            user: { id: "user2", email: "u2@test.com", name: "U2", username: null },
+          },
+        ],
+        participants: [],
+      });
+
+      const result = await tabService.mergePlaceholder("tab1", "ph1", "user1", "user2");
+
+      expect(result.success).toBe(false);
+      if (!result.success) {
+        expect(result.error).toBe("Only tab owners can merge placeholders");
+      }
+      expect(mergePlaceholderIntoMember).not.toHaveBeenCalled();
+    });
+
+    test("notifies target user on success", async () => {
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        id: "tab1",
+        name: "Trip",
+        currency: "USD",
+        isDirect: false,
+        createdAt: new Date(),
+        members: [
+          {
+            userId: "owner1",
+            role: "owner",
+            user: { id: "owner1", email: "o@test.com", name: "Owner", username: null },
+          },
+          {
+            userId: "target1",
+            role: "member",
+            user: { id: "target1", email: "t@test.com", name: "Target", username: null },
+          },
+        ],
+        participants: [],
+      });
+      vi.mocked(mergePlaceholderIntoMember).mockResolvedValue({
+        affectedExpenseIds: ["e1"],
+        tabName: "Trip",
+        placeholderDisplayName: "Sam",
+        targetUserId: "target1",
+        targetDisplayName: "Target",
+      });
+      vi.mocked(user.getById).mockResolvedValue({
+        id: "owner1",
+        name: "Owner",
+        username: null,
+        email: "o@test.com",
+        defaultCurrency: "USD",
+      });
+
+      const result = await tabService.mergePlaceholder("tab1", "ph1", "owner1", "target1");
+
+      expect(result.success).toBe(true);
+      expect(mergePlaceholderIntoMember).toHaveBeenCalled();
+      expect(notificationService.publishPlaceholderMergedToUser).toHaveBeenCalledWith(
+        "target1",
+        expect.objectContaining({
+          tabId: "tab1",
+          tabName: "Trip",
+          placeholderDisplayName: "Sam",
+        }),
+      );
+    });
+  });
+
+  describe("createPlaceholder", () => {
+    test("calls data layer when member", async () => {
+      vi.mocked(tab.getWithMembers).mockResolvedValue({
+        id: "tab1",
+        name: "T",
+        currency: "USD",
+        isDirect: false,
+        createdAt: new Date(),
+        members: [
+          {
+            userId: "user1",
+            role: "member",
+            user: { id: "user1", email: "u1@test.com", name: "U1", username: null },
+          },
+        ],
+        participants: [],
+      });
+      vi.mocked(createPlaceholderParticipant).mockResolvedValue("ph-1");
+
+      const result = await tabService.createPlaceholder("tab1", "user1", "Alex");
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.participantId).toBe("ph-1");
+      }
+      expect(createPlaceholderParticipant).toHaveBeenCalledWith({
+        tabId: "tab1",
+        displayName: "Alex",
+        createdByUserId: "user1",
+      });
     });
   });
 });

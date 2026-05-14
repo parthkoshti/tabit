@@ -43,12 +43,12 @@ export function TabSettlementCard({
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 mb-0">
             <span className="inline-flex items-center gap-1.5">
-              <UserAvatar userId={item.fromUserId} size="xs" />
+              <UserAvatar userId={item.fromUser.id} size="xs" />
               {getDisplayName(item.fromUser, currentUserId)}
             </span>
             <span>to</span>
             <span className="inline-flex items-center gap-1.5">
-              <UserAvatar userId={item.toUserId} size="xs" />
+              <UserAvatar userId={item.toUser.id} size="xs" />
               {getDisplayName(item.toUser, currentUserId)}
             </span>
             <span>

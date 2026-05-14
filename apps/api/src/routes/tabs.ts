@@ -5,6 +5,9 @@ import {
   updateTabSchema,
   recordSettlementSchema,
   updateSettlementSchema,
+  createTabPlaceholderSchema,
+  renameTabPlaceholderSchema,
+  mergeTabPlaceholderSchema,
 } from "models";
 import type { AuthContext } from "../auth.js";
 import { authMiddleware } from "../auth.js";
@@ -30,6 +33,76 @@ tabsRoutes.get("/:tabId", async (c) => {
     return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
   }
   return c.json({ success: true, tab: result.data });
+});
+
+tabsRoutes.post("/:tabId/placeholders", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId")!;
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = createTabPlaceholderSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      { success: false, error: parsed.error.flatten().formErrors[0] },
+      400,
+    );
+  }
+  const result = await tabService.createPlaceholder(
+    tabId,
+    userId,
+    parsed.data.displayName,
+  );
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
+  }
+  return c.json({ success: true, participantId: result.data.participantId });
+});
+
+tabsRoutes.patch("/:tabId/placeholders/:participantId", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId")!;
+  const participantId = c.req.param("participantId")!;
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = renameTabPlaceholderSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      { success: false, error: parsed.error.flatten().formErrors[0] },
+      400,
+    );
+  }
+  const result = await tabService.renamePlaceholder(
+    tabId,
+    participantId,
+    userId,
+    parsed.data.displayName,
+  );
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
+  }
+  return c.json({ success: true });
+});
+
+tabsRoutes.post("/:tabId/placeholders/:participantId/merge", async (c) => {
+  const { userId } = c.get("auth");
+  const tabId = c.req.param("tabId")!;
+  const participantId = c.req.param("participantId")!;
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = mergeTabPlaceholderSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json(
+      { success: false, error: parsed.error.flatten().formErrors[0] },
+      400,
+    );
+  }
+  const result = await tabService.mergePlaceholder(
+    tabId,
+    participantId,
+    userId,
+    parsed.data.targetUserId,
+  );
+  if (!result.success) {
+    return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
+  }
+  return c.json({ success: true, ...result.data });
 });
 
 tabsRoutes.route("/:tabId/expenses", expensesRoutes);
@@ -85,13 +158,15 @@ tabsRoutes.patch("/:tabId/settlements/:settlementId", async (c) => {
   const result = await settlementService.update(
     tabId,
     settlementId,
-    parsed.data.fromUserId,
-    parsed.data.toUserId,
+    parsed.data.fromUserId ?? null,
+    parsed.data.toUserId ?? null,
     parsed.data.amount,
     userId,
     parsed.data.currency,
     parsed.data.originalAmount,
     parsed.data.settlementDate,
+    parsed.data.fromParticipantId,
+    parsed.data.toParticipantId,
   );
   if (!result.success) {
     return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);
@@ -241,13 +316,15 @@ tabsRoutes.post("/:tabId/settlements", async (c) => {
 
   const result = await settlementService.record(
     tabId,
-    parsed.data.fromUserId,
-    parsed.data.toUserId,
+    parsed.data.fromUserId ?? null,
+    parsed.data.toUserId ?? null,
     parsed.data.amount,
     userId,
     parsed.data.currency,
     parsed.data.originalAmount,
     parsed.data.settlementDate,
+    parsed.data.fromParticipantId,
+    parsed.data.toParticipantId,
   );
   if (!result.success) {
     return c.json({ success: false, error: result.error }, result.status as 400 | 403 | 404);

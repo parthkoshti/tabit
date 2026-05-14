@@ -14,6 +14,7 @@ export const notificationTypeSchema = z.enum([
   "payment_reminder",
   "expense_reaction",
   "recurring_rule_needs_fix",
+  "placeholder_merged",
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 
@@ -309,6 +310,20 @@ export type ExpenseReactionNotificationPayload = z.infer<
   typeof expenseReactionNotificationPayloadSchema
 >;
 
+export const placeholderMergedNotificationPayloadSchema = z.object({
+  type: z.literal("placeholder_merged"),
+  tabId: z.string(),
+  tabName: z.string(),
+  fromUserId: z.string(),
+  fromUserName: z.string().nullable(),
+  placeholderDisplayName: z.string(),
+  targetDisplayName: z.string(),
+  createdAt: z.string(),
+});
+export type PlaceholderMergedNotificationPayload = z.infer<
+  typeof placeholderMergedNotificationPayloadSchema
+>;
+
 export const notificationPayloadSchema = z.discriminatedUnion("type", [
   friendRequestNotificationPayloadSchema,
   tabInviteNotificationPayloadSchema,
@@ -323,6 +338,7 @@ export const notificationPayloadSchema = z.discriminatedUnion("type", [
   paymentReminderNotificationPayloadSchema,
   expenseReactionNotificationPayloadSchema,
   recurringRuleNeedsFixNotificationPayloadSchema,
+  placeholderMergedNotificationPayloadSchema,
 ]);
 export type NotificationPayload = z.infer<typeof notificationPayloadSchema>;
 
@@ -631,6 +647,27 @@ export function createExpenseReactionNotificationPayload(data: {
     description: data.description,
     amount: data.amount,
     emoji: data.emoji,
+    createdAt: data.createdAt.toISOString(),
+  };
+}
+
+export function createPlaceholderMergedNotificationPayload(data: {
+  tabId: string;
+  tabName: string;
+  fromUserId: string;
+  fromUserName: string | null;
+  placeholderDisplayName: string;
+  targetDisplayName: string;
+  createdAt: Date;
+}): PlaceholderMergedNotificationPayload {
+  return {
+    type: "placeholder_merged",
+    tabId: data.tabId,
+    tabName: data.tabName,
+    fromUserId: data.fromUserId,
+    fromUserName: data.fromUserName,
+    placeholderDisplayName: data.placeholderDisplayName,
+    targetDisplayName: data.targetDisplayName,
     createdAt: data.createdAt.toISOString(),
   };
 }

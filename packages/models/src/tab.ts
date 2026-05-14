@@ -48,3 +48,21 @@ export const tabWithMembersSchema = tabSchema.extend({
 });
 
 export type TabWithMembers = z.infer<typeof tabWithMembersSchema>;
+
+export const createTabPlaceholderSchema = z.object({
+  displayName: z.string().trim().min(1).max(80),
+});
+
+export type CreateTabPlaceholderInput = z.infer<typeof createTabPlaceholderSchema>;
+
+export const renameTabPlaceholderSchema = z.object({
+  displayName: z.string().trim().min(1).max(80),
+});
+
+export type RenameTabPlaceholderInput = z.infer<typeof renameTabPlaceholderSchema>;
+
+export const mergeTabPlaceholderSchema = z.object({
+  targetUserId: z.string().min(1),
+});
+
+export type MergeTabPlaceholderInput = z.infer<typeof mergeTabPlaceholderSchema>;
