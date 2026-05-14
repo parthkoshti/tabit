@@ -31,6 +31,7 @@ import QRCode from "qrcode";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { getDisplayName } from "@/lib/display-name";
+import { PlaceholderParticipantsCard } from "../placeholder-participants-card";
 
 function TabQRCode({ tabId }: { tabId: string }) {
   const [copied, setCopied] = useState(false);
@@ -357,6 +358,24 @@ export function TabMembersPage() {
             ))}
           </ul>
         </section>
+
+        {!tab.isDirect && (
+          <PlaceholderParticipantsCard
+            tabIdOrEmpty={tabId}
+            tab={tab}
+            currentUserId={currentUserId}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
+              queryClient.invalidateQueries({ queryKey: ["tabs"] });
+              queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+              queryClient.invalidateQueries({
+                queryKey: ["expenses", tabId, "all"],
+              });
+              queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+              queryClient.invalidateQueries({ queryKey: ["activity"] });
+            }}
+          />
+        )}
 
         <AlertDialog
           open={removeMemberId !== null}

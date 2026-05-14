@@ -6,18 +6,28 @@ export function ExpenseYourBalance({
   expenseAmount,
   tabCurrency,
   paidById,
+  paidByParticipantId,
   currentUserId,
+  currentUserParticipantId,
   yourShare,
   deleted,
 }: {
   expenseAmount: number;
   tabCurrency: string;
-  paidById: string;
+  paidById: string | null;
+  /** When the payer is identified only on the ledger participant row. */
+  paidByParticipantId?: string | null;
   currentUserId: string;
+  /** Viewer's tab participant id (member), when known. */
+  currentUserParticipantId?: string | null;
   yourShare: number | null;
   deleted?: boolean;
 }) {
-  const youPaid = paidById === currentUserId;
+  const youPaid =
+    (paidById != null && paidById === currentUserId) ||
+    (!!paidByParticipantId &&
+      !!currentUserParticipantId &&
+      paidByParticipantId === currentUserParticipantId);
   if (yourShare == null) {
     if (!youPaid || expenseAmount <= 0) return null;
     const muted = !!deleted;

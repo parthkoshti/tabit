@@ -293,15 +293,17 @@ function SetCurrencyForm({
   );
 }
 
+type TabMemberUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  username?: string | null;
+};
+
 type TabMember = {
   userId: string;
   role: string;
-  user: {
-    id: string;
-    email: string;
-    name: string | null;
-    username?: string | null;
-  };
+  user: TabMemberUser;
 };
 
 function ImportCsvForm({

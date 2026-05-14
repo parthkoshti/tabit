@@ -2,13 +2,20 @@ import {
   db,
   tab as tabTable,
   tabMember,
+  tabParticipant as tabParticipantTable,
   expense as expenseTable,
   expenseSplit,
   settlement as settlementTable,
   user,
 } from "db";
-import { eq, desc, inArray, and, sql, isNull, ne } from "drizzle-orm";
+import { eq, desc, inArray, and, sql, isNull, ne, notExists, or } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
+import {
+  ensureMemberParticipantsForTab,
+  backfillLedgerParticipantIdsForTab,
+  getParticipantIdForTabUser,
+  listActiveParticipantsForTab,
+} from "./tab-participant.js";
 
 export type TabWithBalance = {
   id: string;
@@ -51,7 +58,12 @@ export type SharedGroupTabListItem = {
 
 /** Return type of getBalancesForTab. Use string | Date for JSON API responses. */
 export type Balance = {
-  userId: string;
+  /** Tab participant id (member or placeholder). */
+  participantId: string;
+  /** Linked user id when kind is member; null for placeholders. */
+  userId: string | null;
+  kind: string;
+  displayName: string;
   amount: number;
   user: {
     id: string;
@@ -73,33 +85,61 @@ export type TabWithMembers = {
     role: string;
     user: { id: string; email: string; name: string | null; username?: string | null };
   }>;
+  participants: Array<{
+    id: string;
+    kind: string;
+    userId: string | null;
+    displayName: string;
+    user: { id: string; email: string; name: string | null; username?: string | null } | null;
+  }>;
 };
 
 async function getBalancesForTab(tabId: string): Promise<Balance[]> {
-  const members = await db
-    .select({ userId: tabMember.userId })
-    .from(tabMember)
-    .where(eq(tabMember.tabId, tabId));
+  await ensureMemberParticipantsForTab(tabId);
+  await backfillLedgerParticipantIdsForTab(tabId);
+
+  const participants = await db
+    .select({
+      id: tabParticipantTable.id,
+      kind: tabParticipantTable.kind,
+      userId: tabParticipantTable.userId,
+      displayName: tabParticipantTable.displayName,
+    })
+    .from(tabParticipantTable)
+    .where(
+      and(
+        eq(tabParticipantTable.tabId, tabId),
+        isNull(tabParticipantTable.mergedIntoParticipantId),
+      ),
+    );
 
   const balances: Record<string, number> = {};
-  for (const m of members) {
-    balances[m.userId] = 0;
+  for (const p of participants) {
+    balances[p.id] = 0;
   }
 
   const expenses = await db
     .select({
       paidById: expenseTable.paidById,
+      paidByParticipantId: expenseTable.paidByParticipantId,
       amount: expenseTable.amount,
     })
     .from(expenseTable)
     .where(and(eq(expenseTable.tabId, tabId), isNull(expenseTable.deletedAt)));
 
   for (const exp of expenses) {
-    balances[exp.paidById] = (balances[exp.paidById] ?? 0) + Number(exp.amount);
+    let payerPid = exp.paidByParticipantId;
+    if (!payerPid && exp.paidById) {
+      payerPid = await getParticipantIdForTabUser(tabId, exp.paidById);
+    }
+    if (payerPid) {
+      balances[payerPid] = (balances[payerPid] ?? 0) + Number(exp.amount);
+    }
   }
 
   const splits = await db
     .select({
+      participantId: expenseSplit.participantId,
       userId: expenseSplit.userId,
       amount: expenseSplit.amount,
     })
@@ -110,7 +150,13 @@ async function getBalancesForTab(tabId: string): Promise<Balance[]> {
     );
 
   for (const s of splits) {
-    balances[s.userId] = (balances[s.userId] ?? 0) - Number(s.amount);
+    let pid = s.participantId;
+    if (!pid && s.userId) {
+      pid = await getParticipantIdForTabUser(tabId, s.userId);
+    }
+    if (pid) {
+      balances[pid] = (balances[pid] ?? 0) - Number(s.amount);
+    }
   }
 
   const settlements = await db
@@ -120,30 +166,57 @@ async function getBalancesForTab(tabId: string): Promise<Balance[]> {
 
   for (const set of settlements) {
     const amount = Number(set.amount);
-    balances[set.fromUserId] = (balances[set.fromUserId] ?? 0) + amount;
-    balances[set.toUserId] = (balances[set.toUserId] ?? 0) - amount;
+    let fromPid = set.fromParticipantId;
+    let toPid = set.toParticipantId;
+    if (!fromPid && set.fromUserId) {
+      fromPid = await getParticipantIdForTabUser(tabId, set.fromUserId);
+    }
+    if (!toPid && set.toUserId) {
+      toPid = await getParticipantIdForTabUser(tabId, set.toUserId);
+    }
+    if (fromPid) balances[fromPid] = (balances[fromPid] ?? 0) + amount;
+    if (toPid) balances[toPid] = (balances[toPid] ?? 0) - amount;
   }
 
-  const userIds = members.map((m) => m.userId);
+  const participantById = Object.fromEntries(participants.map((p) => [p.id, p]));
+  const userIdsNeeding = [
+    ...new Set(
+      participants.map((p) => p.userId).filter((u): u is string => u != null),
+    ),
+  ];
   const users =
-    userIds.length > 0
-      ? await db.select().from(user).where(inArray(user.id, userIds))
+    userIdsNeeding.length > 0
+      ? await db.select().from(user).where(inArray(user.id, userIdsNeeding))
       : [];
-
   const userMap = Object.fromEntries(users.map((u) => [u.id, u]));
 
   return Object.entries(balances)
     .filter(([, amount]) => Math.abs(amount) > 0.001)
-    .map(([userId, amount]) => ({
-      userId,
-      amount,
-      user: {
-        id: userId,
-        email: userMap[userId]?.email ?? "",
-        name: userMap[userId]?.name ?? null,
-        username: userMap[userId]?.username ?? null,
-      },
-    }));
+    .map(([participantId, amount]) => {
+      const meta = participantById[participantId];
+      const uid = meta?.userId ?? null;
+      const u = uid ? userMap[uid] : undefined;
+      return {
+        participantId,
+        userId: uid,
+        kind: meta?.kind ?? "member",
+        displayName: meta?.displayName ?? "",
+        amount,
+        user: u
+          ? {
+              id: u.id,
+              email: u.email,
+              name: u.name,
+              username: u.username,
+            }
+          : {
+              id: participantId,
+              email: "",
+              name: meta?.displayName ?? null,
+              username: null,
+            },
+      };
+    });
 }
 
 export const tab = {
@@ -394,6 +467,21 @@ export const tab = {
       .innerJoin(user, eq(tabMember.userId, user.id))
       .where(eq(tabMember.tabId, tabId));
 
+    await ensureMemberParticipantsForTab(tabId);
+    await backfillLedgerParticipantIdsForTab(tabId);
+
+    const participantRows = await listActiveParticipantsForTab(tabId);
+    const participantUserIds = [
+      ...new Set(
+        participantRows.map((p) => p.userId).filter((u): u is string => u != null),
+      ),
+    ];
+    const pUsers =
+      participantUserIds.length > 0
+        ? await db.select().from(user).where(inArray(user.id, participantUserIds))
+        : [];
+    const pUserMap = Object.fromEntries(pUsers.map((u) => [u.id, u]));
+
     return {
       ...t,
       members: members.map((m) => ({
@@ -401,6 +489,23 @@ export const tab = {
         role: m.role,
         user: { id: m.userId, email: m.email, name: m.name, username: m.username },
       })),
+      participants: participantRows.map((p) => {
+        const u = p.userId ? pUserMap[p.userId] : undefined;
+        return {
+          id: p.id,
+          kind: p.kind,
+          userId: p.userId,
+          displayName: p.displayName,
+          user: u
+            ? {
+                id: u.id,
+                email: u.email,
+                name: u.name,
+                username: u.username,
+              }
+            : null,
+        };
+      }),
     };
   },
 
@@ -419,6 +524,7 @@ export const tab = {
       userId,
       role: "owner",
     });
+    await ensureMemberParticipantsForTab(id);
     return id;
   },
 
@@ -443,6 +549,7 @@ export const tab = {
       userId: targetUserId,
       role,
     });
+    await ensureMemberParticipantsForTab(tabId);
   },
 
   removeMember: async (tabId: string, targetUserId: string): Promise<void> => {
@@ -450,6 +557,45 @@ export const tab = {
       .delete(tabMember)
       .where(
         and(eq(tabMember.tabId, tabId), eq(tabMember.userId, targetUserId)),
+      );
+
+    await db
+      .delete(tabParticipantTable)
+      .where(
+        and(
+          eq(tabParticipantTable.tabId, tabId),
+          eq(tabParticipantTable.userId, targetUserId),
+          eq(tabParticipantTable.kind, "member"),
+          isNull(tabParticipantTable.mergedIntoParticipantId),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(expenseTable)
+              .where(
+                and(
+                  eq(expenseTable.paidByParticipantId, tabParticipantTable.id),
+                  isNull(expenseTable.deletedAt),
+                ),
+              ),
+          ),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(expenseSplit)
+              .where(eq(expenseSplit.participantId, tabParticipantTable.id)),
+          ),
+          notExists(
+            db
+              .select({ one: sql`1` })
+              .from(settlementTable)
+              .where(
+                or(
+                  eq(settlementTable.fromParticipantId, tabParticipantTable.id),
+                  eq(settlementTable.toParticipantId, tabParticipantTable.id),
+                ),
+              ),
+          ),
+        ),
       );
   },
 
@@ -618,6 +764,7 @@ export const tab = {
       { tabId: id, userId: userId1, role: "member" },
       { tabId: id, userId: userId2, role: "member" },
     ]);
+    await ensureMemberParticipantsForTab(id);
     return id;
   },
 };

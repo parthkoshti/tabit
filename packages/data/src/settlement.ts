@@ -3,13 +3,22 @@ import {
   settlement as settlementTable,
   settlementAuditLog,
   user,
+  tabParticipant,
 } from "db";
-import { eq, desc, inArray } from "drizzle-orm";
+import { eq, desc, inArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+
+const settlementFromUser = alias(user, "settlement_from_user");
+const settlementToUser = alias(user, "settlement_to_user");
+const settlementFromParticipant = alias(tabParticipant, "settlement_from_participant");
+const settlementToParticipant = alias(tabParticipant, "settlement_to_participant");
 
 export type RecordSettlementInput = {
   tabId: string;
-  fromUserId: string;
-  toUserId: string;
+  fromUserId: string | null;
+  toUserId: string | null;
+  fromParticipantId: string;
+  toParticipantId: string;
   /** Ledger total in tab currency. */
   amount: number;
   /** When foreign, ISO code of the entered amount. */
@@ -22,8 +31,10 @@ export type RecordSettlementInput = {
 };
 
 export type UpdateSettlementInput = {
-  fromUserId: string;
-  toUserId: string;
+  fromUserId: string | null;
+  toUserId: string | null;
+  fromParticipantId: string;
+  toParticipantId: string;
   amount: number;
   currency?: string | null;
   originalAmount?: number | null;
@@ -35,8 +46,10 @@ export type UpdateSettlementInput = {
 export type Settlement = {
   id: string;
   tabId: string;
-  fromUserId: string;
-  toUserId: string;
+  fromUserId: string | null;
+  toUserId: string | null;
+  fromParticipantId: string | null;
+  toParticipantId: string | null;
   amount: number;
   currency: string | null;
   originalAmount: number | null;
@@ -90,40 +103,47 @@ export const settlement = {
         tabId: settlementTable.tabId,
         fromUserId: settlementTable.fromUserId,
         toUserId: settlementTable.toUserId,
+        fromParticipantId: settlementTable.fromParticipantId,
+        toParticipantId: settlementTable.toParticipantId,
         amount: settlementTable.amount,
         currency: settlementTable.currency,
         originalAmount: settlementTable.originalAmount,
         settlementDate: settlementTable.settlementDate,
         createdAt: settlementTable.createdAt,
-        fromUserEmail: user.email,
-        fromUserName: user.name,
-        fromUserUsername: user.username,
+        fromUserEmail: sql<string>`coalesce(${settlementFromUser.email}, '')`,
+        fromUserName: sql<string | null>`coalesce(${settlementFromUser.name}, ${settlementFromParticipant.displayName})`,
+        fromUserUsername: settlementFromUser.username,
+        toUserEmail: sql<string>`coalesce(${settlementToUser.email}, '')`,
+        toUserName: sql<string | null>`coalesce(${settlementToUser.name}, ${settlementToParticipant.displayName})`,
+        toUserUsername: settlementToUser.username,
       })
       .from(settlementTable)
-      .innerJoin(user, eq(settlementTable.fromUserId, user.id))
+      .leftJoin(
+        settlementFromUser,
+        eq(settlementTable.fromUserId, settlementFromUser.id),
+      )
+      .leftJoin(
+        settlementFromParticipant,
+        eq(settlementTable.fromParticipantId, settlementFromParticipant.id),
+      )
+      .leftJoin(
+        settlementToUser,
+        eq(settlementTable.toUserId, settlementToUser.id),
+      )
+      .leftJoin(
+        settlementToParticipant,
+        eq(settlementTable.toParticipantId, settlementToParticipant.id),
+      )
       .where(eq(settlementTable.tabId, tabId))
       .orderBy(desc(settlementTable.createdAt));
-
-    const toUserIds = [...new Set(rows.map((r) => r.toUserId))];
-    const toUsers =
-      toUserIds.length > 0
-        ? await db
-            .select({
-              id: user.id,
-              email: user.email,
-              name: user.name,
-              username: user.username,
-            })
-            .from(user)
-            .where(inArray(user.id, toUserIds))
-        : [];
-    const toUserMap = Object.fromEntries(toUsers.map((u) => [u.id, u]));
 
     return rows.map((r) => ({
       id: r.id,
       tabId: r.tabId,
       fromUserId: r.fromUserId,
       toUserId: r.toUserId,
+      fromParticipantId: r.fromParticipantId,
+      toParticipantId: r.toParticipantId,
       amount: Number(r.amount),
       currency: r.currency ?? null,
       originalAmount:
@@ -131,24 +151,17 @@ export const settlement = {
       settlementDate: r.settlementDate,
       createdAt: r.createdAt,
       fromUser: {
-        id: r.fromUserId,
+        id: r.fromUserId ?? r.fromParticipantId ?? "",
         email: r.fromUserEmail,
         name: r.fromUserName,
         username: r.fromUserUsername,
       },
-      toUser: toUserMap[r.toUserId]
-        ? {
-            id: toUserMap[r.toUserId].id,
-            email: toUserMap[r.toUserId].email,
-            name: toUserMap[r.toUserId].name,
-            username: toUserMap[r.toUserId].username,
-          }
-        : {
-            id: r.toUserId,
-            email: "",
-            name: null,
-            username: null,
-          },
+      toUser: {
+        id: r.toUserId ?? r.toParticipantId ?? "",
+        email: r.toUserEmail,
+        name: r.toUserName,
+        username: r.toUserUsername,
+      },
     }));
   },
 
@@ -159,38 +172,49 @@ export const settlement = {
         tabId: settlementTable.tabId,
         fromUserId: settlementTable.fromUserId,
         toUserId: settlementTable.toUserId,
+        fromParticipantId: settlementTable.fromParticipantId,
+        toParticipantId: settlementTable.toParticipantId,
         amount: settlementTable.amount,
         currency: settlementTable.currency,
         originalAmount: settlementTable.originalAmount,
         settlementDate: settlementTable.settlementDate,
         createdAt: settlementTable.createdAt,
-        fromUserEmail: user.email,
-        fromUserName: user.name,
-        fromUserUsername: user.username,
+        fromUserEmail: sql<string>`coalesce(${settlementFromUser.email}, '')`,
+        fromUserName: sql<string | null>`coalesce(${settlementFromUser.name}, ${settlementFromParticipant.displayName})`,
+        fromUserUsername: settlementFromUser.username,
+        toUserEmail: sql<string>`coalesce(${settlementToUser.email}, '')`,
+        toUserName: sql<string | null>`coalesce(${settlementToUser.name}, ${settlementToParticipant.displayName})`,
+        toUserUsername: settlementToUser.username,
       })
       .from(settlementTable)
-      .innerJoin(user, eq(settlementTable.fromUserId, user.id))
+      .leftJoin(
+        settlementFromUser,
+        eq(settlementTable.fromUserId, settlementFromUser.id),
+      )
+      .leftJoin(
+        settlementFromParticipant,
+        eq(settlementTable.fromParticipantId, settlementFromParticipant.id),
+      )
+      .leftJoin(
+        settlementToUser,
+        eq(settlementTable.toUserId, settlementToUser.id),
+      )
+      .leftJoin(
+        settlementToParticipant,
+        eq(settlementTable.toParticipantId, settlementToParticipant.id),
+      )
       .where(eq(settlementTable.id, settlementId))
       .limit(1);
 
     if (!row) return null;
-
-    const [toUser] = await db
-      .select({
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        username: user.username,
-      })
-      .from(user)
-      .where(eq(user.id, row.toUserId))
-      .limit(1);
 
     return {
       id: row.id,
       tabId: row.tabId,
       fromUserId: row.fromUserId,
       toUserId: row.toUserId,
+      fromParticipantId: row.fromParticipantId,
+      toParticipantId: row.toParticipantId,
       amount: Number(row.amount),
       currency: row.currency ?? null,
       originalAmount:
@@ -198,24 +222,17 @@ export const settlement = {
       settlementDate: row.settlementDate,
       createdAt: row.createdAt,
       fromUser: {
-        id: row.fromUserId,
+        id: row.fromUserId ?? row.fromParticipantId ?? "",
         email: row.fromUserEmail,
         name: row.fromUserName,
         username: row.fromUserUsername,
       },
-      toUser: toUser
-        ? {
-            id: toUser.id,
-            email: toUser.email,
-            name: toUser.name,
-            username: toUser.username,
-          }
-        : {
-            id: row.toUserId,
-            email: "",
-            name: null,
-            username: null,
-          },
+      toUser: {
+        id: row.toUserId ?? row.toParticipantId ?? "",
+        email: row.toUserEmail,
+        name: row.toUserName,
+        username: row.toUserUsername,
+      },
     };
   },
 
@@ -262,6 +279,8 @@ export const settlement = {
         tabId: input.tabId,
         fromUserId: input.fromUserId,
         toUserId: input.toUserId,
+        fromParticipantId: input.fromParticipantId,
+        toParticipantId: input.toParticipantId,
         amount: input.amount.toString(),
         currency: input.currency ?? null,
         originalAmount:
@@ -301,6 +320,18 @@ export const settlement = {
     if (prior.toUserId !== input.toUserId) {
       changes.toUserId = { from: prior.toUserId, to: input.toUserId };
     }
+    if (prior.fromParticipantId !== input.fromParticipantId) {
+      changes.fromParticipantId = {
+        from: prior.fromParticipantId,
+        to: input.fromParticipantId,
+      };
+    }
+    if (prior.toParticipantId !== input.toParticipantId) {
+      changes.toParticipantId = {
+        from: prior.toParticipantId,
+        to: input.toParticipantId,
+      };
+    }
     if (!amountsEqual(prior.amount, input.amount)) {
       changes.amount = { from: prior.amount, to: input.amount };
     }
@@ -331,6 +362,8 @@ export const settlement = {
       .set({
         fromUserId: input.fromUserId,
         toUserId: input.toUserId,
+        fromParticipantId: input.fromParticipantId,
+        toParticipantId: input.toParticipantId,
         amount: input.amount.toString(),
         currency: input.currency ?? null,
         originalAmount:

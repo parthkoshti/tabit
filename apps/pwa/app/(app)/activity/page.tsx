@@ -4,7 +4,7 @@ import { api } from "@/lib/api-client";
 import type { ActivityItem } from "data";
 import { authClient } from "@/lib/auth-client";
 import { Link } from "react-router-dom";
-import { ReceiptText } from "lucide-react";
+import { ReceiptText, Users } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
@@ -143,76 +143,165 @@ export function ActivityPage() {
             >
               {items.map((item, i) => {
                 const shouldAnimate = i < 8;
-                return item.type === "expense" ? (
-                  <motion.div
-                    key={`exp-${item.id}`}
-                    variants={shouldAnimate ? staggerItem : undefined}
-                  >
-                    <Link to={`/tabs/${item.tabId}/expenses/${item.id}`}>
-                      <AnimatedCard
-                        className={`flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80 ${
-                          item.deletedAt ? "opacity-60" : ""
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-2 min-w-0">
-                          <div className="flex min-w-0 flex-1 items-center gap-2">
-                            <UserAvatar userId={item.paidById} size="sm" />
-                            <span
-                              className={`font-medium truncate min-w-0 ${
-                                item.deletedAt ? "text-muted-foreground" : ""
-                              }`}
-                            >
-                              {item.description}
-                            </span>
-                            {item.deletedAt && (
-                              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                Deleted
+                if (item.type === "expense") {
+                  const payerAvatarSeed =
+                    item.paidById ??
+                    item.paidByParticipantId ??
+                    item.paidByEmail;
+                  return (
+                    <motion.div
+                      key={`exp-${item.id}`}
+                      variants={shouldAnimate ? staggerItem : undefined}
+                    >
+                      <Link to={`/tabs/${item.tabId}/expenses/${item.id}`}>
+                        <AnimatedCard
+                          className={`flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80 ${
+                            item.deletedAt ? "opacity-60" : ""
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2 min-w-0">
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <UserAvatar userId={payerAvatarSeed} size="sm" />
+                              <span
+                                className={`font-medium truncate min-w-0 ${
+                                  item.deletedAt ? "text-muted-foreground" : ""
+                                }`}
+                              >
+                                {item.description}
                               </span>
-                            )}
-                          </div>
-                          <span
-                            className={cn(
-                              "text-sm font-medium shrink-0 tabular-nums",
-                              item.deletedAt && "text-muted-foreground",
-                            )}
-                          >
-                            {formatAmount(item.amount, item.tabCurrency)}
-                          </span>
-                        </div>
-                        <div className="flex items-start justify-between gap-2">
-                          <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
-                          {getDisplayName(
-                            {
-                              id: item.paidById,
-                              username: item.paidByUsername,
-                              name: item.paidByName,
-                              email: item.paidByEmail,
-                            },
-                            currentUserId,
-                          )}{" "}
-                          paid{" "}
-                          {item.tabIsDirect && item.directOtherUser ? (
-                            item.paidById === currentUserId &&
-                            (item.yourShare == null ||
-                              item.yourShare <= 0.001) ? (
-                              <>
-                                —{" "}
-                                <span className="text-foreground">
-                                  {getDisplayName(
-                                    item.directOtherUser,
-                                    currentUserId,
-                                  )}
-                                </span>{" "}
-                                owes you{" "}
-                                <span className="text-foreground font-medium">
-                                  {formatAmount(
-                                    item.amount - (item.yourShare ?? 0),
-                                    item.tabCurrency,
-                                  )}
+                              {item.deletedAt && (
+                                <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  Deleted
                                 </span>
-                              </>
-                            ) : (
+                              )}
+                            </div>
+                            <span
+                              className={cn(
+                                "text-sm font-medium shrink-0 tabular-nums",
+                                item.deletedAt && "text-muted-foreground",
+                              )}
+                            >
+                              {formatAmount(item.amount, item.tabCurrency)}
+                            </span>
+                          </div>
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm text-muted-foreground flex flex-wrap items-center gap-x-1.5 gap-y-0.5 min-w-0">
+                              {getDisplayName(
+                                {
+                                  id: item.paidById ?? undefined,
+                                  username: item.paidByUsername,
+                                  name: item.paidByName,
+                                  email: item.paidByEmail,
+                                },
+                                currentUserId,
+                              )}{" "}
+                              paid{" "}
+                              {item.tabIsDirect && item.directOtherUser ? (
+                                item.paidById === currentUserId &&
+                                (item.yourShare == null ||
+                                  item.yourShare <= 0.001) ? (
+                                  <>
+                                    —{" "}
+                                    <span className="text-foreground">
+                                      {getDisplayName(
+                                        item.directOtherUser,
+                                        currentUserId,
+                                      )}
+                                    </span>{" "}
+                                    owes you{" "}
+                                    <span className="text-foreground font-medium">
+                                      {formatAmount(
+                                        item.amount - (item.yourShare ?? 0),
+                                        item.tabCurrency,
+                                      )}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    — You split with{" "}
+                                    <span className="text-foreground">
+                                      {getDisplayName(
+                                        item.directOtherUser,
+                                        currentUserId,
+                                      )}
+                                    </span>
+                                  </>
+                                )
+                              ) : (
+                                <>
+                                  in{" "}
+                                  <span className="inline-flex items-center gap-1 text-foreground">
+                                    <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                                    {item.tabName}
+                                  </span>
+                                </>
+                              )}
+                            </p>
+                            {item.expenseCurrency !== item.tabCurrency ? (
+                              <span className="text-sm font-normal text-muted-foreground tabular-nums shrink-0 text-right pt-0.5">
+                                {formatAmountWithCurrencyCode(
+                                  item.originalAmount,
+                                  item.expenseCurrency,
+                                )}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="flex items-end justify-between gap-3 pt-0.5">
+                            <p className="text-xs text-muted-foreground min-w-0">
+                              {formatAppDate(item.createdAt)}
+                            </p>
+                            <ExpenseYourBalance
+                              expenseAmount={item.amount}
+                              tabCurrency={item.tabCurrency}
+                              paidById={item.paidById}
+                              paidByParticipantId={item.paidByParticipantId}
+                              currentUserId={currentUserId}
+                              yourShare={item.yourShare}
+                              deleted={!!item.deletedAt}
+                            />
+                          </div>
+                        </AnimatedCard>
+                      </Link>
+                    </motion.div>
+                  );
+                }
+                if (item.type === "placeholder_merge") {
+                  return (
+                    <motion.div
+                      key={`merge-${item.id}`}
+                      variants={shouldAnimate ? staggerItem : undefined}
+                    >
+                      <Link to={`/tabs/${item.tabId}`}>
+                        <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
+                          <div className="flex items-center justify-between gap-2 min-w-0">
+                            <div className="flex min-w-0 flex-1 items-center gap-2">
+                              <Users className="h-5 w-5 shrink-0 text-muted-foreground" />
+                              <span className="font-medium truncate min-w-0">
+                                Placeholder merged
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-sm text-muted-foreground min-w-0">
+                            {getDisplayName(
+                              {
+                                id: item.performedByUserId,
+                                username: item.performedByUsername,
+                                name: item.performedByName,
+                                email: item.performedByEmail,
+                              },
+                              currentUserId,
+                            )}{" "}
+                            merged{" "}
+                            <span className="text-foreground font-medium">
+                              &quot;{item.placeholderDisplayName}&quot;
+                            </span>{" "}
+                            (placeholder) with{" "}
+                            <span className="text-foreground font-medium">
+                              {item.targetDisplayName}
+                            </span>
+                            {item.tabIsDirect && item.directOtherUser ? (
                               <>
+                                {" "}
                                 — You split with{" "}
                                 <span className="text-foreground">
                                   {getDisplayName(
@@ -221,43 +310,28 @@ export function ActivityPage() {
                                   )}
                                 </span>
                               </>
-                            )
-                          ) : (
-                            <>
-                              in{" "}
-                              <span className="inline-flex items-center gap-1 text-foreground">
-                                <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
-                                {item.tabName}
-                              </span>
-                            </>
-                          )}
+                            ) : (
+                              <>
+                                {" "}
+                                in{" "}
+                                <span className="inline-flex items-center gap-1 text-foreground">
+                                  <ReceiptText className="h-3.5 w-3.5 shrink-0 text-tab-icon" />
+                                  {item.tabName}
+                                </span>
+                              </>
+                            )}
                           </p>
-                          {item.expenseCurrency !== item.tabCurrency ? (
-                            <span className="text-sm font-normal text-muted-foreground tabular-nums shrink-0 text-right pt-0.5">
-                              {formatAmountWithCurrencyCode(
-                                item.originalAmount,
-                                item.expenseCurrency,
-                              )}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="flex items-end justify-between gap-3 pt-0.5">
-                          <p className="text-xs text-muted-foreground min-w-0">
+                          <p className="text-xs text-muted-foreground">
                             {formatAppDate(item.createdAt)}
                           </p>
-                          <ExpenseYourBalance
-                            expenseAmount={item.amount}
-                            tabCurrency={item.tabCurrency}
-                            paidById={item.paidById}
-                            currentUserId={currentUserId}
-                            yourShare={item.yourShare}
-                            deleted={!!item.deletedAt}
-                          />
-                        </div>
-                      </AnimatedCard>
-                    </Link>
-                  </motion.div>
-                ) : (
+                        </AnimatedCard>
+                      </Link>
+                    </motion.div>
+                  );
+                }
+                const settlementFromAvatar =
+                  item.fromUserId ?? item.fromUserEmail;
+                return (
                   <motion.div
                     key={`set-${item.id}`}
                     variants={shouldAnimate ? staggerItem : undefined}
@@ -266,11 +340,11 @@ export function ActivityPage() {
                       <AnimatedCard className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4 hover:bg-muted/50 hover:border-border/80">
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0 flex-1">
-                            <UserAvatar userId={item.fromUserId} size="sm" />
+                            <UserAvatar userId={settlementFromAvatar} size="sm" />
                             <span className="font-medium truncate">
                               {getDisplayName(
                                 {
-                                  id: item.fromUserId,
+                                  id: item.fromUserId ?? undefined,
                                   username: item.fromUserUsername,
                                   name: item.fromUserName,
                                   email: item.fromUserEmail,
@@ -280,7 +354,7 @@ export function ActivityPage() {
                               paid{" "}
                               {getDisplayName(
                                 {
-                                  id: item.toUserId,
+                                  id: item.toUserId ?? undefined,
                                   username: item.toUserUsername,
                                   name: item.toUserName,
                                   email: item.toUserEmail,

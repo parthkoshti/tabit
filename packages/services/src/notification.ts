@@ -14,6 +14,7 @@ import {
   createTabInviteNotificationPayload,
   createTabInviteAcceptedNotificationPayload,
   createRecurringRuleNeedsFixNotificationPayload,
+  createPlaceholderMergedNotificationPayload,
 } from "models";
 
 let redis: Redis | null = null;
@@ -248,5 +249,21 @@ export const notificationService = {
   }): Promise<void> => {
     const payload = createTabInviteAcceptedNotificationPayload(params);
     await publish(params.userId, payload);
+  },
+
+  publishPlaceholderMergedToUser: async (
+    userId: string,
+    params: {
+      tabId: string;
+      tabName: string;
+      fromUserId: string;
+      fromUserName: string | null;
+      placeholderDisplayName: string;
+      targetDisplayName: string;
+      createdAt: Date;
+    },
+  ): Promise<void> => {
+    const payload = createPlaceholderMergedNotificationPayload(params);
+    await publish(userId, payload);
   },
 };

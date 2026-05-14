@@ -292,11 +292,30 @@ describe("friendService", () => {
             user: { id: "user2", email: "b@b.com", name: "B", username: null },
           },
         ],
+        participants: [
+          {
+            id: "pid-user1",
+            kind: "member",
+            userId: "user1",
+            displayName: "A",
+            user: { id: "user1", email: "a@a.com", name: "A", username: null },
+          },
+          {
+            id: "pid-user2",
+            kind: "member",
+            userId: "user2",
+            displayName: "B",
+            user: { id: "user2", email: "b@b.com", name: "B", username: null },
+          },
+        ],
       });
       vi.mocked(friendData.getOtherMemberOfDirectTab).mockResolvedValue("user2");
       vi.mocked(tab.getBalancesForTab).mockResolvedValue([
         {
+          participantId: "pid-user1",
           userId: "user1",
+          kind: "member",
+          displayName: "A",
           amount: -10,
           user: { id: "user1", email: "", name: null, username: null },
         },
@@ -339,11 +358,30 @@ describe("friendService", () => {
             user: { id: "user2", email: "b@b.com", name: "B", username: null },
           },
         ],
+        participants: [
+          {
+            id: "pid-user1",
+            kind: "member",
+            userId: "user1",
+            displayName: "A",
+            user: { id: "user1", email: "a@a.com", name: "A", username: null },
+          },
+          {
+            id: "pid-user2",
+            kind: "member",
+            userId: "user2",
+            displayName: "B",
+            user: { id: "user2", email: "b@b.com", name: "B", username: null },
+          },
+        ],
       });
       vi.mocked(friendData.getOtherMemberOfDirectTab).mockResolvedValue("user2");
       vi.mocked(tab.getBalancesForTab).mockResolvedValue([
         {
+          participantId: "pid-user1",
           userId: "user1",
+          kind: "member",
+          displayName: "A",
           amount: 24.5,
           user: { id: "user1", email: "", name: null, username: null },
         },

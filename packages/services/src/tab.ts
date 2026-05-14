@@ -1,6 +1,27 @@
-import { tab, settlement, user as userData } from "data";
+import {
+  tab,
+  settlement,
+  user as userData,
+  createPlaceholderParticipant,
+  renamePlaceholderParticipant,
+  mergePlaceholderIntoMember,
+} from "data";
 import { CURRENCY_CODES } from "shared";
 import { ok, err, type Result } from "./types.js";
+import { notificationService } from "./notification.js";
+
+function displayUserLabel(u: {
+  name: string | null;
+  email: string;
+  username?: string | null;
+}): string {
+  return (
+    u.name?.trim() ||
+    (u.username ? `@${u.username}` : null) ||
+    u.email ||
+    "Someone"
+  );
+}
 
 export const tabService = {
   getTabsForUser: async (userId: string) => {
@@ -192,5 +213,114 @@ export const tabService = {
 
     await tab.removeMember(tabId, targetUserId);
     return ok(undefined);
+  },
+
+  createPlaceholder: async (
+    tabId: string,
+    userId: string,
+    displayName: string,
+  ): Promise<Result<{ participantId: string }>> => {
+    const tabData = await tab.getWithMembers(tabId);
+    if (!tabData) {
+      return err("Tab not found", 404);
+    }
+    const isMember = tabData.members.some((m) => m.userId === userId);
+    if (!isMember) {
+      return err("Not a member", 403);
+    }
+    try {
+      const participantId = await createPlaceholderParticipant({
+        tabId,
+        displayName,
+        createdByUserId: userId,
+      });
+      return ok({ participantId });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to create placeholder";
+      return err(msg, 400);
+    }
+  },
+
+  renamePlaceholder: async (
+    tabId: string,
+    participantId: string,
+    userId: string,
+    displayName: string,
+  ): Promise<Result<void>> => {
+    const tabData = await tab.getWithMembers(tabId);
+    if (!tabData) {
+      return err("Tab not found", 404);
+    }
+    const isMember = tabData.members.some((m) => m.userId === userId);
+    if (!isMember) {
+      return err("Not a member", 403);
+    }
+    try {
+      await renamePlaceholderParticipant({
+        tabId,
+        participantId,
+        displayName,
+      });
+      return ok(undefined);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to rename placeholder";
+      if (msg.includes("not found")) return err(msg, 404);
+      return err(msg, 400);
+    }
+  },
+
+  mergePlaceholder: async (
+    tabId: string,
+    placeholderParticipantId: string,
+    userId: string,
+    targetUserId: string,
+  ): Promise<Result<Awaited<ReturnType<typeof mergePlaceholderIntoMember>>>> => {
+    const tabData = await tab.getWithMembers(tabId);
+    if (!tabData) {
+      return err("Tab not found", 404);
+    }
+    const requester = tabData.members.find((m) => m.userId === userId);
+    if (!requester) {
+      return err("Not a member", 403);
+    }
+    if (requester.role !== "owner") {
+      return err("Only tab owners can merge placeholders", 403);
+    }
+    const targetIsMember = tabData.members.some((m) => m.userId === targetUserId);
+    if (!targetIsMember) {
+      return err("Target is not a tab member", 400);
+    }
+    try {
+      const result = await mergePlaceholderIntoMember({
+        tabId,
+        placeholderParticipantId,
+        targetUserId,
+        performedByUserId: userId,
+      });
+      if (targetUserId !== userId) {
+        const actor = await userData.getById(userId);
+        const actorName = actor
+          ? displayUserLabel({
+              name: actor.name,
+              email: actor.email,
+              username: actor.username,
+            })
+          : "Someone";
+        await notificationService.publishPlaceholderMergedToUser(targetUserId, {
+          tabId,
+          tabName: result.tabName,
+          fromUserId: userId,
+          fromUserName: actorName,
+          placeholderDisplayName: result.placeholderDisplayName,
+          targetDisplayName: result.targetDisplayName,
+          createdAt: new Date(),
+        });
+      }
+      return ok(result);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Merge failed";
+      if (msg.includes("not found")) return err(msg, 404);
+      return err(msg, 400);
+    }
   },
 };

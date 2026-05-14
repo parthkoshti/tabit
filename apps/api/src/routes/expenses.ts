@@ -11,6 +11,25 @@ import { authMiddleware } from "../auth.js";
 import { convertToTabCurrency, expenseService } from "services";
 import { log } from "../lib/logger.js";
 
+function bodyForExpenseZodParse(
+  body: Record<string, unknown>,
+  tabId: string,
+  userId: string,
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...body, tabId };
+  const pc = merged["paidByParticipantId"];
+  const hasParticipant = typeof pc === "string" && pc.trim().length > 0;
+  const paidBy = merged["paidById"];
+  const missingPaidBy =
+    paidBy === undefined ||
+    paidBy === null ||
+    (typeof paidBy === "string" && paidBy.trim() === "");
+  if (!hasParticipant && missingPaidBy) {
+    merged["paidById"] = userId;
+  }
+  return merged;
+}
+
 export const expensesRoutes = new Hono<{ Variables: { auth: AuthContext } }>();
 
 expensesRoutes.use("*", authMiddleware);
@@ -137,11 +156,9 @@ expensesRoutes.post("/", async (c) => {
   const tabId = c.req.param("tabId")!;
 
   const body = await c.req.json().catch(() => ({}));
-  const parsed = createExpenseSchema.safeParse({
-    ...body,
-    tabId,
-    paidById: body.paidById ?? userId,
-  });
+  const parsed = createExpenseSchema.safeParse(
+    bodyForExpenseZodParse(body as Record<string, unknown>, tabId, userId),
+  );
 
   if (!parsed.success) {
     const flat = parsed.error.flatten();
@@ -237,11 +254,9 @@ expensesRoutes.patch("/:expenseId", async (c) => {
   const expenseId = c.req.param("expenseId")!;
 
   const body = await c.req.json().catch(() => ({}));
-  const parsed = createExpenseSchema.safeParse({
-    ...body,
-    tabId,
-    paidById: body.paidById ?? userId,
-  });
+  const parsed = createExpenseSchema.safeParse(
+    bodyForExpenseZodParse(body as Record<string, unknown>, tabId, userId),
+  );
 
   if (!parsed.success) {
     const flat = parsed.error.flatten();

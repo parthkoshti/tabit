@@ -91,6 +91,21 @@ export function useNotifications(enabled: boolean): ConnectionState {
           }
           qc.invalidateQueries({ queryKey: ["tabs"] });
           qc.invalidateQueries({ queryKey: ["activity"] });
+        } else if (payload.type === "placeholder_merged") {
+          if (payload.tabId) {
+            qc.invalidateQueries({ queryKey: ["tab", payload.tabId] });
+            qc.invalidateQueries({ queryKey: ["tabs"] });
+            qc.invalidateQueries({
+              queryKey: ["expenses", payload.tabId],
+            });
+            qc.invalidateQueries({
+              queryKey: ["balances", payload.tabId],
+            });
+            qc.invalidateQueries({ queryKey: ["activity"] });
+            qc.invalidateQueries({
+              queryKey: ["settlements", payload.tabId],
+            });
+          }
         } else if (payload.type === "push_resubscription_required") {
           setResub?.(true);
           toast("Push notifications need to be re-enabled", {

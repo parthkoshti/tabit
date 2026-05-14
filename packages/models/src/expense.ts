@@ -17,10 +17,20 @@ export const createExpenseSchema = z
     /** ISO 4217 code; defaults to tab currency on the server. */
     currency: z.string().min(1).max(10).optional(),
     description: z.string().min(1).max(500),
-    paidById: z.string(),
+    paidById: z.string().optional(),
+    paidByParticipantId: z.string().optional(),
     splitType: splitTypeSchema.default("equal"),
     expenseDate: z.coerce.date().optional().default(() => new Date()),
     splits: z.array(expenseSplitLineInputSchema).optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.paidById && !data.paidByParticipantId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "paidById or paidByParticipantId is required",
+        path: ["paidById"],
+      });
+    }
   })
   .superRefine((data, ctx) => {
     if (data.splitType === "equal") return;

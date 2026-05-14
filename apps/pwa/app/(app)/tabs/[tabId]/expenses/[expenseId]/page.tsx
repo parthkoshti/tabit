@@ -41,6 +41,7 @@ import {
   formatAppDate,
 } from "@/lib/format-date";
 import { ExpenseReactions } from "@/components/expense-reactions";
+import type { Expense as LedgerExpense } from "data";
 
 export function ExpensePage() {
   const { tabId, expenseId } = useParams<{
@@ -135,6 +136,21 @@ export function ExpensePage() {
   const currentUserId = session?.user?.id ?? "";
   const tabCurrency = tab?.currency ?? "USD";
   const expenseCurrency = expense.currency;
+  const tabParticipants = tab?.participants ?? [];
+  const currentUserParticipantId = tabParticipants.find(
+    (p) => p.userId === currentUserId,
+  )?.id;
+
+  function splitRowPid(s: LedgerExpense["splits"][0]): string {
+    return s.participantId ?? s.userId ?? "";
+  }
+
+  const payerParticipantId =
+    expense.paidByParticipantId ??
+    (expense.paidById
+      ? tabParticipants.find((p) => p.userId === expense.paidById)?.id
+      : undefined) ??
+    expense.paidBy.id;
 
   function getAddedAndRemovedParticipantIds(
     changes: Record<string, { from: unknown; to: unknown }>,
@@ -196,7 +212,7 @@ export function ExpensePage() {
     if (changes.description) {
       parts.push("Description updated");
     }
-    if (changes.paidById) {
+    if (changes.paidById || changes.paidByParticipantId) {
       parts.push("Payer updated");
     }
     if (changes.participants || changes.splits) {
@@ -292,7 +308,10 @@ export function ExpensePage() {
               <p
                 className={`flex min-w-0 items-center gap-2 text-xl font-medium ${expense.deletedAt ? "text-muted-foreground" : "text-foreground"}`}
               >
-                <UserAvatar userId={expense.paidById} size="lg" />
+                <UserAvatar
+                  userId={expense.paidById ?? expense.paidByParticipantId}
+                  size="lg"
+                />
                 {getDisplayName(expense.paidBy, currentUserId)}
               </p>
               <span
@@ -362,9 +381,10 @@ export function ExpensePage() {
                 currentUserId={currentUserId}
                 getDisplayName={(userId) =>
                   getDisplayName(
-                    tab?.members?.find((m) => m.userId === userId)?.user ?? {
-                      id: userId,
-                    },
+                    tab?.members?.find((m) => m.userId === userId)?.user ??
+                      tabParticipants.find((p) => p.userId === userId)?.user ?? {
+                        id: userId,
+                      },
                     currentUserId,
                   )
                 }
@@ -374,10 +394,16 @@ export function ExpensePage() {
 
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-sm text-muted-foreground pt-2">
             {expense.splits
-              .filter((s) => s.userId !== expense.paidById)
+              .filter((s) => splitRowPid(s) !== payerParticipantId)
               .map((s) => {
-                const owesCurrentUser = expense.paidById === currentUserId;
-                const currentUserOwes = s.userId === currentUserId;
+                const owesCurrentUser =
+                  expense.paidById === currentUserId ||
+                  (currentUserParticipantId != null &&
+                    payerParticipantId === currentUserParticipantId);
+                const currentUserOwes =
+                  s.userId === currentUserId ||
+                  (currentUserParticipantId != null &&
+                    s.participantId === currentUserParticipantId);
                 const amountClass = owesCurrentUser
                   ? "text-positive"
                   : currentUserOwes
@@ -385,10 +411,13 @@ export function ExpensePage() {
                     : "text-muted-foreground";
                 return (
                   <span
-                    key={s.userId}
+                    key={s.id}
                     className="inline-flex items-center gap-2"
                   >
-                    <UserAvatar userId={s.userId} size="sm" />
+                    <UserAvatar
+                      userId={s.userId ?? s.participantId}
+                      size="sm"
+                    />
                     {getDisplayName(s.user, currentUserId)}{" "}
                     {currentUserOwes ? "owe" : "owes"}{" "}
                     {getDisplayName(expense.paidBy, currentUserId)}{" "}
@@ -476,57 +505,118 @@ export function ExpensePage() {
                           (() => {
                             const { added, removed } =
                               getAddedAndRemovedParticipantIds(entry.changes);
-                            const members = tab?.members ?? [];
+                            const membersList = tab?.members ?? [];
+                            const participantsList = tab?.participants ?? [];
+                            const keyKnown = (id: string) =>
+                              participantsList.some((p) => p.id === id) ||
+                              membersList.some((m) => m.userId === id);
                             const hasChanges =
                               added.length > 0 || removed.length > 0;
                             if (!hasChanges) return null;
                             return (
                               <ul className="mt-2 space-y-1 text-xs">
                                 {removed
-                                  .filter((id) =>
-                                    members.some((m) => m.userId === id),
-                                  )
-                                  .map((userId) => (
-                                    <li
-                                      key={userId}
-                                      className="flex items-center gap-1.5"
-                                    >
-                                      <span className="text-negative">
-                                        Removed
-                                      </span>
-                                      <UserAvatar userId={userId} size="xs" />
-                                      {getDisplayName(
-                                        members.find(
-                                          (m) => m.userId === userId,
-                                        )!.user,
-                                        currentUserId,
-                                      )}
-                                    </li>
-                                  ))}
+                                  .filter((id) => keyKnown(id))
+                                  .map((id) => {
+                                    const p = participantsList.find(
+                                      (x) => x.id === id,
+                                    );
+                                    const m = membersList.find(
+                                      (x) => x.userId === id,
+                                    );
+                                    const seed =
+                                      p?.userId ?? p?.id ?? m?.userId ?? id;
+                                    const label = p
+                                      ? p.user
+                                        ? getDisplayName(
+                                            p.user,
+                                            currentUserId,
+                                          )
+                                        : `${p.displayName} (placeholder)`
+                                      : m
+                                        ? getDisplayName(
+                                            m.user,
+                                            currentUserId,
+                                          )
+                                        : id;
+                                    return (
+                                      <li
+                                        key={id}
+                                        className="flex items-center gap-1.5"
+                                      >
+                                        <span className="text-negative">
+                                          Removed
+                                        </span>
+                                        <UserAvatar userId={seed} size="xs" />
+                                        {label}
+                                      </li>
+                                    );
+                                  })}
                                 {added
-                                  .filter((id) =>
-                                    members.some((m) => m.userId === id),
-                                  )
-                                  .map((userId) => (
-                                    <li
-                                      key={userId}
-                                      className="flex items-center gap-1.5"
-                                    >
-                                      <span className="text-positive">
-                                        added
-                                      </span>
-                                      <UserAvatar userId={userId} size="xs" />
-                                      {getDisplayName(
-                                        members.find(
-                                          (m) => m.userId === userId,
-                                        )!.user,
-                                        currentUserId,
-                                      )}
-                                    </li>
-                                  ))}
+                                  .filter((id) => keyKnown(id))
+                                  .map((id) => {
+                                    const p = participantsList.find(
+                                      (x) => x.id === id,
+                                    );
+                                    const m = membersList.find(
+                                      (x) => x.userId === id,
+                                    );
+                                    const seed =
+                                      p?.userId ?? p?.id ?? m?.userId ?? id;
+                                    const label = p
+                                      ? p.user
+                                        ? getDisplayName(
+                                            p.user,
+                                            currentUserId,
+                                          )
+                                        : `${p.displayName} (placeholder)`
+                                      : m
+                                        ? getDisplayName(
+                                            m.user,
+                                            currentUserId,
+                                          )
+                                        : id;
+                                    return (
+                                      <li
+                                        key={id}
+                                        className="flex items-center gap-1.5"
+                                      >
+                                        <span className="text-positive">
+                                          added
+                                        </span>
+                                        <UserAvatar userId={seed} size="xs" />
+                                        {label}
+                                      </li>
+                                    );
+                                  })}
                               </ul>
                             );
                           })()}
+                        <span className="block text-xs text-muted-foreground/80 mt-2">
+                          {getDisplayName(entry.performedBy, currentUserId)} ·{" "}
+                          {formatAbsoluteDateTime(entry.performedAt)}
+                        </span>
+                      </>
+                    )}
+                    {entry.action === "placeholder_merge" && (
+                      <>
+                        {getDisplayName(entry.performedBy, currentUserId)}{" "}
+                        merged{" "}
+                        <span className="font-medium text-foreground">
+                          &quot;
+                          {(
+                            entry.changes as {
+                              placeholderDisplayName?: string;
+                            } | null
+                          )?.placeholderDisplayName ?? "Placeholder"}
+                          &quot;
+                        </span>{" "}
+                        (placeholder) with{" "}
+                        <span className="font-medium text-foreground">
+                          {(
+                            entry.changes as { targetDisplayName?: string } | null
+                          )?.targetDisplayName ?? "member"}
+                        </span>
                         <span className="block text-xs text-muted-foreground/80 mt-2">
                           {getDisplayName(entry.performedBy, currentUserId)} ·{" "}
                           {formatAbsoluteDateTime(entry.performedAt)}
@@ -591,6 +681,7 @@ export function ExpensePage() {
                 tabCurrency={tab?.currency ?? "USD"}
                 expense={expense}
                 members={tab?.members ?? []}
+                participants={tab?.participants ?? []}
                 currentUserId={currentUserId}
                 onSuccess={() => {
                   setEditDialogOpen(false);

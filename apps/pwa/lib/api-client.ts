@@ -184,6 +184,41 @@ export const api = {
         method: "DELETE",
         body: { userId },
       }),
+    createPlaceholder: (tabId: string, displayName: string) =>
+      request<{
+        success: boolean;
+        participantId?: string;
+        error?: string;
+      }>(`/tabs/${tabId}/placeholders`, {
+        method: "POST",
+        body: { displayName },
+      }),
+    renamePlaceholder: (
+      tabId: string,
+      participantId: string,
+      displayName: string,
+    ) =>
+      request<{ success: boolean; error?: string }>(
+        `/tabs/${tabId}/placeholders/${participantId}`,
+        { method: "PATCH", body: { displayName } },
+      ),
+    mergePlaceholder: (
+      tabId: string,
+      participantId: string,
+      targetUserId: string,
+    ) =>
+      request<{
+        success: boolean;
+        error?: string;
+        affectedExpenseIds?: string[];
+        tabName?: string;
+        placeholderDisplayName?: string;
+        targetUserId?: string;
+        targetDisplayName?: string;
+      }>(`/tabs/${tabId}/placeholders/${participantId}/merge`, {
+        method: "POST",
+        body: { targetUserId },
+      }),
     listRecurringExpenses: (tabId: string) =>
       request<{
         success: boolean;
@@ -302,6 +337,7 @@ export const api = {
         currency?: string;
         description: string;
         paidById?: string;
+        paidByParticipantId?: string;
         splitType?: string;
         participantIds?: string[];
         splits?: { userId: string; amount?: number; weight?: number }[];
@@ -362,6 +398,7 @@ export const api = {
         currency?: string;
         description?: string;
         paidById?: string;
+        paidByParticipantId?: string;
         splitType?: string;
         expenseDate?: string;
         participantIds?: string[];
@@ -418,10 +455,12 @@ export const api = {
       }>(`/tabs/${tabId}/settlements/${settlementId}`),
     record: (
       tabId: string,
-      fromUserId: string,
-      toUserId: string,
-      amount: number,
-      opts?: {
+      body: {
+        fromUserId: string | null;
+        toUserId: string | null;
+        fromParticipantId: string;
+        toParticipantId: string;
+        amount: number;
         currency?: string;
         originalAmount?: number;
         settlementDate?: string;
@@ -433,10 +472,7 @@ export const api = {
           method: "POST",
           body: {
             tabId,
-            fromUserId,
-            toUserId,
-            amount,
-            ...opts,
+            ...body,
           },
         },
       ),
@@ -444,8 +480,10 @@ export const api = {
       tabId: string,
       settlementId: string,
       body: {
-        fromUserId: string;
-        toUserId: string;
+        fromUserId: string | null;
+        toUserId: string | null;
+        fromParticipantId: string;
+        toParticipantId: string;
         amount: number;
         currency?: string;
         originalAmount?: number;

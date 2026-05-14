@@ -4,9 +4,11 @@ import {
   expenseAuditLog,
   expenseReaction,
   expenseSplit,
+  tabParticipant as tabParticipantTable,
   user,
 } from "db";
-import { eq, ne, desc, sql, or, and, inArray } from "drizzle-orm";
+import { eq, ne, desc, sql, or, and, inArray, isNull, not, type SQL } from "drizzle-orm";
+import { getParticipantIdForTabUser, ensureMemberParticipantsForTab } from "./tab-participant.js";
 
 export type ExpenseReaction = {
   emoji: string;
@@ -28,6 +30,7 @@ export type GetExpensesForTabResult = {
     id: string;
     tabId: string;
     paidById: string;
+    paidByParticipantId: string | null;
     amount: number;
     currency: string;
     originalAmount: number;
@@ -42,6 +45,7 @@ export type GetExpensesForTabResult = {
       id: string;
       expenseId: string;
       userId: string;
+      participantId: string | null;
       amount: number;
       weight: number | null;
       user: { id: string };
@@ -54,7 +58,8 @@ export type GetExpensesForTabResult = {
 type FlatRow = {
   id: string;
   tabId: string;
-  paidById: string;
+  paidById: string | null;
+  paidByParticipantId: string | null;
   amount: string;
   currency: string;
   originalAmount: string;
@@ -67,6 +72,7 @@ type FlatRow = {
   splitId: string | null;
   splitExpenseId: string | null;
   splitUserId: string | null;
+  splitParticipantId: string | null;
   splitAmount: string | null;
   splitWeight: string | null;
 };
@@ -88,15 +94,17 @@ function buildExpensesFromFlatRows(
       .map((r) => ({
         id: r.splitId!,
         expenseId: r.splitExpenseId!,
-        userId: r.splitUserId!,
+        userId: r.splitUserId ?? r.splitParticipantId ?? "",
+        participantId: r.splitParticipantId,
         amount: Number(r.splitAmount),
         weight: r.splitWeight != null ? Number(r.splitWeight) : null,
-        user: { id: r.splitUserId! },
+        user: { id: r.splitUserId ?? r.splitParticipantId ?? "" },
       }));
     return {
       id: first.id,
       tabId: first.tabId,
-      paidById: first.paidById,
+      paidById: first.paidById ?? "",
+      paidByParticipantId: first.paidByParticipantId,
       amount: Number(first.amount),
       currency: first.currency,
       originalAmount: Number(first.originalAmount),
@@ -106,7 +114,7 @@ function buildExpensesFromFlatRows(
       createdAt: first.createdAt,
       deletedAt: first.deletedAt ?? null,
       recurringRuleId: first.recurringRuleId ?? null,
-      paidBy: { id: first.paidById },
+      paidBy: { id: first.paidById || first.paidByParticipantId || "" },
       splits,
       reactions: reactionsByExpenseId.get(expenseId) ?? [],
     };
@@ -157,7 +165,8 @@ async function getReactionsForExpenseIds(
 
 export type CreateExpenseInput = {
   tabId: string;
-  paidById: string;
+  paidById: string | null;
+  paidByParticipantId: string;
   /** Tab-currency total (ledger). */
   amount: number;
   currency: string;
@@ -166,7 +175,12 @@ export type CreateExpenseInput = {
   description: string;
   splitType: string;
   expenseDate: Date;
-  splits: { userId: string; amount: number; weight?: number | null }[];
+  splits: {
+    participantId: string;
+    userId: string | null;
+    amount: number;
+    weight?: number | null;
+  }[];
   performedById: string;
   recurringRuleId?: string | null;
   /** Defaults to `create`. */
@@ -175,14 +189,20 @@ export type CreateExpenseInput = {
 };
 
 export type UpdateExpenseInput = {
-  paidById: string;
+  paidById: string | null;
+  paidByParticipantId: string;
   amount: number;
   currency: string;
   originalAmount: number;
   description: string;
   splitType: string;
   expenseDate: Date;
-  splits: { userId: string; amount: number; weight?: number | null }[];
+  splits: {
+    participantId: string;
+    userId: string | null;
+    amount: number;
+    weight?: number | null;
+  }[];
   performedById: string;
 };
 
@@ -190,7 +210,8 @@ export type UpdateExpenseInput = {
 export type Expense = {
   id: string;
   tabId: string;
-  paidById: string;
+  paidById: string | null;
+  paidByParticipantId: string | null;
   recurringRuleId?: string | null;
   amount: number;
   currency: string;
@@ -209,7 +230,8 @@ export type Expense = {
   splits: Array<{
     id: string;
     expenseId: string;
-    userId: string;
+    userId: string | null;
+    participantId: string | null;
     amount: number;
     weight: number | null;
     user: {
@@ -227,7 +249,13 @@ export type ExpenseAuditLogEntry = {
   id: string;
   expenseId: string;
   tabId: string;
-  action: "create" | "update" | "delete" | "restore" | "create_from_recurring";
+  action:
+    | "create"
+    | "update"
+    | "delete"
+    | "restore"
+    | "create_from_recurring"
+    | "placeholder_merge";
   performedById: string;
   performedAt: Date;
   changes: Record<string, { from: unknown; to: unknown }> | null;
@@ -248,6 +276,7 @@ async function insertExpenseWithClient(
     .values({
       tabId: input.tabId,
       paidById: input.paidById,
+      paidByParticipantId: input.paidByParticipantId,
       recurringRuleId: input.recurringRuleId ?? null,
       amount: input.amount.toString(),
       currency: input.currency,
@@ -263,6 +292,7 @@ async function insertExpenseWithClient(
     await client.insert(expenseSplit).values({
       expenseId,
       userId: s.userId,
+      participantId: s.participantId,
       amount: s.amount.toString(),
       weight: s.weight != null ? String(s.weight) : null,
     });
@@ -286,6 +316,7 @@ export const expense = {
         id: expenseTable.id,
         tabId: expenseTable.tabId,
         paidById: expenseTable.paidById,
+        paidByParticipantId: expenseTable.paidByParticipantId,
         recurringRuleId: expenseTable.recurringRuleId,
         amount: expenseTable.amount,
         currency: expenseTable.currency,
@@ -298,9 +329,14 @@ export const expense = {
         paidByEmail: user.email,
         paidByName: user.name,
         paidByUsername: user.username,
+        payerPartName: tabParticipantTable.displayName,
       })
       .from(expenseTable)
-      .innerJoin(user, eq(expenseTable.paidById, user.id))
+      .leftJoin(user, eq(expenseTable.paidById, user.id))
+      .leftJoin(
+        tabParticipantTable,
+        eq(expenseTable.paidByParticipantId, tabParticipantTable.id),
+      )
       .where(eq(expenseTable.id, expenseId))
       .limit(1);
 
@@ -312,14 +348,20 @@ export const expense = {
           id: expenseSplit.id,
           expenseId: expenseSplit.expenseId,
           userId: expenseSplit.userId,
+          participantId: expenseSplit.participantId,
           amount: expenseSplit.amount,
           weight: expenseSplit.weight,
           userEmail: user.email,
           userName: user.name,
           userUsername: user.username,
+          partDisplayName: tabParticipantTable.displayName,
         })
         .from(expenseSplit)
-        .innerJoin(user, eq(expenseSplit.userId, user.id))
+        .leftJoin(user, eq(expenseSplit.userId, user.id))
+        .leftJoin(
+          tabParticipantTable,
+          eq(expenseSplit.participantId, tabParticipantTable.id),
+        )
         .where(eq(expenseSplit.expenseId, row.id)),
       getReactionsForExpenseIds([row.id]),
     ]);
@@ -333,22 +375,23 @@ export const expense = {
       originalAmount: Number(row.originalAmount),
       deletedAt: row.deletedAt ?? null,
       paidBy: {
-        id: row.paidById,
-        email: row.paidByEmail,
-        name: row.paidByName,
-        username: row.paidByUsername,
+        id: row.paidById ?? row.paidByParticipantId ?? "",
+        email: row.paidByEmail ?? "",
+        name: row.paidByName ?? row.payerPartName ?? null,
+        username: row.paidByUsername ?? null,
       },
       splits: splits.map((s) => ({
         id: s.id,
         expenseId: s.expenseId,
         userId: s.userId,
+        participantId: s.participantId,
         amount: Number(s.amount),
         weight: s.weight != null ? Number(s.weight) : null,
         user: {
-          id: s.userId,
-          email: s.userEmail,
-          name: s.userName,
-          username: s.userUsername,
+          id: s.userId ?? s.participantId ?? "",
+          email: s.userEmail ?? "",
+          name: s.userName ?? s.partDisplayName ?? null,
+          username: s.userUsername ?? null,
         },
       })),
       reactions,
@@ -432,21 +475,29 @@ export const expense = {
     const baseWhere = eq(expenseTable.tabId, tabId);
     let filterWhere = baseWhere;
     if (filter !== "all" && userId) {
+      const viewPid = await getParticipantIdForTabUser(tabId, userId);
+      const paidByViewer: SQL =
+        viewPid != null
+          ? or(
+              eq(expenseTable.paidById, userId),
+              eq(expenseTable.paidByParticipantId, viewPid),
+            )!
+          : eq(expenseTable.paidById, userId);
+
+      const viewerOnSplit: SQL = sql`exists (
+        select 1 from ${expenseSplit} es
+        left join ${tabParticipantTable} tp on es."participantId" = tp."id"
+        where es."expenseId" = ${expenseTable.id}
+        and (es."userId" = ${userId} or tp."userId" = ${userId})
+      )`;
+
       if (filter === "owed") {
-        filterWhere = and(baseWhere, eq(expenseTable.paidById, userId)) ?? baseWhere;
+        filterWhere = and(baseWhere, paidByViewer)!;
       } else if (filter === "owe") {
-        filterWhere =
-          and(
-            baseWhere,
-            ne(expenseTable.paidById, userId),
-            sql`${expenseTable.id} IN (SELECT "expenseId" FROM "expense_split" WHERE "userId" = ${userId})`,
-          ) ?? baseWhere;
+        filterWhere = and(baseWhere, not(paidByViewer), viewerOnSplit)!;
       } else if (filter === "involved") {
-        const involvedCondition = or(
-          eq(expenseTable.paidById, userId),
-          sql`${expenseTable.id} IN (SELECT "expenseId" FROM "expense_split" WHERE "userId" = ${userId})`,
-        );
-        filterWhere = and(baseWhere, involvedCondition ?? sql`false`) ?? baseWhere;
+        const involvedCondition = or(paidByViewer, viewerOnSplit)!;
+        filterWhere = and(baseWhere, involvedCondition)!;
       }
     }
 
@@ -455,6 +506,7 @@ export const expense = {
         id: expenseTable.id,
         tabId: expenseTable.tabId,
         paidById: expenseTable.paidById,
+        paidByParticipantId: expenseTable.paidByParticipantId,
         amount: expenseTable.amount,
         currency: expenseTable.currency,
         originalAmount: expenseTable.originalAmount,
@@ -483,6 +535,7 @@ export const expense = {
           id: paginated.id,
           tabId: paginated.tabId,
           paidById: paginated.paidById,
+          paidByParticipantId: paginated.paidByParticipantId,
           amount: paginated.amount,
           currency: paginated.currency,
           originalAmount: paginated.originalAmount,
@@ -495,6 +548,7 @@ export const expense = {
           splitId: expenseSplit.id,
           splitExpenseId: expenseSplit.expenseId,
           splitUserId: expenseSplit.userId,
+          splitParticipantId: expenseSplit.participantId,
           splitAmount: expenseSplit.amount,
           splitWeight: expenseSplit.weight,
         })
@@ -535,12 +589,18 @@ export const expense = {
     existing: {
       amount: string;
       description: string;
-      paidById: string;
+      paidById: string | null;
+      paidByParticipantId: string | null;
       expenseDate: Date;
       currency: string;
       originalAmount: string;
     },
-    existingSplits: { userId: string; amount: string; weight?: string }[],
+    existingSplits: {
+      userId: string | null;
+      participantId: string | null;
+      amount: string;
+      weight?: string;
+    }[],
   ): Promise<void> => {
     const changes: Record<string, { from: unknown; to: unknown }> = {};
     const existingDateStr = new Date(existing.expenseDate).toISOString().slice(0, 10);
@@ -567,9 +627,15 @@ export const expense = {
     if (existing.paidById !== input.paidById) {
       changes.paidById = { from: existing.paidById, to: input.paidById };
     }
+    if (existing.paidByParticipantId !== input.paidByParticipantId) {
+      changes.paidByParticipantId = {
+        from: existing.paidByParticipantId,
+        to: input.paidByParticipantId,
+      };
+    }
     const roundTo2 = (n: number) => Math.round(n * 100) / 100;
-    const oldParticipantIds = [...existingSplits.map((s) => s.userId)].sort();
-    const newParticipantIds = [...input.splits.map((s) => s.userId)].sort();
+    const oldParticipantIds = [...existingSplits.map((s) => s.participantId ?? s.userId ?? "")].sort();
+    const newParticipantIds = [...input.splits.map((s) => s.participantId)].sort();
     if (
       oldParticipantIds.length !== newParticipantIds.length ||
       oldParticipantIds.some((id, i) => id !== newParticipantIds[i])
@@ -580,10 +646,13 @@ export const expense = {
       };
     }
     const oldSplitsMap = Object.fromEntries(
-      existingSplits.map((s) => [s.userId, roundTo2(Number(s.amount))]),
+      existingSplits.map((s) => [
+        s.participantId ?? s.userId ?? "",
+        roundTo2(Number(s.amount)),
+      ]),
     );
     const newSplitsMap = Object.fromEntries(
-      input.splits.map((s) => [s.userId, roundTo2(s.amount)]),
+      input.splits.map((s) => [s.participantId, roundTo2(s.amount)]),
     );
     const splitsChanged =
       JSON.stringify(oldSplitsMap) !== JSON.stringify(newSplitsMap);
@@ -595,6 +664,7 @@ export const expense = {
       .update(expenseTable)
       .set({
         paidById: input.paidById,
+        paidByParticipantId: input.paidByParticipantId,
         amount: input.amount.toString(),
         currency: input.currency,
         originalAmount: input.originalAmount.toString(),
@@ -610,6 +680,7 @@ export const expense = {
       await db.insert(expenseSplit).values({
         expenseId,
         userId: s.userId,
+        participantId: s.participantId,
         amount: s.amount.toString(),
         weight: s.weight != null ? String(s.weight) : null,
       });
@@ -667,25 +738,96 @@ export const expense = {
   createBulk: async (
     items: Array<{
       tabId: string;
-      paidById: string;
+      paidById: string | null;
+      paidByParticipantId?: string | null;
       amount: string;
       currency: string;
       originalAmount: string;
       description: string;
       splitType: string;
       expenseDate: Date;
-      splits: { userId: string; amount: string; weight?: string }[];
+      splits: {
+        userId: string | null;
+        participantId?: string | null;
+        amount: string;
+        weight?: string;
+      }[];
     }>,
     performedById: string,
   ): Promise<string[]> => {
+    const tabIds = [...new Set(items.map((i) => i.tabId))];
+    for (const tid of tabIds) {
+      await ensureMemberParticipantsForTab(tid);
+    }
+
     const ids: string[] = [];
     await db.transaction(async (tx) => {
+      type ResolvedSplit = {
+        userId: string | null;
+        participantId: string;
+        amount: string;
+        weight?: string;
+      };
+      type ResolvedItem = {
+        tabId: string;
+        paidById: string | null;
+        paidByParticipantId: string;
+        amount: string;
+        currency: string;
+        originalAmount: string;
+        description: string;
+        splitType: string;
+        expenseDate: Date;
+        splits: ResolvedSplit[];
+      };
+
+      const resolved: ResolvedItem[] = [];
+
+      for (const v of items) {
+        let paidByPid = v.paidByParticipantId ?? null;
+        if (!paidByPid && v.paidById) {
+          paidByPid = await getParticipantIdForTabUser(v.tabId, v.paidById);
+        }
+        if (!paidByPid) {
+          throw new Error("createBulk: missing paidByParticipantId / paidById");
+        }
+        const splits: ResolvedSplit[] = [];
+        for (const s of v.splits) {
+          let pid = s.participantId ?? null;
+          if (!pid && s.userId) {
+            pid = await getParticipantIdForTabUser(v.tabId, s.userId);
+          }
+          if (!pid) {
+            throw new Error("createBulk: split missing participantId / userId");
+          }
+          splits.push({
+            userId: s.userId,
+            participantId: pid,
+            amount: s.amount,
+            weight: s.weight,
+          });
+        }
+        resolved.push({
+          tabId: v.tabId,
+          paidById: v.paidById,
+          paidByParticipantId: paidByPid,
+          amount: v.amount,
+          currency: v.currency,
+          originalAmount: v.originalAmount,
+          description: v.description,
+          splitType: v.splitType,
+          expenseDate: v.expenseDate,
+          splits,
+        });
+      }
+
       const inserted = await tx
         .insert(expenseTable)
         .values(
-          items.map((v) => ({
+          resolved.map((v) => ({
             tabId: v.tabId,
             paidById: v.paidById,
+            paidByParticipantId: v.paidByParticipantId,
             amount: v.amount,
             currency: v.currency,
             originalAmount: v.originalAmount,
@@ -698,17 +840,19 @@ export const expense = {
 
       const splitRows: {
         expenseId: string;
-        userId: string;
+        userId: string | null;
+        participantId: string;
         amount: string;
         weight: string | null;
       }[] = [];
-      for (let i = 0; i < items.length; i++) {
+      for (let i = 0; i < resolved.length; i++) {
         const expenseId = inserted[i]!.id;
         ids.push(expenseId);
-        for (const s of items[i]!.splits) {
+        for (const s of resolved[i]!.splits) {
           splitRows.push({
             expenseId,
             userId: s.userId,
+            participantId: s.participantId,
             amount: s.amount,
             weight: s.weight != null ? s.weight : null,
           });
@@ -718,7 +862,7 @@ export const expense = {
         await tx.insert(expenseSplit).values(splitRows);
       }
 
-      const auditRows = items.map((v, i) => ({
+      const auditRows = resolved.map((v, i) => ({
         expenseId: inserted[i]!.id,
         tabId: v.tabId,
         action: "create" as const,

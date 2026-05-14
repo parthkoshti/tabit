@@ -321,6 +321,7 @@ export function SettlementPage() {
               tabCurrency={tabCurrency}
               settlement={settlement}
               members={tab?.members ?? []}
+              participants={tab?.participants ?? []}
               currentUserId={currentUserId}
               onSuccess={() => {
                 setEditDialogOpen(false);

@@ -1,4 +1,4 @@
-import { tab, settlement } from "data";
+import { tab, settlement, ensureMemberParticipantsForTab, getParticipantIdForTabUser, getParticipantById } from "data";
 import { CURRENCY_CODES } from "shared";
 import { convertToTabCurrency } from "./fx-rate.js";
 import { ok, err, type Result } from "./types.js";
@@ -63,26 +63,60 @@ export const settlementService = {
 
   record: async (
     tabId: string,
-    fromUserId: string,
-    toUserId: string,
+    fromUserId: string | null | undefined,
+    toUserId: string | null | undefined,
     amount: number,
     performedById: string,
     currency?: string | null,
     originalAmount?: number | null,
     settlementDate?: Date | null,
+    fromParticipantId?: string | null,
+    toParticipantId?: string | null,
   ): Promise<Result<void>> => {
     const isMember = await tab.isMember(tabId, performedById);
     if (!isMember) {
       return err("Not a member", 403);
     }
 
-    const fromIsMember = await tab.isMember(tabId, fromUserId);
-    const toIsMember = await tab.isMember(tabId, toUserId);
-    if (!fromIsMember || !toIsMember) {
-      return err("Both payer and payee must be tab members", 400);
+    await ensureMemberParticipantsForTab(tabId);
+
+    let fromPid =
+      fromParticipantId ??
+      (fromUserId ? await getParticipantIdForTabUser(tabId, fromUserId) : null);
+    let toPid =
+      toParticipantId ?? (toUserId ? await getParticipantIdForTabUser(tabId, toUserId) : null);
+    if (!fromPid || !toPid) {
+      return err("Invalid payer or payee", 400);
     }
 
-    if (fromUserId === toUserId) {
+    const fromP = await getParticipantById(fromPid);
+    const toP = await getParticipantById(toPid);
+    if (
+      !fromP ||
+      !toP ||
+      fromP.tabId !== tabId ||
+      toP.tabId !== tabId ||
+      fromP.mergedIntoParticipantId ||
+      toP.mergedIntoParticipantId
+    ) {
+      return err("Invalid payer or payee", 400);
+    }
+
+    const fromUserResolved = fromP.userId ?? null;
+    const toUserResolved = toP.userId ?? null;
+
+    if (fromPid === toPid) {
+      return err("Payer and payee must be different people", 400);
+    }
+
+    if (fromUserResolved && !(await tab.isMember(tabId, fromUserResolved))) {
+      return err("Payer must be a tab member when paying as a user", 400);
+    }
+    if (toUserResolved && !(await tab.isMember(tabId, toUserResolved))) {
+      return err("Payee must be a tab member when receiving as a user", 400);
+    }
+
+    if (fromUserResolved != null && toUserResolved != null && fromUserResolved === toUserResolved) {
       return err("Payer and payee must be different people", 400);
     }
 
@@ -117,8 +151,10 @@ export const settlementService = {
 
     await settlement.record({
       tabId,
-      fromUserId,
-      toUserId,
+      fromUserId: fromUserResolved,
+      toUserId: toUserResolved,
+      fromParticipantId: fromPid,
+      toParticipantId: toPid,
       amount: amountTab,
       currency: storedCurrency,
       originalAmount: storedOriginal,
@@ -131,13 +167,15 @@ export const settlementService = {
   update: async (
     tabId: string,
     settlementId: string,
-    fromUserId: string,
-    toUserId: string,
+    fromUserId: string | null | undefined,
+    toUserId: string | null | undefined,
     amount: number,
     performedById: string,
     currency?: string | null,
     originalAmount?: number | null,
     settlementDate?: Date | null,
+    fromParticipantId?: string | null,
+    toParticipantId?: string | null,
   ): Promise<Result<void>> => {
     const existing = await settlement.getById(settlementId);
     if (!existing || existing.tabId !== tabId) {
@@ -149,13 +187,45 @@ export const settlementService = {
       return err("Not a member", 403);
     }
 
-    const fromIsMember = await tab.isMember(tabId, fromUserId);
-    const toIsMember = await tab.isMember(tabId, toUserId);
-    if (!fromIsMember || !toIsMember) {
-      return err("Both payer and payee must be tab members", 400);
+    await ensureMemberParticipantsForTab(tabId);
+
+    let fromPid =
+      fromParticipantId ??
+      (fromUserId ? await getParticipantIdForTabUser(tabId, fromUserId) : null);
+    let toPid =
+      toParticipantId ?? (toUserId ? await getParticipantIdForTabUser(tabId, toUserId) : null);
+    if (!fromPid || !toPid) {
+      return err("Invalid payer or payee", 400);
     }
 
-    if (fromUserId === toUserId) {
+    const fromP = await getParticipantById(fromPid);
+    const toP = await getParticipantById(toPid);
+    if (
+      !fromP ||
+      !toP ||
+      fromP.tabId !== tabId ||
+      toP.tabId !== tabId ||
+      fromP.mergedIntoParticipantId ||
+      toP.mergedIntoParticipantId
+    ) {
+      return err("Invalid payer or payee", 400);
+    }
+
+    const fromUserResolved = fromP.userId ?? null;
+    const toUserResolved = toP.userId ?? null;
+
+    if (fromPid === toPid) {
+      return err("Payer and payee must be different people", 400);
+    }
+
+    if (fromUserResolved && !(await tab.isMember(tabId, fromUserResolved))) {
+      return err("Payer must be a tab member when paying as a user", 400);
+    }
+    if (toUserResolved && !(await tab.isMember(tabId, toUserResolved))) {
+      return err("Payee must be a tab member when receiving as a user", 400);
+    }
+
+    if (fromUserResolved != null && toUserResolved != null && fromUserResolved === toUserResolved) {
       return err("Payer and payee must be different people", 400);
     }
 
@@ -189,8 +259,10 @@ export const settlementService = {
     }
 
     await settlement.update(settlementId, tabId, {
-      fromUserId,
-      toUserId,
+      fromUserId: fromUserResolved,
+      toUserId: toUserResolved,
+      fromParticipantId: fromPid,
+      toParticipantId: toPid,
       amount: amountTab,
       currency: storedCurrency,
       originalAmount: storedOriginal,

@@ -11,23 +11,24 @@ export function UserAvatar({
   className,
   size = "default",
 }: {
-  userId: string;
+  userId: string | null;
   className?: string;
   size?: "xs" | "sm" | "default" | "lg" | "xl";
 }) {
+  const seed = userId && userId.length > 0 ? userId : "unknown";
   const dataUrl = useMemo(() => {
     const avatar = createAvatar(thumbs, {
-      seed: userId,
+      seed,
       backgroundType: ["gradientLinear"],
       scale: 90,
       backgroundColor: ["919bff", "133a94"],
       shapeColor: ["ffbe0b", "fb5607", "ff006e", "8338ec", "3a86ff"],
       flip:
-        userId.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % 2 === 0,
+        seed.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0) % 2 === 0,
     });
     const svg = avatar.toString();
     return `data:image/svg+xml,${encodeURIComponent(svg)}`;
-  }, [userId]);
+  }, [seed]);
 
   const sizeClasses = {
     xs: "h-5 w-5",

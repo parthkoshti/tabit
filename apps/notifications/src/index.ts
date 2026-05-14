@@ -114,6 +114,8 @@ function getPushTitle(payload: {
   recurringRuleTitle?: string;
   ruleOwnerName?: string | null;
   editRulePath?: string;
+  placeholderDisplayName?: string;
+  targetDisplayName?: string;
 }): string {
   if (payload.forcePush)
     return payload.type === "tab_invite"
@@ -228,6 +230,14 @@ function getPushTitle(payload: {
       ? `${payload.fromUserName} reacted ${payload.emoji} to ${desc} in ${payload.tabName}`
       : `${payload.fromUserName} reacted ${payload.emoji} to ${desc}`;
   }
+  if (
+    payload.type === "placeholder_merged" &&
+    payload.tabName &&
+    typeof payload.placeholderDisplayName === "string"
+  ) {
+    const who = payload.fromUserName?.trim() || "Someone";
+    return `${who} merged "${payload.placeholderDisplayName}" with you in ${payload.tabName}`;
+  }
   if (payload.type === "expense_reaction") return "New reaction on expense";
   if (payload.type === "friend_request") return "New friend request";
   if (payload.type === "tab_invite") return "New tab invite";
@@ -240,6 +250,7 @@ function getPushTitle(payload: {
   if (payload.type === "expense_restored") return "Expense restored";
   if (payload.type === "expenses_bulk_imported") return "Expenses imported";
   if (payload.type === "expense_reaction") return "New reaction on expense";
+  if (payload.type === "placeholder_merged") return "Placeholder merged with you";
   return "New notification";
 }
 
@@ -262,6 +273,8 @@ function getPushBody(payload: {
   recurringRuleTitle?: string;
   ruleOwnerName?: string | null;
   editRulePath?: string;
+  placeholderDisplayName?: string;
+  targetDisplayName?: string;
 }): string {
   if (payload.forcePush) return "This is a test notification";
   if (payload.type === "friend_request") return "New friend request";
@@ -332,6 +345,15 @@ function getPushBody(payload: {
     const desc = payload.description || "expense";
     return `${payload.fromUserName ?? "Someone"} reacted ${payload.emoji} to ${desc}`;
   }
+  if (payload.type === "placeholder_merged") {
+    const who = payload.fromUserName?.trim() || "Someone";
+    const ph =
+      typeof payload.placeholderDisplayName === "string"
+        ? payload.placeholderDisplayName
+        : "A placeholder";
+    const tab = typeof payload.tabName === "string" ? payload.tabName : "a tab";
+    return `${who} merged "${ph}" (placeholder) with your account in ${tab}.`;
+  }
   return "You have a new notification";
 }
 
@@ -367,6 +389,9 @@ function getNavigatePath(payload: {
       : `/tabs/${payload.tabId}`;
   }
   if (payload.type === "expenses_bulk_imported" && payload.tabId) {
+    return `/tabs/${payload.tabId}`;
+  }
+  if (payload.type === "placeholder_merged" && payload.tabId) {
     return `/tabs/${payload.tabId}`;
   }
   if (payload.type === "poke") return "/friends";
