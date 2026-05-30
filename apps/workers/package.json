@@ -1,0 +1,33 @@
+{
+  "name": "workers",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "doppler run -- tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "doppler run -- node dist/index.js",
+    "start:prod": "node dist/index.js",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "auth": "workspace:*",
+    "db": "workspace:*",
+    "drizzle-orm": "^0.41.0",
+    "models": "workspace:*",
+    "node-cron": "^4.2.1",
+    "otel": "workspace:*",
+    "queue": "workspace:*",
+    "services": "workspace:*",
+    "shared": "workspace:*",
+    "socket.io": "^4.8.1",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/web-push": "^3.6.3",
+    "tsx": "^4.19.0",
+    "typescript": "^5.0.0"
+  }
+}

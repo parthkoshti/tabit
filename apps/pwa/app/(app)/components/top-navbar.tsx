@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Link } from "react-router-dom";
+import { useLocation, useNavigate } from "@/lib/navigation";
+import { Link } from "@/lib/navigation";
 import {
   ArrowLeft,
   Plus,
@@ -58,153 +58,155 @@ export function TopNavbar() {
   const showUpdateButton = needRefresh && !showBanner;
 
   return (
-    <header className="top-nav-safe fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top,0px)]">
-      {navPage ? (
-        <div className="absolute inset-0 flex items-center justify-between px-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative z-10 shrink-0"
-            aria-label="Go back"
-            onClick={() => navigate(-1)}
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="absolute left-0 right-0 flex items-center justify-center gap-2 px-14 pointer-events-none">
-            <div className="flex items-center justify-center gap-2 min-w-0 pointer-events-auto overflow-hidden">
-              {navPage.icon ? (
-                <span className="shrink-0">{navPage.icon}</span>
-              ) : isTabPage ? (
-                <ReceiptText className="h-5 w-5 shrink-0 text-tab-icon" />
-              ) : null}
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.h1
-                  key={navPage.title}
-                  className="truncate text-lg font-semibold"
-                  variants={navTitleVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  transition={transitionSpring.transition}
-                >
-                  {navPage.title}
-                </motion.h1>
-              </AnimatePresence>
-              {isTabPage &&
-                navPage.avatarUserIds &&
-                navPage.avatarUserIds.length > 0 && (
-                  <div className="flex -space-x-2 shrink-0 items-center">
-                    {navPage.avatarUserIds.slice(0, 2).map((userId) => (
-                      <UserAvatar
-                        key={userId}
-                        userId={userId}
-                        size="xs"
-                        className="ring-2 ring-background"
-                      />
-                    ))}
-                    {navPage.avatarUserIds.length > 3 && (
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
-                        3+
-                      </span>
-                    )}
-                  </div>
-                )}
-            </div>
-          </div>
-          <div className="relative z-10 flex shrink-0 justify-end w-20 gap-1">
-            {showUpdateButton && (
-              <Button
-                variant="default"
-                size="sm"
-                aria-label="Update app"
-                onClick={() => setUpdateDialogOpen(true)}
-              >
-                <Download className="h-5 w-5" />
-                <span>Update</span>
-              </Button>
-            )}
-            {isMainTabPage && mainTabId && (
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Manage tab"
-                asChild
-              >
-                <Link to={`/tabs/${mainTabId}/manage`}>
-                  <Settings className="h-5 w-5" />
-                </Link>
-              </Button>
-            )}
-          </div>
-        </div>
-      ) : (
-        <div className="flex flex-1 items-center justify-between w-full">
-          <Link to="/tabs" className="flex items-center gap-2">
-            <img
-              src={appConfig.icons.sm.src}
-              alt="Tab Logo"
-              width={52}
-              height={52}
-            />
-          </Link>
-        </div>
-      )}
-      {!navPage &&
-        (showUpdateButton ? (
-          <div className="relative z-10 flex shrink-0 justify-end">
-            <Button
-              variant="default"
-              size="sm"
-              aria-label="Update app"
-              onClick={() => setUpdateDialogOpen(true)}
-            >
-              <Download className="h-5 w-5" />
-              <span>Update</span>
-            </Button>
-          </div>
-        ) : isMePage ? (
-          <div className="relative z-10 flex shrink-0 justify-end">
-            <SignOutButton />
-          </div>
-        ) : isFriendsListPage ? (
-          <div className="relative z-10 flex shrink-0 justify-end">
-            <Button variant="default" size="sm" asChild aria-label="Add friend">
-              <Link to="/friends/addFriend" className="">
-                <Plus className="h-5 w-5" />
-                <span>Friend</span>
-              </Link>
-            </Button>
-          </div>
-        ) : isTabsListPage ? (
-          <div className="relative z-10 flex shrink-0 justify-end">
-            <Button variant="default" size="sm" asChild aria-label="New tab">
-              <Link to="/tabs/new" className="">
-                <Plus className="h-5 w-5" />
-                <span>Tab</span>
-              </Link>
-            </Button>
-          </div>
-        ) : isActivityPage ? (
-          <div className="relative z-10 flex shrink-0 justify-end">
+    <header className="top-nav-safe fixed left-0 right-0 top-0 z-40 border-b border-border bg-background">
+      <div className="relative flex h-14 items-center justify-between px-4">
+        {navPage ? (
+          <>
             <Button
               variant="ghost"
               size="icon"
-              aria-label="Changelog"
-              onClick={() => setChangelogOpen(true)}
+              className="relative z-10 shrink-0"
+              aria-label="Go back"
+              onClick={() => navigate(-1)}
             >
-              <CircleFadingArrowUp className="h-5 w-5" />
+              <ArrowLeft className="h-5 w-5" />
             </Button>
-            <ChangelogDialog
-              open={changelogOpen}
-              onOpenChange={setChangelogOpen}
-            />
-          </div>
-        ) : null)}
-      {navPage && isMePage && (
-        <div className="relative z-10 ml-auto flex shrink-0 justify-end">
-          <SignOutButton />
-        </div>
-      )}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-14">
+              <div className="pointer-events-auto flex min-w-0 items-center justify-center gap-2 overflow-hidden">
+                {navPage.icon ? (
+                  <span className="shrink-0">{navPage.icon}</span>
+                ) : isTabPage ? (
+                  <ReceiptText className="h-5 w-5 shrink-0 text-tab-icon" />
+                ) : null}
+                <AnimatePresence mode="wait" initial={false}>
+                  <motion.h1
+                    key={navPage.title}
+                    className="truncate text-lg font-semibold"
+                    variants={navTitleVariants}
+                    initial="initial"
+                    animate="animate"
+                    exit="exit"
+                    transition={transitionSpring.transition}
+                  >
+                    {navPage.title}
+                  </motion.h1>
+                </AnimatePresence>
+                {isTabPage &&
+                  navPage.avatarUserIds &&
+                  navPage.avatarUserIds.length > 0 && (
+                    <div className="flex shrink-0 -space-x-2 items-center">
+                      {navPage.avatarUserIds.slice(0, 2).map((userId) => (
+                        <UserAvatar
+                          key={userId}
+                          userId={userId}
+                          size="xs"
+                          className="ring-2 ring-background"
+                        />
+                      ))}
+                      {navPage.avatarUserIds.length > 3 && (
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[10px] font-medium ring-2 ring-background">
+                          3+
+                        </span>
+                      )}
+                    </div>
+                  )}
+              </div>
+            </div>
+            <div className="relative z-10 flex w-20 shrink-0 justify-end gap-1">
+              {showUpdateButton && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  aria-label="Update app"
+                  onClick={() => setUpdateDialogOpen(true)}
+                >
+                  <Download className="h-5 w-5" />
+                  <span>Update</span>
+                </Button>
+              )}
+              {isMainTabPage && mainTabId && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Manage tab"
+                  asChild
+                >
+                  <Link to={`/tabs/${mainTabId}/manage`}>
+                    <Settings className="h-5 w-5" />
+                  </Link>
+                </Button>
+              )}
+              {isMePage && <SignOutButton />}
+            </div>
+          </>
+        ) : (
+          <>
+            <Link to="/tabs" className="flex items-center gap-2">
+              <img
+                src={appConfig.icons.sm.src}
+                alt="Tab Logo"
+                width={52}
+                height={52}
+              />
+            </Link>
+            {showUpdateButton ? (
+              <div className="relative z-10 flex shrink-0 justify-end">
+                <Button
+                  variant="default"
+                  size="sm"
+                  aria-label="Update app"
+                  onClick={() => setUpdateDialogOpen(true)}
+                >
+                  <Download className="h-5 w-5" />
+                  <span>Update</span>
+                </Button>
+              </div>
+            ) : isMePage ? (
+              <div className="relative z-10 flex shrink-0 justify-end">
+                <SignOutButton />
+              </div>
+            ) : isFriendsListPage ? (
+              <div className="relative z-10 flex shrink-0 justify-end">
+                <Button
+                  variant="default"
+                  size="sm"
+                  asChild
+                  aria-label="Add friend"
+                >
+                  <Link to="/friends/addFriend">
+                    <Plus className="h-5 w-5" />
+                    <span>Friend</span>
+                  </Link>
+                </Button>
+              </div>
+            ) : isTabsListPage ? (
+              <div className="relative z-10 flex shrink-0 justify-end">
+                <Button variant="default" size="sm" asChild aria-label="New tab">
+                  <Link to="/tabs/new">
+                    <Plus className="h-5 w-5" />
+                    <span>Tab</span>
+                  </Link>
+                </Button>
+              </div>
+            ) : isActivityPage ? (
+              <div className="relative z-10 flex shrink-0 justify-end">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Changelog"
+                  onClick={() => setChangelogOpen(true)}
+                >
+                  <CircleFadingArrowUp className="h-5 w-5" />
+                </Button>
+                <ChangelogDialog
+                  open={changelogOpen}
+                  onOpenChange={setChangelogOpen}
+                />
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
       {showUpdateButton && (
         <UpdateDialog
           open={updateDialogOpen}

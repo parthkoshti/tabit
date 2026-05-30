@@ -1,0 +1,4 @@
+setup:
+  - project: tabit
+    config: dev
+    path: .

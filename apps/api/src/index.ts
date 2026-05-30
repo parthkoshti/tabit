@@ -1,29 +1,17 @@
 import "./instrumentation.js";
-import cron from "node-cron";
 import { serve } from "@hono/node-server";
 import { Hono } from "hono";
 import { cors } from "hono/cors";
+import { RPCHandler } from "@orpc/server/fetch";
+import { CORSPlugin } from "@orpc/server/plugins";
+import { onError } from "@orpc/server";
 import { auth } from "auth";
-import { warmLatestRatesForBases, recurringExpenseService } from "services";
-import type { AuthContext } from "./auth.js";
+import { appRouter, type RpcContext } from "rpc";
 import { log } from "./lib/logger.js";
-import { friendsRoutes } from "./routes/friends.js";
-import { tabInvitesRoutes } from "./routes/tab-invites.js";
-import { tabsRoutes } from "./routes/tabs.js";
-import { profileRoutes } from "./routes/profile.js";
-import { usernameRoutes } from "./routes/username.js";
-import { apiKeysRoutes } from "./routes/api-keys.js";
-import { activityRoutes } from "./routes/activity.js";
-import { pushRoutes } from "./routes/push.js";
-import { aiRoutes } from "./routes/ai.js";
-import { notificationsRoutes } from "./routes/notifications.js";
-import { preferencesRoutes } from "./routes/preferences.js";
-import { recurringExpensesRootRoutes } from "./routes/recurring-expenses-root.js";
-import { authMiddleware } from "./auth.js";
 
-const app = new Hono<{ Variables: { auth: AuthContext } }>();
+const app = new Hono();
 
-const corsOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3000";
+const corsOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3003";
 const origins = corsOrigin.split(",").map((o) => o.trim());
 
 app.use(
@@ -32,8 +20,8 @@ app.use(
     origin: origins,
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "X-API-Key"],
-  })
+    allowHeaders: ["Content-Type", "Authorization", "Cookie"],
+  }),
 );
 
 app.use("*", async (c, next) => {
@@ -41,34 +29,74 @@ app.use("*", async (c, next) => {
   try {
     await next();
   } catch (err) {
-    log("error", "Request threw", { method: c.req.method, path: c.req.path, error: String(err) });
+    log("error", "Request threw", {
+      method: c.req.method,
+      path: c.req.path,
+      error: String(err),
+    });
     throw err;
   }
   const duration = Date.now() - start;
   const status = c.res.status;
   const level = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
-  log(level, "Request", { method: c.req.method, path: c.req.path, status, durationMs: duration });
+  log(level, "Request", {
+    method: c.req.method,
+    path: c.req.path,
+    status,
+    durationMs: duration,
+  });
 });
 
 app.get("/health", (c) => c.json({ status: "ok" }));
 
 app.on(["GET", "POST"], "/api/auth/*", async (c) => auth.handler(c.req.raw));
 
-const v1 = new Hono<{ Variables: { auth: AuthContext } }>();
-v1.route("/friends", friendsRoutes);
-v1.route("/tab-invites", tabInvitesRoutes);
-v1.route("/tabs", tabsRoutes);
-v1.route("/profile", profileRoutes);
-v1.route("/username", usernameRoutes);
-v1.route("/api-keys", apiKeysRoutes);
-v1.route("/activity", activityRoutes);
-v1.route("/push", pushRoutes);
-v1.route("/ai", aiRoutes);
-v1.route("/notifications", notificationsRoutes);
-v1.route("/preferences", preferencesRoutes);
-v1.route("/recurring-expenses", recurringExpensesRootRoutes);
+const rpcHandler = new RPCHandler(appRouter, {
+  plugins: [new CORSPlugin()],
+  interceptors: [
+    onError((error) => {
+      log("error", "oRPC error", { error: String(error) });
+    }),
+  ],
+});
 
-app.route("/v1", v1);
+const BODY_PARSER_METHODS = new Set([
+  "arrayBuffer",
+  "blob",
+  "formData",
+  "json",
+  "text",
+] as const);
+
+type BodyParserMethod = (typeof BODY_PARSER_METHODS extends Set<infer T>
+  ? T
+  : never) &
+  string;
+
+app.use("/rpc/*", async (c, next) => {
+  const request = new Proxy(c.req.raw, {
+    get(target, prop) {
+      if (BODY_PARSER_METHODS.has(prop as BodyParserMethod)) {
+        return () =>
+          c.req[prop as "json" | "text" | "arrayBuffer" | "blob" | "formData"]();
+      }
+      return Reflect.get(target, prop, target);
+    },
+  });
+
+  const context: RpcContext = { headers: c.req.raw.headers };
+
+  const { matched, response } = await rpcHandler.handle(request, {
+    prefix: "/rpc",
+    context,
+  });
+
+  if (matched) {
+    return c.newResponse(response.body, response);
+  }
+
+  await next();
+});
 
 app.onError((err, c) => {
   log("error", "Unhandled error", { error: String(err), path: c.req.path });
@@ -78,23 +106,3 @@ app.onError((err, c) => {
 const port = Number(process.env.PORT ?? 3001);
 log("info", `API server listening on port ${port}`, { corsOrigins: origins });
 serve({ fetch: app.fetch, port });
-
-cron.schedule(
-  "0 16 * * *",
-  () => {
-    void warmLatestRatesForBases(["EUR", "USD"]);
-  },
-  { timezone: "Europe/Berlin" },
-);
-
-/** Recurring expense posts (creator-local dates; catch-up at most once per tick). */
-cron.schedule(
-  "*/15 * * * *",
-  () => {
-    void recurringExpenseService.runTick().catch((e) => {
-      log("error", "recurringExpenseService.runTick failed", { error: String(e) });
-    });
-  },
-);
-
-void warmLatestRatesForBases(["EUR", "USD"]);

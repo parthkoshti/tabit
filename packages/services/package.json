@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "data": "workspace:*",
-    "ioredis": "^5.4.1",
+    "queue": "workspace:*",
     "luxon": "^3.5.0",
     "models": "workspace:*",
     "shared": "workspace:*",

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation } from "@/lib/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "./api-client";
 

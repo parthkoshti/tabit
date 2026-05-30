@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { ReceiptText, ArrowDownAZ } from "lucide-react";
@@ -17,6 +17,7 @@ import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { TabListItem } from "@/components/tab-list-item";
+import { TabListSkeleton } from "@/components/page-skeletons";
 import { formatAppDate } from "@/lib/format-date";
 
 type TabSort = "expenses" | "recent" | "name";
@@ -46,7 +47,7 @@ export function TabsPage() {
     createdAt: string;
   };
 
-  const { data: tabsData, isLoading } = useQuery({
+  const { data: tabsData, isPending: tabsPending } = useQuery({
     queryKey: ["tabs"],
     queryFn: async () => {
       const r = await api.tabs.list();
@@ -81,7 +82,7 @@ export function TabsPage() {
     queryKey: ["pendingTabInviteRequests"],
     queryFn: async () => {
       const r = await api.tabInvites.getPendingRequests();
-      return (r.success ? r.requests : []) as TabInviteItem[];
+      return (r.success ? r.requests : []) as unknown as TabInviteItem[];
     },
   });
   const pendingTabInvites = tabInvitesData ?? [];
@@ -103,7 +104,7 @@ export function TabsPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-60">
+      <div className="mx-auto max-w-2xl space-y-6">
         {pendingTabInvites.length > 0 && (
           <section className="space-y-4">
             <h2 className="text-base font-medium mb-1">Tab invites</h2>
@@ -193,10 +194,8 @@ export function TabsPage() {
               </Select>
             )}
           </div>
-          {isLoading ? (
-            <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-              Loading...
-            </p>
+          {tabsPending ? (
+            <TabListSkeleton />
           ) : !tabs || tabs.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
               No tabs yet. Use the new tab button above.

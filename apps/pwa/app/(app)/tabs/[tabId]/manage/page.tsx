@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "@/lib/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
@@ -28,7 +28,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Spinner } from "@/components/ui/spinner";
+import { FormPageSkeleton } from "@/components/page-skeletons";
 import { toast } from "sonner";
 import { useNavTitle } from "../../../context/nav-title-context";
 import {
@@ -55,7 +55,7 @@ export function TabManagePage() {
   const { data: session } = authClient.useSession();
   const setNavTitle = useNavTitle();
 
-  const { data: tab, isLoading: tabLoading } = useQuery({
+  const { data: tab, isPending: tabPending } = useQuery({
     queryKey: ["tab", tabIdOrEmpty],
     queryFn: async () => {
       const r = await api.tabs.get(tabIdOrEmpty);
@@ -77,10 +77,23 @@ export function TabManagePage() {
 
   if (!tabIdOrEmpty) return null;
 
-  if (tabLoading || !tab) {
+  if (tabPending) {
+    return <FormPageSkeleton />;
+  }
+
+  if (!tab) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center p-4">
-        <Spinner />
+      <div className="p-4">
+        <div className="mx-auto max-w-md">
+          <Alert variant="destructive">
+            <AlertDescription>
+              Tab not found or you don't have access.
+            </AlertDescription>
+          </Alert>
+          <Button variant="outline" className="mt-4" asChild>
+            <Link to="/tabs">Go back</Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -115,7 +128,7 @@ export function TabManagePage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-md space-y-6 pb-60">
+      <div className="mx-auto max-w-md space-y-6">
         <SetCurrencyForm
           tabIdOrEmpty={tabIdOrEmpty}
           currentCurrency={tabCurrency}

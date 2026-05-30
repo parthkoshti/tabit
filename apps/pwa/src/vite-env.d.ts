@@ -6,6 +6,8 @@ declare const __APP_VERSION__: string;
 interface ImportMetaEnv {
   readonly NEXT_PUBLIC_PWA_URL?: string;
   readonly NEXT_PUBLIC_DONATE_URL?: string;
+  readonly VITE_API_URL?: string;
+  readonly VITE_REALTIME_URL?: string;
   readonly VITE_BACKEND_URL?: string;
   readonly VITE_QUERY_CACHE_BUSTER?: string;
   readonly VITE_NOTIFICATIONS_WS_URL?: string;

@@ -13,6 +13,7 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
+  --spacing-18: 4.5rem;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -146,14 +147,75 @@
   display: none;
 }
 
-/* iOS Safari viewport fix - prevents gap at bottom (100dvh bug) */
+/*
+ * App shell viewport — lock document scroll; main scrolls internally.
+ * Use dvh for mobile browser chrome + keyboard; -webkit-fill-available for iOS.
+ */
 html {
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
 }
-body {
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
+body,
+#root {
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app-shell {
+  height: 100%;
+  height: -webkit-fill-available;
+  height: 100dvh;
+}
+
+/*
+ * Layout insets — must match top-navbar + bottom-navbar geometry.
+ * Top: env(safe-area-inset-top) + h-14 bar row.
+ * Bottom: pill + FAB protrusion + env(safe-area-inset-bottom) on nav.
+ *
+ * Use env() only — no max(..., 44px) fallbacks (over-inset on real iOS).
+ * Nav sits at bottom: 0; safe padding lives on the nav element itself.
+ */
+:root {
+  --app-bar-height: 3.5rem;
+  --app-nav-pill-height: 3.5rem; /* h-14 pill */
+  --app-fab-protrusion: 1.5rem; /* size-18 centered on h-14 with -my-4 */
+  --app-nav-body-height: calc(
+    var(--app-nav-pill-height) + var(--app-fab-protrusion)
+  );
+}
+
+/* Scrollable main content area beneath fixed nav bars */
+.app-main {
+  padding-top: calc(var(--app-bar-height) + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(
+    var(--app-nav-body-height) + env(safe-area-inset-bottom, 0px)
+  );
+}
+
+.top-nav-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.bottom-nav-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/*
+ * In Safari (not standalone), skip bottom safe-area on nav/main — env() still
+ * reports the home-indicator inset while Safari's toolbar also consumes space,
+ * which double-counts and floats the nav too high.
+ */
+@media (max-width: 768px) and (not (display-mode: standalone)) {
+  .app-main {
+    padding-bottom: var(--app-nav-body-height);
+  }
+
+  .bottom-nav-safe {
+    padding-bottom: 0 !important;
+  }
 }
 
 :root {
@@ -197,35 +259,6 @@ body {
   --sidebar-border: #d1d3d8;
   --ring-offset: #f4f5f8;
   --sidebar-ring: #5e6ad2;
-}
-
-/* Safe area insets - env() returns 0 on iOS Safari/PWA, use fallback on mobile */
-@media (display-mode: standalone), (max-width: 768px) {
-  .bottom-nav-safe {
-    padding-bottom: max(
-      env(safe-area-inset-bottom, 0px),
-      constant(safe-area-inset-bottom, 0px),
-      34px
-    ) !important;
-  }
-  .app-layout-safe-bottom {
-    padding-bottom: max(
-      calc(5.5rem + env(safe-area-inset-bottom, 0px)),
-      calc(5.5rem + constant(safe-area-inset-bottom, 0px)),
-      calc(5.5rem + 34px)
-    ) !important;
-  }
-}
-
-/* Top nav safe area - apply on mobile viewports and standalone (env() often returns 0) */
-@media (display-mode: standalone), (max-width: 768px) {
-  .top-nav-safe {
-    padding-top: max(
-      env(safe-area-inset-top, 0px),
-      constant(safe-area-inset-top, 0px),
-      44px
-    ) !important;
-  }
 }
 
 /* Emoji picker - match app design tokens, constrain to container */

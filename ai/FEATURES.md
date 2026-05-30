@@ -12,9 +12,11 @@ A running list of features in the app.
 
 ## Real-time
 
-- Real-time notifications
+- Real-time notifications via Socket.IO on workers (`wrk.tabit.in`); session cookie auth (no separate WS token)
+- BullMQ notification queue: socket emit plus web push on every notification (push even when connected)
 - Connection state (disconnected/reconnecting) shown on bottom navbar via border styling
 - Web push type **`payment_reminder`**: sent when someone uses **Remind** on a direct tab (friend must be owed); deep link opens that tab
+- Offline queue: friend/tab invite actions, expense CRUD, and settlements sync when back online (server wins on conflict)
 
 ## Social
 
@@ -26,7 +28,7 @@ A running list of features in the app.
 - **Multi-currency (expenses and settlements)**: Both can be recorded in any supported currency; amounts convert to the tab's currency using Frankfurter rates by expense date or settlement date (same FX pipeline for both)—suited to travel and cross-currency groups
 - Settlements have a settlement date (like expense date) used for FX conversion and shown in activity and detail views
 - 1 on 1 tab (direct tabs with friends)
-- **Payment reminders**: On a direct tab, when the friend **owes you**, **Remind** opens a dialog of iOS-style push previews; pick a tone (`gentle`, `friendly`, `firm`, `blunt`, `urgent`, `overkill` — some are playful or very direct) then **Send reminder**. The API is `POST /v1/friends/payment-reminder` with `{ friendTabId, tone }`; the server checks you are a member of that direct tab and that your balance is owed before publishing. Push title/body copy is defined in `packages/models` (`getPaymentReminderPushCopy`, `PAYMENT_REMINDER_TONE_META`)
+- **Payment reminders**: On a direct tab, when the friend **owes you**, **Remind** opens a dialog of iOS-style push previews; pick a tone (`gentle`, `friendly`, `firm`, `blunt`, `urgent`, `overkill` — some are playful or very direct) then **Send reminder**. oRPC `friends.sendPaymentReminder` with `{ friendTabId, tone }`; the server checks you are a member of that direct tab and that your balance is owed before publishing. Push title/body copy is defined in `packages/models` (`getPaymentReminderPushCopy`, `PAYMENT_REMINDER_TONE_META`)
 - On a direct tab, a “Shared tabs” section lists group tabs you share with that friend (above balances), each with your net balance in that tab (same wording as the tabs list: you’re owed / you owe / settled)
 - Group tabs
 - **Placeholder friends (placeholder participants)**: add named stand-ins on a group tab before someone joins or has the app; they appear in splits, settlements, recurring templates, and balances like members. Tab owners can **merge** a placeholder into an existing member in one irreversible step (ledger, expense history, tab activity, and a notification to the merged user). Create, rename, and merge from the tab **Members** screen (`/tabs/:tabId/members`)
@@ -36,7 +38,7 @@ A running list of features in the app.
 
 ## Expenses
 
-- Recurring expenses per tab (including direct tabs): repeat every N days from an anchor date, monthly on a day of the month (short months use the last day), or on selected weekdays; frozen amount, currency, description, payer, participants, and split template; FX on each occurrence date; start/end dates and max post count; pause/resume; cron posts on the API with idempotent occurrence keys; owner profile timezone drives schedule math; push and expense history explain posts from a rule with a link to edit the rule at `/expense/recurring/:id`. From add expense, "Make recurring" keeps the schedule in the form until you save; the API creates the rule and links that expense as the first occurrence in one transaction (expense date must be on or after the rule start).
+- Recurring expenses per tab (including direct tabs): repeat every N days from an anchor date, monthly on a day of the month (short months use the last day), or on selected weekdays; frozen amount, currency, description, payer, participants, and split template; FX on each occurrence date; start/end dates and max post count; pause/resume; workers cron posts with idempotent occurrence keys; owner profile timezone drives schedule math; push and expense history explain posts from a rule with a link to edit the rule at `/expense/recurring/:id`. From add expense, "Make recurring" keeps the schedule in the form until you save; the API creates the rule and links that expense as the first occurrence in one transaction (expense date must be on or after the rule start).
 - Split types when adding or editing manually: equal (default), shares, percentage (must total 100%), or custom amounts; split dialog uses tabs; weights are stored and shown on expense detail (e.g. `40%` or `2 shares`) for percent and shares splits
 - Choose expense currency when adding or editing (defaults to tab currency); amounts convert to tab currency using Frankfurter ECB rates with server-side cache
 - FX works for any supported pair (e.g. AUD expense on an INR tab): the server looks up cached rates by expense date and expense currency; on a miss it fetches from Frankfurter and stores the result so repeat use is fast

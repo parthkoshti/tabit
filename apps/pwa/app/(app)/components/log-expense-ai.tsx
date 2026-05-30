@@ -165,8 +165,10 @@ export function LogExpenseAI({
           });
           queryClient.invalidateQueries({ queryKey: ["activity"] });
           setAiInputText("");
+        } else if (!result.success) {
+          setAiError(result.error);
         } else {
-          setAiError(result.error ?? "Failed to add expense");
+          setAiError("Failed to add expense");
         }
       }}
     >

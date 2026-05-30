@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "@/lib/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useNavTitle } from "../../../context/nav-title-context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Spinner } from "@/components/ui/spinner";
+import { FormPageSkeleton } from "@/components/page-skeletons";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Select,
@@ -27,11 +27,12 @@ export function RecurringExpenseRulePage() {
   const [status, setStatus] = useState<string>("active");
   const [saving, setSaving] = useState(false);
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isPending, error } = useQuery({
     queryKey: ["recurring-expense", id],
     queryFn: async () => {
       const r = await api.recurringExpenses.get(id);
-      if (!r.success || !r.rule) throw new Error(r.error ?? "Failed to load");
+      if (!r.success) throw new Error(r.error);
+      if (!r.rule) throw new Error("Failed to load");
       return r.rule;
     },
     enabled: !!id,
@@ -79,12 +80,8 @@ export function RecurringExpenseRulePage() {
     return <p className="p-4 text-sm text-muted-foreground">Invalid rule</p>;
   }
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center p-8">
-        <Spinner />
-      </div>
-    );
+  if (isPending) {
+    return <FormPageSkeleton />;
   }
 
   if (error || !data) {
@@ -100,7 +97,7 @@ export function RecurringExpenseRulePage() {
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-6 p-4 pb-24">
+    <div className="mx-auto max-w-lg space-y-6 p-4">
       <Button variant="ghost" size="sm" className="-ml-2" asChild>
         <Link to={`/tabs/${data.tabId}`}>
           <ArrowLeft className="size-4" />

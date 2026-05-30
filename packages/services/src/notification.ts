@@ -1,4 +1,4 @@
-import { Redis } from "ioredis";
+import { enqueueNotification } from "queue";
 import type { NotificationPayload, PaymentReminderTone } from "models";
 import {
   createExpenseAddedNotificationPayload,
@@ -17,23 +17,12 @@ import {
   createPlaceholderMergedNotificationPayload,
 } from "models";
 
-let redis: Redis | null = null;
-
-function getRedis(): Redis {
-  if (!redis) {
-    const redisUrl = process.env.REDIS_URL ?? "redis://localhost:6379";
-    redis = new Redis(redisUrl);
-    redis.on("error", (err) => {
-      console.error("Redis error in services:", String(err));
-    });
-  }
-  return redis;
-}
-
-async function publish(userId: string, payload: NotificationPayload): Promise<void> {
-  const client = getRedis();
-  const channel = `notifications:user:${userId}`;
-  await client.publish(channel, JSON.stringify(payload));
+async function publish(
+  userId: string,
+  payload: NotificationPayload,
+  options?: { forcePush?: boolean },
+): Promise<void> {
+  await enqueueNotification(userId, payload, options);
 }
 
 export const notificationService = {

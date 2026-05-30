@@ -1,27 +1,23 @@
 import "ios-vibrator-pro-max";
+import { useEffect } from "react";
 import { ThemeProvider } from "next-themes";
-import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
 import { get, set, del, createStore } from "idb-keyval";
-
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60,
-      gcTime: 1000 * 60 * 60 * 24,
-      refetchOnWindowFocus: true,
-      refetchOnMount: true,
-    },
-  },
-});
+import { registerGlobalTapHaptic } from "@/lib/vibrate";
+import { queryClient } from "./lib/query-client";
 
 const idbStore =
   typeof window !== "undefined"
     ? createStore("tabit-query-cache", "queries")
     : null;
 
-const CACHE_BUSTER = import.meta.env.VITE_QUERY_CACHE_BUSTER ?? "v1";
+declare const __APP_VERSION__: string;
+
+const CACHE_BUSTER =
+  typeof __APP_VERSION__ !== "undefined"
+    ? __APP_VERSION__
+    : (import.meta.env.VITE_QUERY_CACHE_BUSTER ?? "v1");
 
 const persister = idbStore
   ? createAsyncStoragePersister({
@@ -38,6 +34,8 @@ const persister = idbStore
     } as const);
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  useEffect(() => registerGlobalTapHaptic(), []);
+
   return (
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
       <PersistQueryClientProvider

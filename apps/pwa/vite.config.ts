@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { TanStackRouterVite } from "@tanstack/router-plugin/vite";
 import { VitePWA } from "vite-plugin-pwa";
 import path from "node:path";
 import fs from "node:fs";
@@ -15,6 +16,7 @@ const https =
     : undefined;
 
 const isProd = process.env.NODE_ENV === "production";
+const useDevProxy = !process.env.VITE_API_URL;
 
 const pkg = JSON.parse(
   fs.readFileSync(path.join(__dirname, "package.json"), "utf-8"),
@@ -35,11 +37,17 @@ function getAllowedHosts(): string[] {
 }
 
 export default defineConfig({
-  envPrefix: ["NEXT_PUBLIC_", "VITE_"],
+  envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   define: {
     __APP_VERSION__: JSON.stringify(pkg.version),
   },
   plugins: [
+    TanStackRouterVite({
+      target: "react",
+      autoCodeSplitting: true,
+      routesDirectory: "./src/routes",
+      generatedRouteTree: "./src/routeTree.gen.ts",
+    }),
     react(),
     VitePWA({
       strategies: "injectManifest",
@@ -67,11 +75,10 @@ export default defineConfig({
         ],
       },
       injectManifest: {
-        // Default 2 MiB; main bundle can exceed that and fail the build.
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
       },
       workbox: {
-        navigateFallbackDenylist: [/^\/api/],
+        navigateFallbackDenylist: [/^\/api/, /^\/rpc/],
       },
       includeAssets: ["favicon.ico", "icon-192x192.png", "icon-512x512.png", "offline.html"],
     }),
@@ -88,19 +95,20 @@ export default defineConfig({
   },
   server: {
     https: isProd ? undefined : https,
-    proxy: {
-      "/api/auth": {
-        target: "http://localhost:3001",
-        changeOrigin: true,
-      },
-      "/api": {
-        target: "http://localhost:3001",
-        changeOrigin: true,
-        rewrite: (p) => p.replace(/^\/api/, "/v1"),
-      },
-    },
+    proxy: useDevProxy
+      ? {
+          "/rpc": {
+            target: "http://localhost:3001",
+            changeOrigin: true,
+          },
+          "/api/auth": {
+            target: "http://localhost:3001",
+            changeOrigin: true,
+          },
+        }
+      : undefined,
   },
   optimizeDeps: {
-    exclude: ["shared", "data", "models", "services"],
+    exclude: ["shared", "models", "services", "rpc"],
   },
 });

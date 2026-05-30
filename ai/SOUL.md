@@ -13,7 +13,7 @@ Tab is a Splitwise-alternative for splitting expenses. It's a pnpm + Turborepo m
 ```bash
 pnpm install                          # Install all dependencies
 pnpm run build --filter=models --filter=db --filter=otel  # Build shared packages first (required before dev)
-pnpm dev                              # Run all apps concurrently (pwa, api, notifications; web excluded)
+pnpm dev                              # Run all apps concurrently (pwa, api, workers; web excluded)
 pnpm dev:pwa                          # Run only the PWA
 pnpm dev:web                          # Run only the landing page (independent of turbo)
 ```
@@ -21,8 +21,8 @@ pnpm dev:web                          # Run only the landing page (independent o
 ### Database
 
 ```bash
-cd packages/db && pnpm db:push        # Push schema changes (dev, no migration files)
-cd packages/db && pnpm db:generate    # Generate migration files
+cd packages/db && pnpm db:push        # Push schema (dev; uses Doppler for env)
+cd packages/db && pnpm db:generate    # Generate migration files (never hand-edit journal)
 cd packages/db && pnpm db:migrate     # Run migrations
 cd packages/db && pnpm db:studio      # Open Drizzle Studio
 ```
@@ -54,63 +54,65 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 ### Monorepo Structure
 
 - `apps/web` — Next.js 15 landing page (port 3000), uses App Router; independent app (not in turbo)
-- `apps/pwa` — Vite + React SPA, the main expense-splitting app (port 3003)
-- `apps/api` — Hono REST API (port 3001), the backend for all data operations
-- `apps/notifications` — WebSocket server (port 3002), uses Redis pub/sub + web-push
-- `apps/mcp` — MCP server exposing tab/friend tools
+- `apps/pwa` — Vite + React SPA (port 3003), TanStack Router/Query/Form, oRPC client, Socket.IO realtime
+- `apps/api` — Hono API (port 3001): Better Auth at `/api/auth/*`, oRPC at `/rpc/*`, `GET /health`
+- `apps/workers` — Socket.IO + BullMQ notification delivery + web-push + node-cron (port 3002)
 - `packages/db` — Drizzle ORM schema, client, migrations (PostgreSQL)
 - `packages/models` — Shared Zod schemas and TypeScript types
-- `packages/auth` — Better Auth configuration (magic link / email OTP only, emails via Plunk)
+- `packages/rpc` — oRPC `appRouter` (procedures call `services`)
+- `packages/queue` — BullMQ `notifications` queue + worker factory
+- `packages/auth` — Better Auth (email OTP, 30-day sessions, emails via Plunk)
 - `packages/shared` — Shared utilities (e.g. `createId`)
 - `packages/otel` — OpenTelemetry setup (logs + traces to OTLP/SigNoz)
-- `packages/services` — Business logic layer (expense, tab, settlement, friend, user, tab-invite); used by `api` and `mcp`
-- `packages/data` — Data access layer (query functions used by `services`, `api`, and `web`)
+- `packages/services` — Business logic; used by `rpc` procedures and workers
+- `packages/data` — Data access layer (used by `services` only; not imported in PWA)
 
 ### Key Architectural Patterns
 
-**API proxy in PWA**: The PWA proxies `/api/auth` → `api:3001/api/auth` (pass-through) and `/api/*` → `api:3001/v1/*` (rewrite). All API calls in `apps/pwa/lib/api-client.ts` use base `/api`. Backend app routes live under `/v1`.
+**PWA dev proxy**: Vite proxies `/api/auth` and `/rpc` to `api:3001`. Client uses `VITE_API_URL` (production: `https://api.tabit.in`) and `VITE_REALTIME_URL` (`https://wrk.tabit.in`). The oRPC client lives in `apps/pwa/src/lib/orpc-client.ts`; `apps/pwa/lib/api.ts` is a compatibility facade with `{ success, error }` shape.
 
-**Auth**: Better Auth handles sessions. The `packages/auth` package exports a configured `auth` instance used by both the API (at `/api/auth/*`) and server-side in `apps/web`. The PWA uses `better-auth/react` via `apps/pwa/lib/auth-client.ts`.
+**Auth**: Better Auth at `/api/auth/*` on the API. Sessions are 30 days. PWA uses `better-auth/react` via `apps/pwa/lib/auth-client.ts` with `credentials: 'include'`.
 
-**Database**: Drizzle ORM with PostgreSQL. Schema is split into `schema/auth.ts` (Better Auth managed tables) and `schema/app.ts` (application tables: tabs, expenses, settlements, friends, etc.). The `packages/data` package contains query logic organized into `tab`, `expense`, `settlement`, and `activity` namespaces.
+**API**: No REST `/v1`. All app mutations and reads go through oRPC (`packages/rpc`) mounted at `/rpc/*` on `apps/api`.
 
-**Services layer**: The API and MCP use `packages/services` for business logic (validation, authorization, notifications). Services call `packages/data` for persistence. Service tests mock the data layer and cover auth, validation, and success paths.
+**Database**: Drizzle ORM with PostgreSQL. Schema in `packages/db` (`schema/auth.ts`, `schema/app.ts`). Query logic in `packages/data`; business rules in `packages/services`.
 
-**PWA data flow**: TanStack Query for server state with IndexedDB (`idb-keyval`) persistence. Zustand for client UI state (`lib/stores/ui-store.ts`, `lib/stores/nav-store.ts`). Query keys are defined in `lib/query-keys.ts`.
+**PWA data flow**: TanStack Query + IDB persistence (`apps/pwa/src/lib/query-client.ts`). Cache buster from `__APP_VERSION__` on deploy. Route loaders prefetch via `apps/pwa/src/lib/route-loaders.ts`. Zustand for UI state.
 
-**PWA routing**: React Router DOM v7. Route definitions are in `src/routes/app-layout-routes.tsx`. Page components live in `app/(app)/` following a Next.js-style directory convention (but it's React Router, not Next.js App Router).
+**PWA routing**: TanStack Router file-based routes under `apps/pwa/src/routes/`. Page components still live in `apps/pwa/app/` (imported by route files). Navigation shim: `apps/pwa/lib/navigation.ts`.
 
-**Alias**: `@` maps to the root of `apps/pwa` (i.e., `apps/pwa/`), so `@/app/...` refers to `apps/pwa/app/...` and `@/lib/...` to `apps/pwa/lib/...`.
+**Forms**: `@tanstack/react-form` + Zod from `models`; helper `apps/pwa/lib/form-zod.ts`.
 
-**AI feature**: The API has an `/ai/add-expense` endpoint using Google AI SDK (`@ai-sdk/google`) for natural language expense entry.
+**AI feature**: oRPC `ai` procedures (Google Generative AI) for natural-language expense entry.
 
-**Real-time**: The `apps/notifications` server bridges Redis pub/sub messages (published by the API after mutations) to WebSocket clients and sends web push notifications via `web-push`. For **`expense_added`**, the payload’s `fromUserId` / `fromUserName` are the **payer** (`paidById`), so titles like “X paid …” match who fronted the bill; the person who created the row may differ (`performedById`). Other expense notification types (e.g. updated/deleted) still attribute the actor who performed the action.
+**Real-time**: `apps/workers` runs Socket.IO (cookie session auth, room `user:{userId}`, event `notification`). After mutations, `notificationService` enqueues BullMQ jobs; the worker emits Socket.IO **and** web push (always push, even if socket connected). PWA: `apps/pwa/src/lib/realtime-manager.ts` + `use-notifications.ts`. On connect, heal gaps via `notifications.listMissed`. For **`expense_added`**, payload `fromUserId` / `fromUserName` are the **payer** (`paidById`).
 
-**Payment reminders**: On a **direct** tab, when the viewer is **owed**, the PWA **Remind** flow calls **`POST /v1/friends/payment-reminder`** with `{ friendTabId, tone }`. `friendService.sendPaymentReminder` checks membership, direct tab, and positive owed balance, then `notificationService.publishPaymentReminder` emits a **`payment_reminder`** payload. Push title/body strings come from **`getPaymentReminderPushCopy`** and tone metadata from **`PAYMENT_REMINDER_TONE_META`** in `packages/models/src/notification.ts` (also used by `apps/notifications` when building the push). Navigate target: `/tabs/:friendTabId`.
+**Payment reminders**: Direct tab **Remind** calls oRPC `friends.sendPaymentReminder`. Push copy from `packages/models/src/notification.ts`.
 
-**Exchange rates (FX)**: Conversion uses [Frankfurter](https://www.frankfurter.dev/) (`packages/services/src/integrations/frankfurter.ts`). Business logic lives in `packages/services/src/fx-rate.ts`; persistence in `packages/data/src/fx-rate.ts` table `fx_rate_snapshot` keyed by `(rateDate, base)` where **`base` is the transaction currency** (the expense or settlement currency—not the tab currency). Expenses and settlements both use this model with their respective dates for lookups. Cache hit: multiply `originalAmount` by `rates[tabCurrency]`. On miss, fetch from Frankfurter (historical date or `latest` when the expense date is after today UTC), then upsert; if the API returns a different working day than requested, the same rates are also stored under the requested calendar day (“alias”) so the next lookup hits. **`warmLatestRatesForBases(["EUR","USD"])`** in `apps/api/src/index.ts` (cron 16:00 Europe/Berlin + startup) only prefetches **latest** full rate maps for EUR and USD bases to reduce cold cache misses for those currencies; **any other expense currency** (e.g. AUD→INR tab) still works: first conversion for that date/base triggers a fetch and caches under that base.
+**Exchange rates (FX)**: Frankfurter via `packages/services/src/fx-rate.ts`. Crons run in **`apps/workers`** (FX daily 16:00 Europe/Berlin, recurring every 15m), not in the API.
 
-**Placeholder friends (tab participants)**: Group tabs use a **participant ledger** (see `tab_participant` in `packages/db/src/schema/app.ts`, queries in `packages/data/src/tab-participant.ts`) that mixes registered members and **placeholders** (named rows without a user). Placeholders behave like members in splits, settlements, recurring templates, and balances. Tab **owners** merge a placeholder into a member via `POST /v1/tabs/:tabId/placeholders/:participantId/merge` (`apps/api/src/routes/tabs.ts`, `packages/services/src/tab.ts`); the merged user gets a **`placeholder_merged`** notification. Activity includes **`placeholder_merge`** (`packages/data/src/activity.ts`). PWA UI: tab **Members** at `/tabs/:tabId/members` (`apps/pwa/app/(app)/tabs/[tabId]/members/page.tsx`, `placeholder-participants-card.tsx`); API helpers in `apps/pwa/lib/api-client.ts` under `/tabs/:tabId/placeholders`.
+**Placeholder friends**: Merge via oRPC `tabs` procedures. PWA members UI at `/tabs/:tabId/members`.
+
+**Offline**: IndexedDB queue (`apps/pwa/lib/offline-queue.ts`) for friend/tab invite actions plus expense CRUD and settlements; sync on `online` and service worker `PROCESS_OFFLINE_QUEUE` message. Server wins on conflict (toast).
 
 ### Environment Variables
 
-All apps read from a root `.env` / `.env.local` file (via `dotenv-cli`). Key variables:
+Prefer **Doppler** (`doppler run --`) for dev and Docker (`DOPPLER_TOKEN_*`). Fallback: root `.env` / `.env.local`. See `.env.example`.
 
-- `DATABASE_URL` — PostgreSQL connection string
-- `BETTER_AUTH_SECRET` — Auth secret
-- `VITE_BACKEND_URL` — Backend API URL; used by PWA (client), auth (baseURL), and API container
-- `BETTER_AUTH_COOKIE_DOMAIN` — Optional; e.g. `.tabit.in` for cross-subdomain cookies
-- `PLUNK_SECRET_KEY` — Email provider for magic links
-- `REDIS_URL` — Used by `apps/api` and `apps/notifications`
-- `CORS_ORIGIN` — Comma-separated origins for the API
-- `NEXT_PUBLIC_PWA_URL` / `NEXT_PUBLIC_WEB_URL` — Public URLs
-- `NOTIFICATIONS_WS_URL` / `VITE_NOTIFICATIONS_WS_URL` — WebSocket URL
+- `DATABASE_URL` — PostgreSQL
+- `BETTER_AUTH_SECRET`, `BETTER_AUTH_COOKIE_DOMAIN`, `BETTER_AUTH_TRUSTED_ORIGINS`
+- `VITE_API_URL` — API origin for PWA + auth `baseURL` (e.g. `https://api.tabit.in`)
+- `VITE_REALTIME_URL` — Socket.IO workers origin (e.g. `https://wrk.tabit.in`)
+- `REDIS_URL` — BullMQ + shared Redis
+- `CORS_ORIGIN`, `NEXT_PUBLIC_PWA_URL`, `NEXT_PUBLIC_WEB_URL`
+- `VAPID_*` / `VITE_VAPID_PUBLIC_KEY` — Web push
+- `DISCORD_WEBHOOK_URL` — Cron/job failure alerts in workers
 
 **OpenTelemetry (optional)**: When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, logs and traces are sent to SigNoz or any OTLP-compatible backend. Variables: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` (e.g. `signoz-ingestion-key=<key>` for SigNoz Cloud), `OTEL_SERVICE_NAME`, `OTEL_SDK_DISABLED`, `OTEL_TRACES_EXPORTER`, `OTEL_LOGS_EXPORTER`.
 
 ### HTTPS for PWA (local dev)
 
-The PWA runs over HTTPS by default (needed for service workers). Certs go in `certs/` at repo root and are shared by PWA and notifications. Generate with:
+The PWA runs over HTTPS by default (needed for service workers). Certs go in `certs/` at repo root. Generate with:
 
 ```bash
 pnpm generate-https-certs  # requires mkcert

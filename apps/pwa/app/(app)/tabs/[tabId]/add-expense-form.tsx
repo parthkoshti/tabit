@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useForm } from "@tanstack/react-form";
 import { api } from "@/lib/api-client";
+import {
+  buildExpenseCreateBody,
+  parseExpenseAmount,
+  validateExpenseFormValues,
+} from "@/lib/expense-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -132,14 +138,6 @@ export function AddExpenseForm({
   /** Called once the expense is saved (before the success dialog). Use to refresh lists outside this tab. */
   onExpenseCreated?: () => void;
 }) {
-  const [amount, setAmount] = useState("");
-  const [currency, setCurrency] = useState(tabCurrency);
-  const [description, setDescription] = useState("");
-  const [expenseDate, setExpenseDate] = useState<Date>(() => new Date());
-  const [participantIds, setParticipantIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-
   const tabParticipants = useMemo((): TabParticipant[] => {
     if (participants.length > 0) return participants;
     return members.map((m) => ({
@@ -177,14 +175,13 @@ export function AddExpenseForm({
   const effectivePayerParticipantId =
     payerOverrideParticipantId ?? derivedDefaultPayerParticipantId;
 
-  useEffect(() => {
-    if (tabParticipants.length === 0) return;
-    setParticipantIds(new Set(tabParticipants.map((p) => p.id)));
-  }, [tabParticipants]);
+  const [splitConfig, setSplitConfig] = useState<SplitConfig | null>(null);
+  const splitConfigRef = useRef(splitConfig);
+  splitConfigRef.current = splitConfig;
+  const effectivePayerRef = useRef(effectivePayerParticipantId);
+  effectivePayerRef.current = effectivePayerParticipantId;
 
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [createdExpense, setCreatedExpense] = useState<{
     expenseId: string;
     tabId: string;
@@ -210,7 +207,6 @@ export function AddExpenseForm({
   } | null>(null);
   const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
 
-  const [splitConfig, setSplitConfig] = useState<SplitConfig | null>(null);
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const [recurringSetupOpen, setRecurringSetupOpen] = useState(false);
   const [recurringTemplate, setRecurringTemplate] =
@@ -218,15 +214,188 @@ export function AddExpenseForm({
   const [pendingRecurring, setPendingRecurring] =
     useState<PendingRecurringRuleWithoutTemplate | null>(null);
 
-  function parseAmount(value: string): number | null {
-    const num = parseFloat(value);
-    if (isNaN(num) || num < 0.01) return null;
-    return num;
-  }
+  const form = useForm({
+    defaultValues: {
+      amount: "",
+      currency: tabCurrency,
+      description: "",
+      expenseDate: new Date(),
+      participantIds: [] as string[],
+    },
+    validators: {
+      onSubmit: ({ value }) =>
+        validateExpenseFormValues(
+          tabId,
+          value,
+          effectivePayerRef.current,
+          splitConfigRef.current,
+          tabParticipants,
+        ),
+    },
+    onSubmit: async ({ value }) => {
+      const parsed = parseExpenseAmount(value.amount);
+      if (
+        parsed !== null &&
+        value.currency !== tabCurrency &&
+        (fxPreviewLoading || fxPreview?.amountTab == null)
+      ) {
+        form.setErrorMap({
+          onSubmit: {
+            form: fxPreviewLoading
+              ? "Wait for the exchange rate preview to finish"
+              : "Enter a valid amount or wait for tab-currency conversion",
+            fields: {},
+          },
+        });
+        return;
+      }
+
+      const createBody = buildExpenseCreateBody(
+        value,
+        effectivePayerRef.current,
+        splitConfigRef.current,
+        tabParticipants,
+      );
+
+      const payerParticipant = tabParticipants.find(
+        (p) => p.id === effectivePayerRef.current,
+      );
+      const paidByForTemplate =
+        payerParticipant?.userId != null
+          ? payerParticipant.userId
+          : currentUserId;
+      const prepTemplate =
+        splitConfigRef.current == null ||
+        splitConfigRef.current.splitType === "equal"
+          ? {
+              amount: createBody.amount,
+              currency: createBody.currency,
+              description: createBody.description,
+              paidById: paidByForTemplate,
+              splitType: "equal" as const,
+              participantIds: createBody.participantIds,
+            }
+          : splitConfigRef.current.splitType === "custom"
+            ? {
+                amount: createBody.amount,
+                currency: createBody.currency,
+                description: createBody.description,
+                paidById: paidByForTemplate,
+                splitType: "custom" as const,
+                participantIds: createBody.participantIds,
+                splits: splitConfigRef.current.splits,
+              }
+            : {
+                amount: createBody.amount,
+                currency: createBody.currency,
+                description: createBody.description,
+                paidById: paidByForTemplate,
+                splitType: splitConfigRef.current.splitType,
+                participantIds: createBody.participantIds,
+                splits: splitConfigRef.current.splits.map((s) => ({
+                  userId: s.userId,
+                  weight: s.weight,
+                })),
+              };
+
+      const createRecurringRule = pendingRecurring
+        ? { ...pendingRecurring, template: prepTemplate }
+        : undefined;
+
+      const result = await api.expenses.create(tabId, {
+        ...createBody,
+        ...(createRecurringRule ? { createRecurringRule } : {}),
+      });
+
+      if (
+        result.success &&
+        result.expenseId &&
+        result.tabId &&
+        result.amount != null &&
+        result.description &&
+        result.tabName
+      ) {
+        form.reset();
+        form.setFieldValue("currency", tabCurrency);
+        form.setFieldValue("expenseDate", new Date());
+        if (tabParticipants.length > 0) {
+          form.setFieldValue(
+            "participantIds",
+            tabParticipants.map((p) => p.id),
+          );
+        }
+        setSplitConfig(null);
+        setPendingRecurring(null);
+        queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+        queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+        queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
+        queryClient.invalidateQueries({ queryKey: ["activity"] });
+        void queryClient.invalidateQueries({
+          queryKey: ["recurring-expenses", tabId],
+        });
+        onExpenseCreated?.();
+        setCreatedExpense({
+          expenseId: result.expenseId,
+          tabId: result.tabId,
+          amount: result.amount,
+          description: result.description,
+          tabName: result.tabName,
+          currency: result.currency,
+          participants: result.participants ?? [],
+        });
+        return;
+      }
+
+      if (result.success) {
+        form.reset();
+        form.setFieldValue("currency", tabCurrency);
+        form.setFieldValue("expenseDate", new Date());
+        if (tabParticipants.length > 0) {
+          form.setFieldValue(
+            "participantIds",
+            tabParticipants.map((p) => p.id),
+          );
+        }
+        setSplitConfig(null);
+        setPendingRecurring(null);
+        queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+        queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+        queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
+        queryClient.invalidateQueries({ queryKey: ["activity"] });
+        void queryClient.invalidateQueries({
+          queryKey: ["recurring-expenses", tabId],
+        });
+        onExpenseCreated?.();
+        setPartialSuccessOpen(true);
+        return;
+      }
+
+      form.setErrorMap({
+        onSubmit: {
+          form: result.error ?? "Failed to add expense",
+          fields: {},
+        },
+      });
+    },
+  });
+
+  const { amount, currency, expenseDate, participantIds } = form.state.values;
+  const participantIdSet = useMemo(
+    () => new Set(participantIds),
+    [participantIds],
+  );
 
   useEffect(() => {
-    setCurrency(tabCurrency);
-  }, [tabCurrency]);
+    if (tabParticipants.length === 0) return;
+    form.setFieldValue(
+      "participantIds",
+      tabParticipants.map((p) => p.id),
+    );
+  }, [tabParticipants, form]);
+
+  useEffect(() => {
+    form.setFieldValue("currency", tabCurrency);
+  }, [tabCurrency, form]);
 
   useEffect(() => {
     const input = descriptionRef.current;
@@ -237,7 +406,7 @@ export function AddExpenseForm({
   }, []);
 
   useEffect(() => {
-    const parsed = parseAmount(amount);
+    const parsed = parseExpenseAmount(amount);
     if (parsed === null || currency === tabCurrency) {
       setFxPreview(null);
       setFxPreviewLoading(false);
@@ -276,8 +445,8 @@ export function AddExpenseForm({
   }, [amount, currency, expenseDate, tabId, tabCurrency]);
 
   const selectedParticipants = useMemo(
-    () => tabParticipants.filter((p) => participantIds.has(p.id)),
-    [tabParticipants, participantIds],
+    () => tabParticipants.filter((p) => participantIdSet.has(p.id)),
+    [tabParticipants, participantIdSet],
   );
 
   const hasPlaceholderInSplit = useMemo(
@@ -301,7 +470,10 @@ export function AddExpenseForm({
     [selectedParticipants],
   );
 
-  const parsedAmountForSplit = useMemo(() => parseAmount(amount), [amount]);
+  const parsedAmountForSplit = useMemo(
+    () => parseExpenseAmount(amount),
+    [amount],
+  );
 
   const tabTotalForSplit = useMemo(() => {
     if (parsedAmountForSplit === null) return null;
@@ -317,24 +489,17 @@ export function AddExpenseForm({
   function prepareRecurringTemplate():
     | { ok: true; template: RecurringTemplatePayload }
     | { ok: false; error: string } {
-    const parsedAmount = parseAmount(amount);
-    if (parsedAmount === null) {
-      return { ok: false, error: "Please enter a valid amount (min $0.01)" };
-    }
-    if (!description.trim()) {
-      return { ok: false, error: "Please add a description" };
-    }
-    if (selectedParticipants.length < 1) {
-      return { ok: false, error: "At least one person must be in the split" };
-    }
-    if (
-      selectedParticipants.length === 1 &&
-      selectedParticipants[0]!.id === effectivePayerParticipantId
-    ) {
-      return {
-        ok: false,
-        error: "Payer cannot be the only member of the split",
-      };
+    const value = form.state.values;
+    const fieldErrors = validateExpenseFormValues(
+      tabId,
+      value,
+      effectivePayerParticipantId,
+      splitConfig,
+      tabParticipants,
+    );
+    if (fieldErrors) {
+      const firstError = Object.values(fieldErrors)[0];
+      return { ok: false, error: firstError ?? "Invalid expense" };
     }
     if (splitButtonDisabled) {
       return {
@@ -345,7 +510,8 @@ export function AddExpenseForm({
             : "Enter a valid amount or wait for tab-currency conversion",
       };
     }
-    const participantIdsList = selectedParticipants.map((p) => p.id);
+    const parsedAmount = parseExpenseAmount(value.amount)!;
+    const participantIdsList = value.participantIds;
     const payerParticipant = tabParticipants.find(
       (p) => p.id === effectivePayerParticipantId,
     );
@@ -357,8 +523,8 @@ export function AddExpenseForm({
       splitConfig == null || splitConfig.splitType === "equal"
         ? {
             amount: parsedAmount,
-            currency,
-            description,
+            currency: value.currency,
+            description: value.description.trim(),
             paidById: paidByForTemplate,
             splitType: "equal",
             participantIds: participantIdsList,
@@ -366,8 +532,8 @@ export function AddExpenseForm({
         : splitConfig.splitType === "custom"
           ? {
               amount: parsedAmount,
-              currency,
-              description,
+              currency: value.currency,
+              description: value.description.trim(),
               paidById: paidByForTemplate,
               splitType: "custom",
               participantIds: participantIdsList,
@@ -375,8 +541,8 @@ export function AddExpenseForm({
             }
           : {
               amount: parsedAmount,
-              currency,
-              description,
+              currency: value.currency,
+              description: value.description.trim(),
               paidById: paidByForTemplate,
               splitType: splitConfig.splitType,
               participantIds: participantIdsList,
@@ -390,17 +556,17 @@ export function AddExpenseForm({
 
   const makeRecurringDisabled = useMemo(
     () =>
-      loading ||
-      parseAmount(amount) === null ||
-      !description.trim() ||
+      form.state.isSubmitting ||
+      parseExpenseAmount(amount) === null ||
+      !form.state.values.description.trim() ||
       selectedParticipants.length < 1 ||
       (selectedParticipants.length === 1 &&
         selectedParticipants[0]!.id === effectivePayerParticipantId) ||
       splitButtonDisabled,
     [
-      loading,
+      form.state.isSubmitting,
+      form.state.values.description,
       amount,
-      description,
       selectedParticipants,
       effectivePayerParticipantId,
       splitButtonDisabled,
@@ -412,13 +578,19 @@ export function AddExpenseForm({
       (p) => p.id === effectivePayerParticipantId,
     );
     if (!payerParticipant?.userId) {
-      setError("Recurring expenses need a registered member as payer");
+      form.setErrorMap({
+        onSubmit: {
+          form: "Recurring expenses need a registered member as payer",
+          fields: {},
+        },
+      });
       return;
     }
-    setError(null);
     const prep = prepareRecurringTemplate();
     if (!prep.ok) {
-      setError(prep.error);
+      form.setErrorMap({
+        onSubmit: { form: prep.error, fields: {} },
+      });
       return;
     }
     setRecurringTemplate(prep.template);
@@ -427,140 +599,24 @@ export function AddExpenseForm({
 
   function toggleParticipant(participantId: string) {
     setSplitConfig(null);
-    setParticipantIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(participantId)) {
-        if (next.size <= 1) {
-          setError("At least one person must be in the split");
-          return prev;
-        }
-        next.delete(participantId);
-      } else {
-        next.add(participantId);
-        setError(null);
+    const current = form.state.values.participantIds;
+    if (current.includes(participantId)) {
+      if (current.length <= 1) {
+        form.setErrorMap({
+          onSubmit: {
+            form: "At least one person must be in the split",
+            fields: {},
+          },
+        });
+        return;
       }
-      return next;
-    });
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const prep = prepareRecurringTemplate();
-    if (!prep.ok) {
-      setError(prep.error);
-      setLoading(false);
-      return;
-    }
-    const parsedAmount = prep.template.amount;
-    const participantIdsList = prep.template.participantIds;
-
-    const payerParticipant = tabParticipants.find(
-      (p) => p.id === effectivePayerParticipantId,
-    );
-    const payerPayload =
-      payerParticipant?.userId != null
-        ? { paidById: payerParticipant.userId }
-        : { paidByParticipantId: effectivePayerParticipantId };
-
-    const createBody =
-      splitConfig == null || splitConfig.splitType === "equal"
-        ? {
-            amount: parsedAmount,
-            currency,
-            description,
-            ...payerPayload,
-            splitType: "equal" as const,
-            participantIds: participantIdsList,
-            expenseDate: expenseDate.toISOString(),
-          }
-        : splitConfig.splitType === "custom"
-          ? {
-              amount: parsedAmount,
-              currency,
-              description,
-              ...payerPayload,
-              splitType: "custom" as const,
-              participantIds: participantIdsList,
-              splits: splitConfig.splits,
-              expenseDate: expenseDate.toISOString(),
-            }
-          : {
-              amount: parsedAmount,
-              currency,
-              description,
-              ...payerPayload,
-              splitType: splitConfig.splitType,
-              participantIds: participantIdsList,
-              splits: splitConfig.splits.map((s) => ({
-                userId: s.userId,
-                weight: s.weight,
-              })),
-              expenseDate: expenseDate.toISOString(),
-            };
-
-    const createRecurringRule = pendingRecurring
-      ? { ...pendingRecurring, template: prep.template }
-      : undefined;
-
-    const result = await api.expenses.create(tabId, {
-      ...createBody,
-      ...(createRecurringRule ? { createRecurringRule } : {}),
-    });
-
-    if (
-      result.success &&
-      result.expenseId &&
-      result.tabId &&
-      result.amount != null &&
-      result.description &&
-      result.tabName
-    ) {
-      setAmount("");
-      setDescription("");
-      setExpenseDate(new Date());
-      setCurrency(tabCurrency);
-      setSplitConfig(null);
-      setPendingRecurring(null);
-      queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["activity"] });
-      void queryClient.invalidateQueries({
-        queryKey: ["recurring-expenses", tabId],
-      });
-      onExpenseCreated?.();
-      setCreatedExpense({
-        expenseId: result.expenseId,
-        tabId: result.tabId,
-        amount: result.amount,
-        description: result.description,
-        tabName: result.tabName,
-        currency: result.currency,
-        participants: result.participants ?? [],
-      });
-    } else if (result.success) {
-      setAmount("");
-      setDescription("");
-      setExpenseDate(new Date());
-      setCurrency(tabCurrency);
-      setSplitConfig(null);
-      setPendingRecurring(null);
-      queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["activity"] });
-      void queryClient.invalidateQueries({
-        queryKey: ["recurring-expenses", tabId],
-      });
-      onExpenseCreated?.();
-      setPartialSuccessOpen(true);
+      form.setFieldValue(
+        "participantIds",
+        current.filter((id) => id !== participantId),
+      );
     } else {
-      setError(result.error ?? "Failed to add expense");
+      form.setFieldValue("participantIds", [...current, participantId]);
     }
-    setLoading(false);
   }
 
   function handleCreatedClose(reason: ExpenseCreatedCloseReason) {
@@ -655,12 +711,19 @@ export function AddExpenseForm({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-4"
+      >
         <div className="flex gap-2">
           <Select
             value={effectivePayerParticipantId || undefined}
             onValueChange={setPayerOverrideParticipantId}
-            disabled={loading}
+            disabled={form.state.isSubmitting}
           >
             <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none">
               <SelectValue placeholder="Select who paid">
@@ -689,39 +752,45 @@ export function AddExpenseForm({
               ))}
             </SelectContent>
           </Select>
-          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                disabled={loading}
-                className={cn(
-                  "h-9 shrink-0 gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
-                  !expenseDate && "text-muted-foreground",
-                )}
-              >
-                <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                {expenseDate ? formatRelativeCalendarDate(expenseDate) : "Date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className={CALENDAR_POPOVER_CONTENT_CLASSNAME}
-              align="end"
-              sideOffset={4}
-              collisionPadding={12}
-            >
-              <Calendar
-                mode="single"
-                selected={expenseDate}
-                className="w-full"
-                onSelect={(date) => {
-                  if (date) {
-                    setExpenseDate(date);
-                    setDatePickerOpen(false);
-                  }
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+          <form.Field name="expenseDate">
+            {(field) => (
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={form.state.isSubmitting}
+                    className={cn(
+                      "h-9 shrink-0 gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
+                      !field.state.value && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    {field.state.value
+                      ? formatRelativeCalendarDate(field.state.value)
+                      : "Date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className={CALENDAR_POPOVER_CONTENT_CLASSNAME}
+                  align="end"
+                  sideOffset={4}
+                  collisionPadding={12}
+                >
+                  <Calendar
+                    mode="single"
+                    selected={field.state.value}
+                    className="w-full"
+                    onSelect={(date) => {
+                      if (date) {
+                        field.handleChange(date);
+                        setDatePickerOpen(false);
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+          </form.Field>
         </div>
         <div className="space-y-2">
           <Label>Split with</Label>
@@ -731,10 +800,10 @@ export function AddExpenseForm({
                 key={p.id}
                 type="button"
                 onClick={() => toggleParticipant(p.id)}
-                disabled={loading}
+                disabled={form.state.isSubmitting}
                 className={cn(
                   "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                  participantIds.has(p.id)
+                  participantIdSet.has(p.id)
                     ? "border-primary/50 bg-primary/10 text-foreground"
                     : "border-border text-muted-foreground hover:bg-muted/50",
                 )}
@@ -758,95 +827,126 @@ export function AddExpenseForm({
                     : `Custom amounts for ${selectedParticipants.length} participants`}
           </p>
         </div>
-        <div className="space-y-2">
-          <div className="flex h-12 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
-            <span className="pl-3 text-base text-muted-foreground">For</span>
-            <Input
-              ref={descriptionRef}
-              id="description"
-              type="text"
-              autoComplete="off"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Dinner"
-              required
-              disabled={loading}
-              className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              autoFocus
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="amount">Amount</Label>
-          <div className="flex gap-2">
-            <div className="flex h-12 min-w-0 flex-1 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
-              <span className="pl-3 text-base text-muted-foreground">
-                {getCurrency(currency)?.symbol ?? currency}
-              </span>
-              <Input
-                id="amount"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={amount}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setAmount(v);
-                }}
-                onBlur={() => {
-                  const num = parseFloat(amount);
-                  if (!isNaN(num) && num > 0) setAmount(num.toFixed(2));
-                }}
-                placeholder="0.00"
-                required
-                disabled={loading}
-                className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-            </div>
-            <Select
-              value={currency}
-              onValueChange={setCurrency}
-              disabled={loading}
-            >
-              <SelectTrigger className="h-12 w-16 items-center justify-center shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-60">
-                {CURATED_CURRENCIES.map((code) => {
-                  const c = getCurrency(code);
-                  return (
-                    <SelectItem key={code} value={code}>
-                      {code}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-          {currency !== tabCurrency &&
-            parseAmount(amount) != null &&
-            (fxPreviewLoading ? (
-              <Skeleton className="mt-0.5 h-4 w-[min(100%,12rem)]" />
-            ) : (
-              fxPreview && (
-                <p className="text-xs text-muted-foreground">
-                  ≈ {formatAmount(fxPreview.amountTab, fxPreview.tabCurrency)}{" "}
-                  in tab currency
+        <form.Field name="description">
+          {(field) => (
+            <div className="space-y-2">
+              <div className="flex h-12 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
+                <span className="pl-3 text-base text-muted-foreground">For</span>
+                <Input
+                  ref={descriptionRef}
+                  id="description"
+                  type="text"
+                  autoComplete="off"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="Dinner"
+                  required
+                  disabled={form.state.isSubmitting}
+                  className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  autoFocus
+                />
+              </div>
+              {field.state.meta.errors[0] ? (
+                <p className="text-sm text-destructive">
+                  {String(field.state.meta.errors[0])}
                 </p>
-              )
-            ))}
-        </div>
-        {error && (
+              ) : null}
+            </div>
+          )}
+        </form.Field>
+        <form.Field name="amount">
+          {(field) => (
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount</Label>
+              <div className="flex gap-2">
+                <div className="flex h-12 min-w-0 flex-1 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
+                  <span className="pl-3 text-base text-muted-foreground">
+                    {getCurrency(currency)?.symbol ?? currency}
+                  </span>
+                  <Input
+                    id="amount"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={field.state.value}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) {
+                        field.handleChange(v);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = parseFloat(field.state.value);
+                      if (!isNaN(num) && num > 0) {
+                        field.handleChange(num.toFixed(2));
+                      }
+                      field.handleBlur();
+                    }}
+                    placeholder="0.00"
+                    required
+                    disabled={form.state.isSubmitting}
+                    className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+                <form.Field name="currency">
+                  {(currencyField) => (
+                    <Select
+                      value={currencyField.state.value}
+                      onValueChange={currencyField.handleChange}
+                      disabled={form.state.isSubmitting}
+                    >
+                      <SelectTrigger className="h-12 w-16 items-center justify-center shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {CURATED_CURRENCIES.map((code) => (
+                          <SelectItem key={code} value={code}>
+                            {code}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </form.Field>
+              </div>
+              {field.state.meta.errors[0] ? (
+                <p className="text-sm text-destructive">
+                  {String(field.state.meta.errors[0])}
+                </p>
+              ) : null}
+              {currency !== tabCurrency &&
+                parseExpenseAmount(field.state.value) != null &&
+                (fxPreviewLoading ? (
+                  <Skeleton className="mt-0.5 h-4 w-[min(100%,12rem)]" />
+                ) : (
+                  fxPreview && (
+                    <p className="text-xs text-muted-foreground">
+                      ≈ {formatAmount(fxPreview.amountTab, fxPreview.tabCurrency)}{" "}
+                      in tab currency
+                    </p>
+                  )
+                ))}
+            </div>
+          )}
+        </form.Field>
+        {form.state.errorMap.onSubmit?.form ? (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {String(form.state.errorMap.onSubmit.form)}
+            </AlertDescription>
           </Alert>
-        )}
+        ) : null}
         <div className="grid grid-cols-2 gap-2">
           <Button
             type="button"
             variant="outline"
             className="min-w-0"
-            disabled={loading || splitButtonDisabled || hasPlaceholderInSplit}
+            disabled={
+              form.state.isSubmitting ||
+              splitButtonDisabled ||
+              hasPlaceholderInSplit
+            }
             onClick={() => setSplitDialogOpen(true)}
           >
             <Split
@@ -872,8 +972,12 @@ export function AddExpenseForm({
             </span>
           </Button>
         </div>
-        <Button type="submit" disabled={loading} className="w-full gap-2">
-          {loading ? "Adding..." : "Add expense"}
+        <Button
+          type="submit"
+          disabled={form.state.isSubmitting}
+          className="w-full gap-2"
+        >
+          {form.state.isSubmitting ? "Adding..." : "Add expense"}
           <CornerDownLeft className="h-4 w-4" />
         </Button>
       </form>

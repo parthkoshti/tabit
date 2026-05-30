@@ -45,6 +45,9 @@ const plunk =
     : null;
 
 export const auth = betterAuth({
+  session: {
+    expiresIn: 60 * 60 * 24 * 30,
+  },
   user: {
     additionalFields: {
       username: {
@@ -143,11 +146,16 @@ export const auth = betterAuth({
       expiresIn: 60 * 5,
     }),
   ],
-  baseURL: process.env.VITE_BACKEND_URL ?? "http://localhost:3001",
+  baseURL:
+    process.env.VITE_API_URL ??
+    process.env.VITE_BACKEND_URL ??
+    "http://localhost:3001",
   trustedOrigins: [
     process.env.NEXT_PUBLIC_PWA_URL!,
     "https://localhost:3003",
     "http://localhost:3003",
+    "https://app.tabit.in",
+    "https://wrk.tabit.in",
     ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS
       ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map((o) => o.trim())
       : []),

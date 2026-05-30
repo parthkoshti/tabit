@@ -7,7 +7,7 @@ import {
   formatAmountWithCurrencyCode,
 } from "@/lib/format-amount";
 import { formatAppDate } from "@/lib/format-date";
-import type { Settlement } from "data";
+import type { Settlement } from "@/lib/domain-types";
 
 type TabSettlementCardProps = {
   settlement: Settlement;

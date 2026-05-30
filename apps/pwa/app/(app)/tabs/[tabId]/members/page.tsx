@@ -1,5 +1,5 @@
 import { use, useMemo, useEffect, useState, Suspense } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "@/lib/navigation";
 import { useNavTitle } from "../../../context/nav-title-context";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/card";
 import { Copy, Settings, Share2 } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
-import { Spinner } from "@/components/ui/spinner";
+import { MembersPageSkeleton, QRSkeleton } from "@/components/page-skeletons";
 import { appConfig } from "@/src/config";
 import QRCode from "qrcode";
 import { toast } from "sonner";
@@ -105,11 +105,7 @@ function TabQRCode({ tabId }: { tabId: string }) {
   }
 
   if (isLoading || !url) {
-    return (
-      <div className="flex aspect-square w-48 items-center justify-center rounded-lg border bg-muted">
-        <Spinner size="sm" />
-      </div>
-    );
+    return <QRSkeleton />;
   }
 
   return (
@@ -121,7 +117,7 @@ function TabQRCode({ tabId }: { tabId: string }) {
               className="flex items-center justify-center"
               style={{ width: 180, height: 180 }}
             >
-              <Spinner size="sm" />
+              <QRSkeleton />
             </div>
           }
         >
@@ -183,7 +179,7 @@ export function TabMembersPage() {
   const setNavTitle = useNavTitle();
 
   const { data: session } = authClient.useSession();
-  const { data: tab, isLoading: tabLoading } = useQuery({
+  const { data: tab, isPending: tabPending } = useQuery({
     queryKey: ["tab", tabId],
     queryFn: async () => {
       const r = await api.tabs.get(tabId);
@@ -282,17 +278,30 @@ export function TabMembersPage() {
 
   if (!tabId) return null;
 
-  if (tabLoading || !tab) {
+  if (tabPending) {
+    return <MembersPageSkeleton />;
+  }
+
+  if (!tab) {
     return (
-      <div className="flex min-h-[200px] items-center justify-center p-4">
-        <Spinner />
+      <div className="p-4">
+        <div className="mx-auto max-w-md">
+          <Alert variant="destructive">
+            <AlertDescription>
+              Tab not found or you don't have access.
+            </AlertDescription>
+          </Alert>
+          <Button variant="outline" className="mt-4" asChild>
+            <Link to="/tabs">Go back</Link>
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-md space-y-6 pb-24">
+      <div className="mx-auto max-w-md space-y-6">
         <section className="space-y-4">
           <h2 className="text-base font-medium mb-1">Manage tab</h2>
           <p className="text-xs text-muted-foreground mb-4">

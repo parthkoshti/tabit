@@ -9,26 +9,20 @@ export type NavTitleConfig = {
   icon?: ReactNode;
 };
 
-/** Pre-known nav configs for tab-level routes. Prevents flash when route's useEffect hasn't run yet. */
-const TAB_ROUTE_NAV_CONFIG: Record<string, NavTitleConfig | null> = {
-  "/me": { title: "Profile", backHref: "/tabs" },
-  "/expense/new": { title: "Log Expense", backHref: "/tabs" },
-  "/friends": null,
-  "/friends/": null,
-  "/tabs": null,
-  "/tabs/": null,
-  "/activity": null,
-};
-
-function getDefaultNavConfig(pathname: string): NavTitleConfig | null {
-  if (pathname === "/me") return TAB_ROUTE_NAV_CONFIG["/me"];
-  if (pathname === "/expense/new") return TAB_ROUTE_NAV_CONFIG["/expense/new"];
-  if (pathname === "/friends" || pathname === "/friends/")
-    return TAB_ROUTE_NAV_CONFIG["/friends"];
-  if (pathname === "/tabs" || pathname === "/tabs/")
-    return TAB_ROUTE_NAV_CONFIG["/tabs"];
-  if (pathname === "/activity") return TAB_ROUTE_NAV_CONFIG["/activity"];
-  return null;
+/**
+ * Known nav configs keyed by pathname.
+ * `null` = logo navbar (list pages). `undefined` = page sets title via setNavPage.
+ */
+function getDefaultNavConfig(pathname: string): NavTitleConfig | null | undefined {
+  if (pathname === "/me") return { title: "Profile", backHref: "/tabs" };
+  if (pathname === "/expense/new")
+    return { title: "Log Expense", backHref: "/tabs" };
+  if (pathname === "/tabs/new") return { title: "New tab", backHref: "/tabs" };
+  if (pathname === "/friends" || pathname === "/friends/") return null;
+  if (pathname === "/tabs" || pathname === "/tabs/") return null;
+  if (pathname === "/activity") return null;
+  if (pathname === "/onboarding") return null;
+  return undefined;
 }
 
 interface NavState {
@@ -42,9 +36,16 @@ export const useNavStore = create<NavState>((set) => ({
   displayPathname: "",
   navPage: null,
   setDisplayPathname: (pathname) =>
-    set({
-      displayPathname: pathname,
-      navPage: getDefaultNavConfig(pathname),
+    set((state) => {
+      const known = getDefaultNavConfig(pathname);
+      if (known !== undefined) {
+        return { displayPathname: pathname, navPage: known };
+      }
+      // Dynamic route: drop stale title from the previous page.
+      return {
+        displayPathname: pathname,
+        navPage: state.displayPathname !== pathname ? null : state.navPage,
+      };
     }),
   setNavPage: (config) => set({ navPage: config }),
 }));

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@/lib/navigation";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,6 +22,7 @@ import { getDisplayName } from "@/lib/display-name";
 import { formatAppDate } from "@/lib/format-date";
 import { UserAvatar } from "@/components/user-avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { TabListSkeleton } from "@/components/page-skeletons";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
@@ -55,7 +56,7 @@ export function FriendsPage() {
   const queryClient = useQueryClient();
   const { data: session } = authClient.useSession();
   const currentUserId = session?.user?.id ?? "";
-  const { data: friendsData, isLoading } = useQuery({
+  const { data: friendsData, isPending: friendsPending } = useQuery({
     queryKey: ["friends"],
     queryFn: async () => {
       const r = await api.friends.list();
@@ -125,23 +126,51 @@ export function FriendsPage() {
     ? pendingRequests.find((r) => r.id === rejectRequestId)
     : null;
 
-  async function handlePoke(friendTabId: string, e: React.MouseEvent) {
+  const [pokedTabIds, setPokedTabIds] = useState<Set<string>>(() => new Set());
+
+  const pokeMutation = useMutation({
+    mutationFn: async (friendTabId: string) => {
+      const result = await api.friends.poke(friendTabId);
+      if (!result.success) {
+        throw new Error(result.error ?? "Failed to poke");
+      }
+      return result;
+    },
+    onMutate: (friendTabId) => {
+      setPokedTabIds((prev) => new Set(prev).add(friendTabId));
+      toast.success("Poked!");
+    },
+    onError: (error, friendTabId) => {
+      setPokedTabIds((prev) => {
+        const next = new Set(prev);
+        next.delete(friendTabId);
+        return next;
+      });
+      toast.error(error.message ?? "Failed to poke");
+    },
+    onSettled: (_data, _err, friendTabId) => {
+      window.setTimeout(() => {
+        setPokedTabIds((prev) => {
+          const next = new Set(prev);
+          next.delete(friendTabId);
+          return next;
+        });
+      }, 1500);
+    },
+  });
+
+  function handlePoke(friendTabId: string, e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
-    if ("vibrate" in navigator) {
-      navigator.vibrate(100);
+    if (pokeMutation.isPending && pokeMutation.variables === friendTabId) {
+      return;
     }
-    const result = await api.friends.poke(friendTabId);
-    if (result.success) {
-      toast.success("Poked!");
-    } else {
-      toast.error(result.error ?? "Failed to poke");
-    }
+    pokeMutation.mutate(friendTabId);
   }
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-60">
+      <div className="mx-auto max-w-2xl space-y-6">
         {(requestsLoading || pendingRequests.length > 0) && (
           <section className="space-y-4">
             <h2 className="text-base font-medium mb-1">Friend requests</h2>
@@ -269,10 +298,8 @@ export function FriendsPage() {
               </Select>
             )}
           </div>
-          {isLoading ? (
-            <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
-              Loading...
-            </p>
+          {friendsPending ? (
+            <TabListSkeleton />
           ) : !friends || friends.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
               No friends yet. Use the add button above to add one.
@@ -303,17 +330,26 @@ export function FriendsPage() {
                       }}
                       currentUserId={currentUserId}
                       href={`/tabs/${f.id}`}
-                      renderActions={() => (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0 hover:text-negative/90"
-                          onClick={(e) => handlePoke(f.id, e)}
-                        >
-                          <PokeIcon className="size-4 stroke-3 text-negative" />{" "}
-                          Poke
-                        </Button>
-                      )}
+                      renderActions={() => {
+                        const poked = pokedTabIds.has(f.id);
+                        const poking =
+                          pokeMutation.isPending &&
+                          pokeMutation.variables === f.id;
+                        return (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0 hover:text-negative/90"
+                            disabled={poking}
+                            onClick={(e) => handlePoke(f.id, e)}
+                          >
+                            <PokeIcon
+                              className={`size-4 stroke-3 ${poked ? "text-muted-foreground" : "text-negative"}`}
+                            />{" "}
+                            {poked ? "Poked!" : "Poke"}
+                          </Button>
+                        );
+                      }}
                     />
                   </AnimatedCard>
                 </motion.div>

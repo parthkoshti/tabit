@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation } from "@/lib/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Users, Activity, User, ReceiptText } from "lucide-react";
 import { useUpdateBanner } from "@/app/(app)/context/update-banner-context";
@@ -8,7 +8,7 @@ import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { AddExpenseButton } from "@/app/(app)/components/add-expense-button";
-import type { ConnectionState } from "@/lib/notification-manager";
+import type { ConnectionState } from "@/src/lib/realtime-manager";
 
 type BottomNavbarProps = {
   connectionState: ConnectionState;
@@ -184,7 +184,7 @@ export function BottomNavbar({ connectionState }: BottomNavbarProps) {
     : "w-full max-w-sm overflow-visible rounded-full";
 
   return (
-    <nav className="bottom-nav-safe fixed bottom-8 left-0 right-0 z-40 flex justify-center overflow-visible px-4 pb-4 pt-2">
+    <nav className="bottom-nav-safe fixed bottom-4 left-0 right-0 z-40 flex justify-center overflow-visible px-4 pt-2">
       <div className={wrapperClass}>{navbarContent}</div>
     </nav>
   );

@@ -7,12 +7,19 @@ export type OfflineActionType =
   | "accept_friend_request"
   | "reject_friend_request"
   | "accept_tab_invite"
-  | "reject_tab_invite";
+  | "reject_tab_invite"
+  | "expense_create"
+  | "expense_update"
+  | "expense_delete"
+  | "expense_restore"
+  | "settlement_create"
+  | "settlement_update"
+  | "settlement_delete";
 
 export type OfflineAction = {
   id: string;
   type: OfflineActionType;
-  payload: { requestId: string };
+  payload: Record<string, unknown>;
   timestamp: number;
   retries: number;
 };
@@ -37,7 +44,9 @@ async function setQueue(queue: OfflineAction[]): Promise<void> {
   await set(QUEUE_KEY, queue, store);
 }
 
-export async function enqueue(action: Omit<OfflineAction, "id" | "timestamp" | "retries">): Promise<void> {
+export async function enqueue(
+  action: Omit<OfflineAction, "id" | "timestamp" | "retries">,
+): Promise<void> {
   const store = getStore();
   if (!store) return;
 

@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/navigation";
 import { UserAvatar } from "@/components/user-avatar";
 import { formatAmount } from "@/lib/format-amount";
 import { formatAppDate } from "@/lib/format-date";

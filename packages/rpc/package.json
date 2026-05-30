@@ -1,0 +1,36 @@
+{
+  "name": "rpc",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "source": "./src/index.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ai-sdk/google": "^3.0.0",
+    "@orpc/server": "^1.10.0",
+    "ai": "^6.0.116",
+    "auth": "workspace:*",
+    "data": "workspace:*",
+    "models": "workspace:*",
+    "queue": "workspace:*",
+    "services": "workspace:*",
+    "shared": "workspace:*",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.0.0"
+  }
+}

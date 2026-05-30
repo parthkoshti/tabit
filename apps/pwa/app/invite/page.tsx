@@ -1,5 +1,5 @@
 import { useEffect, useState, Suspense } from "react";
-import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams, Link } from "@/lib/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { needsProfileSetup } from "@/lib/profile";
@@ -61,9 +61,12 @@ function InviteContent() {
             tabId: result.tabId,
           });
           setStatus("tab-accept");
+        } else if (!result.success) {
+          setStatus("error");
+          setError(result.error);
         } else {
           setStatus("error");
-          setError(result.error ?? "Invalid or expired link");
+          setError("Invalid or expired link");
         }
       });
       return;
@@ -83,9 +86,12 @@ function InviteContent() {
           queryClient.invalidateQueries({ queryKey: ["tabs"] });
           queryClient.invalidateQueries({ queryKey: ["activity"] });
           navigate(`/tabs/${result.friendTabId}`, { replace: true });
+        } else if (!result.success) {
+          setStatus("error");
+          setError(result.error);
         } else {
           setStatus("error");
-          setError(result.error ?? "Failed to add friend");
+          setError("Failed to add friend");
         }
       });
       return;
@@ -123,9 +129,12 @@ function InviteContent() {
           navigate(`/tabs/${result.tabId}`, { replace: true });
         }, 500);
       }
+    } else if (!result.success) {
+      setStatus("error");
+      setError(result.error);
     } else {
       setStatus("error");
-      setError(result.error ?? "Failed to join tab");
+      setError("Failed to join tab");
     }
   }
 

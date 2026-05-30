@@ -4,36 +4,23 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "dotenv -e ../../.env -e ../../.env.local -- tsx watch src/index.ts",
+    "dev": "doppler run -- tsx watch src/index.ts",
     "build": "tsc",
-    "start": "dotenv -e ../../.env -e ../../.env.local -- node dist/index.js",
+    "start": "doppler run -- node dist/index.js",
     "start:prod": "node dist/index.js",
-    "check": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:ui": "vitest --ui"
+    "check": "tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/google": "^3.0.0",
     "@hono/node-server": "^1.13.0",
-    "ai": "^6.0.116",
+    "@orpc/server": "^1.10.0",
     "auth": "workspace:*",
-    "data": "workspace:*",
     "hono": "^4.6.0",
-    "ioredis": "^5.4.1",
-    "models": "workspace:*",
-    "node-cron": "^4.2.1",
     "otel": "workspace:*",
-    "services": "workspace:*",
-    "shared": "workspace:*",
-    "zod": "^3.25.76"
+    "rpc": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
-    "@types/node-cron": "^3.0.11",
-    "dotenv-cli": "^7.4.2",
     "tsx": "^4.19.0",
-    "typescript": "^5.0.0",
-    "vitest": "^3.2.4"
+    "typescript": "^5.0.0"
   }
 }

@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Copy, Share2 } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
-import { Spinner } from "@/components/ui/spinner";
+import { QRSkeleton } from "@/components/page-skeletons";
 import { appConfig } from "@/src/config";
 import QRCode from "qrcode";
 
@@ -26,8 +26,8 @@ function MyQRCode() {
     queryKey: ["friendToken"],
     queryFn: async () => {
       const result = await api.friends.getToken();
-      if (!result.success || !result.url)
-        throw new Error(result.error ?? "Failed to load");
+      if (!result.success) throw new Error(result.error);
+      if (!result.url) throw new Error("Failed to load");
       return result.url;
     },
   });
@@ -90,11 +90,7 @@ function MyQRCode() {
   }
 
   if (isLoading || !url) {
-    return (
-      <div className="flex aspect-square w-48 items-center justify-center rounded-lg border bg-muted">
-        <Spinner size="sm" />
-      </div>
-    );
+    return <QRSkeleton />;
   }
 
   return (
@@ -106,7 +102,7 @@ function MyQRCode() {
               className="flex items-center justify-center"
               style={{ width: 180, height: 180 }}
             >
-              <Spinner size="sm" />
+              <QRSkeleton />
             </div>
           }
         >
@@ -203,7 +199,7 @@ export function AddFriendPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-md space-y-6 pb-24">
+      <div className="mx-auto max-w-md space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Search by username</CardTitle>

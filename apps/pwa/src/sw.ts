@@ -11,15 +11,18 @@ import {
   registerRoute,
   setCatchHandler,
 } from "workbox-routing";
-import { dequeue, putBack, remove } from "../lib/offline-queue";
 import { getLastCheckTime, setLastCheckTime } from "../lib/periodic-sync-store";
 
 declare let self: ServiceWorkerGlobalScope;
 
-const API_BASE = import.meta.env.VITE_BACKEND_URL
-  ? `${import.meta.env.VITE_BACKEND_URL}/v1`
-  : "/api";
+if (import.meta.env.DEV) {
+  self.__WB_DISABLE_DEV_LOGS = true;
+}
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+const RPC_URL = API_BASE ? `${API_BASE.replace(/\/$/, "")}/rpc` : "/rpc";
 const PERIODIC_SYNC_TAG = "check-notifications";
+const OFFLINE_SYNC_TAG = "sync-offline-mutations";
 
 self.skipWaiting();
 clientsClaim();
@@ -124,38 +127,15 @@ self.addEventListener("push", function (event) {
 });
 
 async function processSyncQueue(): Promise<void> {
-  let action = await dequeue();
-  while (action) {
-    const path =
-      action.type === "accept_friend_request"
-        ? `${API_BASE}/friends/requests/${action.payload.requestId}/accept`
-        : action.type === "reject_friend_request"
-          ? `${API_BASE}/friends/requests/${action.payload.requestId}/reject`
-          : action.type === "accept_tab_invite"
-            ? `${API_BASE}/tab-invites/requests/${action.payload.requestId}/accept`
-            : `${API_BASE}/tab-invites/requests/${action.payload.requestId}/reject`;
-
-    try {
-      const res = await fetch(path, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (res.ok) {
-        await remove(action.id);
-      } else {
-        await putBack(action);
-      }
-    } catch {
-      await putBack(action);
-    }
-    action = await dequeue();
+  const clients = await self.clients.matchAll({ type: "window" });
+  for (const client of clients) {
+    client.postMessage({ type: "PROCESS_OFFLINE_QUEUE" });
   }
 }
 
 self.addEventListener("sync", (event: Event) => {
   const e = event as ExtendableEvent & { tag: string };
-  if (e.tag === "sync-notifications") {
+  if (e.tag === "sync-notifications" || e.tag === OFFLINE_SYNC_TAG) {
     e.waitUntil(processSyncQueue());
   }
 });
@@ -165,16 +145,39 @@ async function processPeriodicSync(): Promise<void> {
   const since = lastCheck || Date.now() - 24 * 60 * 60 * 1000;
 
   try {
-    const res = await fetch(`${API_BASE}/notifications/missed?since=${since}`, {
+    const res = await fetch(RPC_URL, {
+      method: "POST",
       credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        json: { since },
+        path: ["notifications", "listMissed"],
+      }),
     });
     if (!res.ok) return;
 
-    const data = await res.json();
-    if (!data.success) return;
+    const raw = await res.json();
+    const data =
+      raw && typeof raw === "object" && "json" in raw
+        ? (raw as { json: { friendRequests?: unknown[]; tabInvites?: unknown[] } }).json
+        : raw;
+    if (!data || typeof data !== "object") return;
 
-    const friendRequests = data.friendRequests ?? [];
-    const tabInvites = data.tabInvites ?? [];
+    type FriendRequestRow = {
+      id: string;
+      fromUserName?: string | null;
+    };
+    type TabInviteRow = {
+      id: string;
+      fromUserName?: string | null;
+      tabName?: string;
+    };
+
+    const friendRequests =
+      ((data as { friendRequests?: FriendRequestRow[] }).friendRequests ??
+        []) as FriendRequestRow[];
+    const tabInvites =
+      ((data as { tabInvites?: TabInviteRow[] }).tabInvites ?? []) as TabInviteRow[];
 
     for (const r of friendRequests) {
       await self.registration.showNotification("New friend request", {

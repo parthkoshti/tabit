@@ -1,4 +1,4 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "@/lib/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { useNavTitle } from "../../../../context/nav-title-context";
@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { ArrowLeft, Pencil, Trash2, Wallet } from "lucide-react";
 import { toast } from "sonner";
-import { Spinner } from "@/components/ui/spinner";
+import { LedgerDetailSkeleton } from "@/components/page-skeletons";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import {
@@ -44,7 +44,7 @@ export function SettlementPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const { data: settlement, isLoading: settlementLoading } = useQuery({
+  const { data: settlement, isPending: settlementPending } = useQuery({
     queryKey: ["settlement", tabIdOrEmpty, settlementIdOrEmpty],
     queryFn: async () => {
       const r = await api.settlements.get(tabIdOrEmpty, settlementIdOrEmpty);
@@ -83,12 +83,8 @@ export function SettlementPage() {
 
   if (!tabIdOrEmpty || !settlementIdOrEmpty) return null;
 
-  if (settlementLoading) {
-    return (
-      <div className="flex min-h-[200px] items-center justify-center p-4">
-        <Spinner />
-      </div>
-    );
+  if (settlementPending) {
+    return <LedgerDetailSkeleton />;
   }
 
   if (!settlement) {
@@ -182,7 +178,7 @@ export function SettlementPage() {
   }
 
   return (
-    <div className="p-4 pb-20">
+    <div className="p-4">
       <div className="mx-auto max-w-md space-y-8">
         <div className="space-y-5">
           <div className="flex flex-col gap-0.5">

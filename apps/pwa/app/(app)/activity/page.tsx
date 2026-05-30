@@ -1,14 +1,14 @@
 import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import useInfiniteScroll from "react-infinite-scroll-hook";
 import { api } from "@/lib/api-client";
-import type { ActivityItem } from "data";
+import type { ActivityItem } from "@/lib/domain-types";
 import { authClient } from "@/lib/auth-client";
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/navigation";
 import { ReceiptText, Users } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { ActivityListSkeleton } from "@/components/page-skeletons";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
@@ -28,7 +28,8 @@ export function ActivityPage() {
 
   const {
     data,
-    isLoading,
+    isPending,
+    isFetching,
     isError,
     fetchNextPage,
     hasNextPage,
@@ -43,26 +44,13 @@ export function ActivityPage() {
     },
     initialPageParam: 0,
     enabled: !!session?.user,
-    placeholderData: (prev) =>
-      prev ?? {
-        pages: [] as { items: ActivityItem[]; total: number }[],
-        pageParams: [0],
-      },
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage || typeof lastPage !== "object" || !("total" in lastPage))
-        return undefined;
-      const pages = allPages ?? [];
-      const loaded = pages.reduce(
-        (sum, p) =>
-          sum +
-          (p && typeof p === "object" && "items" in p
-            ? (p.items as ActivityItem[]).length
-            : 0),
+      if (typeof lastPage?.total !== "number") return undefined;
+      const loaded = (allPages ?? []).reduce(
+        (sum, p) => sum + (Array.isArray(p?.items) ? p.items.length : 0),
         0,
       );
-      return loaded < (lastPage as { total: number }).total
-        ? loaded
-        : undefined;
+      return loaded < lastPage.total ? loaded : undefined;
     },
   });
 
@@ -88,9 +76,11 @@ export function ActivityPage() {
     rootMargin: "0px 0px 200px 0px",
   });
 
+  const showSkeleton = isPending || (isFetching && items.length === 0);
+
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-60">
+      <div className="mx-auto max-w-2xl space-y-6">
         <section className="space-y-4">
           <h2 className="text-base font-medium mb-1">Activity</h2>
           <p className="text-xs text-muted-foreground mb-4">
@@ -108,28 +98,8 @@ export function ActivityPage() {
                 Retry
               </Button>
             </div>
-          ) : isLoading ? (
-            <div className="flex flex-col gap-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex flex-1 items-center gap-2">
-                      <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
-                      <Skeleton className="h-4 flex-1 max-w-40" />
-                    </div>
-                    <Skeleton className="h-4 w-14 shrink-0" />
-                  </div>
-                  <Skeleton className="h-3 w-48" />
-                  <div className="flex items-end justify-between gap-3 pt-0.5">
-                    <Skeleton className="h-3 w-24" />
-                    <Skeleton className="h-10 w-20 shrink-0" />
-                  </div>
-                </div>
-              ))}
-            </div>
+          ) : showSkeleton ? (
+            <ActivityListSkeleton />
           ) : !items || items.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground">
               No activity yet
@@ -409,25 +379,7 @@ export function ActivityPage() {
                   </motion.div>
                 );
               })}
-              {isFetchingNextPage && (
-                <div className="flex flex-col gap-3">
-                  {Array.from({ length: 2 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-col gap-2 rounded-xl border border-border bg-card/50 p-4"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
-                          <Skeleton className="h-4 flex-1 max-w-40" />
-                        </div>
-                        <Skeleton className="h-4 w-16 shrink-0" />
-                      </div>
-                      <Skeleton className="h-3 w-48" />
-                    </div>
-                  ))}
-                </div>
-              )}
+              {isFetchingNextPage && <ActivityListSkeleton count={2} />}
               {hasNextPage && <div ref={infiniteRef} className="h-1" />}
             </motion.div>
           )}

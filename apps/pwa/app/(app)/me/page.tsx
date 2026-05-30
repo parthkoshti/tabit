@@ -46,7 +46,7 @@ import {
   useSetPushResubscriptionRequired,
 } from "@/app/(app)/context/push-resubscription-context";
 import { UserAvatar } from "@/components/user-avatar";
-import { Spinner } from "@/components/ui/spinner";
+import { QRSkeleton } from "@/components/page-skeletons";
 import { useNavTitle } from "../context/nav-title-context";
 import { appConfig } from "@/src/config";
 import {
@@ -270,7 +270,7 @@ export function MePage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-2xl space-y-6 pb-60">
+      <div className="mx-auto max-w-2xl space-y-6">
         <section className="space-y-4">
           <div className="flex flex-col gap-3 rounded-xl border border-border bg-card/50 p-4">
             <div className="flex items-center gap-4">
@@ -386,7 +386,7 @@ export function MePage() {
                 onValueChange={handleTimezoneChange}
                 disabled={timezoneLoading || preferencesPending}
               >
-                <SelectTrigger id="timezone" className="w-60">
+                <SelectTrigger id="timezone" className="w-full">
                   <SelectValue placeholder="Select timezone" />
                   <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
                 </SelectTrigger>
@@ -580,6 +580,7 @@ function VoiceInputSection() {
             >
               <SelectTrigger className="w-48 shrink-0">
                 <SelectValue />
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
               </SelectTrigger>
               <SelectContent className="max-h-60">
                 {SPEECH_RECOGNITION_LANGUAGES.map((lang) => (
@@ -976,9 +977,7 @@ function InviteSection() {
         <p className="text-xs text-muted-foreground mb-4">
           Share your QR code or invite link for others to add you as a friend
         </p>
-        <div className="flex aspect-square w-48 items-center justify-center rounded-lg border bg-muted">
-          <Spinner size="sm" />
-        </div>
+        <QRSkeleton />
       </section>
     );
   }
@@ -998,7 +997,7 @@ function InviteSection() {
                   className="flex items-center justify-center"
                   style={{ width: 180, height: 180 }}
                 >
-                  <Spinner size="sm" />
+                  <QRSkeleton />
                 </div>
               }
             >

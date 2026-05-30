@@ -1,10 +1,10 @@
 import { useEffect, useState, Suspense } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "@/lib/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useNavTitle } from "../../context/nav-title-context";
 import { Button } from "@/components/ui/button";
-import { Spinner } from "@/components/ui/spinner";
+import { InlinePageSkeleton } from "@/components/page-skeletons";
 
 function AddByQRContent() {
   const navigate = useNavigate();
@@ -40,19 +40,18 @@ function AddByQRContent() {
         queryClient.invalidateQueries({ queryKey: ["tabs"] });
         queryClient.invalidateQueries({ queryKey: ["activity"] });
         navigate(`/tabs/${result.friendTabId}`, { replace: true });
+      } else if (!result.success) {
+        setStatus("error");
+        setError(result.error);
       } else {
         setStatus("error");
-        setError(result.error ?? "Failed to add friend");
+        setError("Failed to add friend");
       }
     });
   }, [code, token, qr, userParam, navigate, queryClient]);
 
   if (status === "loading") {
-    return (
-      <div className="flex min-h-[200px] items-center justify-center p-4">
-        <Spinner />
-      </div>
-    );
+    return <InlinePageSkeleton label="Adding friend…" />;
   }
 
   if (status === "error") {
@@ -74,11 +73,7 @@ function AddByQRContent() {
 export function AddByQrPage() {
   return (
     <Suspense
-      fallback={
-        <div className="flex min-h-[200px] items-center justify-center p-4">
-          <Spinner />
-        </div>
-      }
+      fallback={<InlinePageSkeleton label="Adding friend…" />}
     >
       <AddByQRContent />
     </Suspense>

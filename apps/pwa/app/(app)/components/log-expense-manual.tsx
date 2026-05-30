@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "@/lib/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { authClient } from "@/lib/auth-client";
@@ -8,7 +8,7 @@ import { api } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { getDisplayName } from "@/lib/display-name";
 import { ArrowLeft, Search } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
+import { TabListSkeleton, FormPageSkeleton } from "@/components/page-skeletons";
 import { Input } from "@/components/ui/input";
 import { TabListItem, type TabListItemData } from "@/components/tab-list-item";
 import { staggerContainer, staggerItem } from "@/lib/animations";
@@ -148,9 +148,9 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="flex justify-center py-8"
+                className="py-2"
               >
-                <Spinner />
+                <TabListSkeleton count={5} />
               </motion.div>
             ) : !hasAnyTabs ? (
               <motion.div
@@ -236,9 +236,8 @@ export function LogExpenseManual({ onSuccess }: LogExpenseManualProps) {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="flex justify-center py-8"
               >
-                <Spinner />
+                <FormPageSkeleton />
               </motion.div>
             ) : !tab ? (
               <motion.p

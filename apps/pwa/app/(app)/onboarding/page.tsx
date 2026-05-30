@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useForm } from "@tanstack/react-form";
+import { z } from "zod";
+import { usernameSchema } from "models";
+import { useNavigate, useSearchParams } from "@/lib/navigation";
 import { authClient } from "@/lib/auth-client";
 import { api } from "@/lib/api-client";
 import { needsProfileSetup } from "@/lib/profile";
+import { zodFieldErrors } from "@/lib/form-zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,7 +28,14 @@ import {
   Bell,
 } from "lucide-react";
 
-const USERNAME_REGEX = /^[a-zA-Z0-9_]{5,12}$/;
+const profileSetupSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Name is required")
+    .max(64, "Name must be at most 64 characters"),
+  username: usernameSchema,
+});
 
 type Platform = "ios" | "android" | "web";
 
@@ -61,10 +72,6 @@ export function OnboardingPage() {
     refetch,
   } = authClient.useSession();
   const [step, setStep] = useState<1 | 2>(1);
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [availability, setAvailability] = useState<
     "idle" | "loading" | "available" | "taken"
   >("idle");
@@ -81,6 +88,34 @@ export function OnboardingPage() {
   >("idle");
   const [notificationLoading, setNotificationLoading] = useState(false);
   const checkIdRef = useRef(0);
+
+  const profileForm = useForm({
+    defaultValues: { name: "", username: "" },
+    validators: {
+      onSubmit: ({ value }) => zodFieldErrors(profileSetupSchema, value),
+    },
+    onSubmit: async ({ value }) => {
+      const [profileResult, usernameResult] = await Promise.all([
+        api.profile.update({ name: value.name.trim() }),
+        api.username.update(value.username.trim().toLowerCase()),
+      ]);
+      if (profileResult.success && usernameResult.success) {
+        await refetch();
+        setStep(2);
+        return;
+      }
+      const message = !profileResult.success
+        ? profileResult.error
+        : !usernameResult.success
+          ? usernameResult.error
+          : "Failed to complete profile";
+      profileForm.setErrorMap({
+        onSubmit: { form: message, fields: {} },
+      });
+    },
+  });
+
+  const username = profileForm.state.values.username;
 
   const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
   const DISABLE_REDIRECT = false; // TODO: remove - temp disable to view page
@@ -135,9 +170,13 @@ export function OnboardingPage() {
   }, [installed, vapidKey]);
 
   useEffect(() => {
-    if (session?.user?.name) setName(session.user.name);
-    if (session?.user?.username) setUsername(session.user.username ?? "");
-  }, [session?.user?.name, session?.user?.username]);
+    if (session?.user?.name) {
+      profileForm.setFieldValue("name", session.user.name);
+    }
+    if (session?.user?.username) {
+      profileForm.setFieldValue("username", session.user.username ?? "");
+    }
+  }, [session?.user?.name, session?.user?.username, profileForm]);
 
   useEffect(() => {
     if (sessionPending) return;
@@ -154,7 +193,9 @@ export function OnboardingPage() {
   }, [session, sessionPending, navigate, searchParams, step]);
 
   useEffect(() => {
-    if (!username.trim() || !USERNAME_REGEX.test(username.trim())) {
+    const trimmed = username.trim();
+    const parsed = usernameSchema.safeParse(trimmed);
+    if (!trimmed || !parsed.success) {
       setAvailability("idle");
       return;
     }
@@ -169,32 +210,6 @@ export function OnboardingPage() {
     }, 300);
     return () => clearTimeout(timer);
   }, [username]);
-
-  async function handleStep1Submit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const [profileResult, usernameResult] = await Promise.all([
-      api.profile.update({ name: name.trim() }),
-      api.username.update(username.trim().toLowerCase()),
-    ]);
-    const result =
-      profileResult.success && usernameResult.success
-        ? { success: true as const }
-        : {
-            success: false as const,
-            error: profileResult.error ?? usernameResult.error ?? "Failed",
-          };
-
-    if (result.success) {
-      await refetch();
-      setStep(2);
-    } else {
-      setError(result.error ?? "Failed to complete profile");
-    }
-    setLoading(false);
-  }
 
   function handleStep2Continue() {
     const returnTo = searchParams.get("returnTo");
@@ -263,74 +278,110 @@ export function OnboardingPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleStep1Submit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Your name"
-                  maxLength={64}
-                  required
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <div className="relative">
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="johndoe"
-                    minLength={5}
-                    maxLength={12}
-                    pattern="[a-zA-Z0-9_]+"
-                    required
-                    disabled={loading}
-                    className="pr-24"
-                  />
-                  <span className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-muted-foreground">
-                    {availability === "loading" && (
-                      <Loader2 className="h-4 w-4 animate-spin" />
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void profileForm.handleSubmit();
+              }}
+              className="space-y-4"
+            >
+              <profileForm.Field name="name">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      placeholder="Your name"
+                      maxLength={64}
+                      required
+                      disabled={profileForm.state.isSubmitting}
+                    />
+                    {field.state.meta.errors[0] ? (
+                      <p className="text-sm text-destructive">
+                        {String(field.state.meta.errors[0])}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </profileForm.Field>
+              <profileForm.Field name="username">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <div className="relative">
+                      <Input
+                        id="username"
+                        value={field.state.value}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        onBlur={field.handleBlur}
+                        placeholder="johndoe"
+                        minLength={5}
+                        maxLength={12}
+                        pattern="[a-zA-Z0-9_]+"
+                        required
+                        disabled={profileForm.state.isSubmitting}
+                        className="pr-24"
+                      />
+                      <span className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-muted-foreground">
+                        {availability === "loading" && (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        )}
+                        {availability === "available" && (
+                          <>
+                            <CircleCheck className="h-4 w-4 text-positive" />
+                            <span className="text-xs text-positive">
+                              Available
+                            </span>
+                          </>
+                        )}
+                        {availability === "taken" && (
+                          <>
+                            <CircleX className="h-4 w-4 text-destructive" />
+                            <span className="text-xs text-destructive">
+                              Taken
+                            </span>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                    {field.state.meta.errors[0] ? (
+                      <p className="text-sm text-destructive">
+                        {String(field.state.meta.errors[0])}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        5-12 characters, letters, numbers, and underscores only
+                      </p>
                     )}
-                    {availability === "available" && (
-                      <>
-                        <CircleCheck className="h-4 w-4 text-positive" />
-                        <span className="text-xs text-positive">Available</span>
-                      </>
-                    )}
-                    {availability === "taken" && (
-                      <>
-                        <CircleX className="h-4 w-4 text-destructive" />
-                        <span className="text-xs text-destructive">Taken</span>
-                      </>
-                    )}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  5-12 characters, letters, numbers, and underscores only
-                </p>
-              </div>
-              {error && (
+                  </div>
+                )}
+              </profileForm.Field>
+              {profileForm.state.errorMap.onSubmit?.form ? (
                 <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>
+                    {String(profileForm.state.errorMap.onSubmit.form)}
+                  </AlertDescription>
                 </Alert>
-              )}
+              ) : null}
               <Button
                 type="submit"
                 disabled={
-                  loading ||
-                  !name.trim() ||
-                  !username.trim() ||
-                  !USERNAME_REGEX.test(username.trim()) ||
+                  profileForm.state.isSubmitting ||
+                  !profileForm.state.values.name.trim() ||
+                  !profileForm.state.values.username.trim() ||
+                  !usernameSchema.safeParse(
+                    profileForm.state.values.username.trim(),
+                  ).success ||
                   availability === "taken" ||
                   availability === "loading"
                 }
                 className="w-full"
               >
-                {loading ? "Saving..." : "Continue"}
+                {profileForm.state.isSubmitting ? "Saving..." : "Continue"}
               </Button>
             </form>
           </CardContent>

@@ -1,136 +1,69 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import type { NotificationPayload } from "models";
 import { useSetPushResubscriptionRequired } from "@/app/(app)/context/push-resubscription-context";
+import { invalidateForNotification } from "@/src/lib/invalidate-notification";
 import {
-  notificationManager,
+  realtimeManager,
   type ConnectionState,
-  type NotificationPayload,
-} from "./notification-manager";
+} from "@/src/lib/realtime-manager";
 
 export function useNotifications(enabled: boolean): ConnectionState {
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const setNeedsResubscription = useSetPushResubscriptionRequired();
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("disconnected");
 
-  const navigateRef = useRef(navigate);
   const queryClientRef = useRef(queryClient);
   const setNeedsResubscriptionRef = useRef(setNeedsResubscription);
-  navigateRef.current = navigate;
   queryClientRef.current = queryClient;
   setNeedsResubscriptionRef.current = setNeedsResubscription;
 
   useEffect(() => {
     if (!enabled) {
-      notificationManager.disconnect();
+      realtimeManager.disconnect();
       setConnectionState("disconnected");
       return;
     }
 
-    const unsubscribeNotification = notificationManager.addNotificationListener(
+    const unsubscribeNotification = realtimeManager.addNotificationListener(
       (payload: NotificationPayload) => {
         const qc = queryClientRef.current;
-        const nav = navigateRef.current;
         const setResub = setNeedsResubscriptionRef.current;
 
-        if (payload.type === "friend_request") {
-          qc.invalidateQueries({
-            queryKey: ["pendingFriendRequests"],
-          });
-        } else if (payload.type === "tab_invite") {
-          qc.invalidateQueries({
-            queryKey: ["pendingTabInviteRequests"],
-          });
-        } else if (
-          payload.type === "friend_request_accepted" ||
-          payload.type === "tab_invite_accepted"
+        if (
+          (payload as { type: string }).type === "push_resubscription_required"
         ) {
-          qc.invalidateQueries({ queryKey: ["friends"] });
-          qc.invalidateQueries({ queryKey: ["tabs"] });
-          if (payload.tabId) {
-            qc.invalidateQueries({
-              queryKey: ["tab", payload.tabId],
-            });
-            qc.invalidateQueries({
-              queryKey: ["members", payload.tabId],
-            });
-          }
-        } else if (
-          payload.type === "expense_added" ||
-          payload.type === "expense_updated" ||
-          payload.type === "expense_deleted" ||
-          payload.type === "expense_restored" ||
-          payload.type === "expense_reaction" ||
-          payload.type === "expenses_bulk_imported"
-        ) {
-          if (payload.tabId) {
-            qc.invalidateQueries({
-              queryKey: ["expenses", payload.tabId],
-            });
-            qc.invalidateQueries({
-              queryKey: ["balances", payload.tabId],
-            });
-            qc.invalidateQueries({
-              queryKey: ["tab", payload.tabId],
-            });
-            if (
-              "expenseId" in payload &&
-              typeof payload.expenseId === "string" &&
-              payload.expenseId
-            ) {
-              qc.invalidateQueries({
-                queryKey: ["expense", payload.tabId, payload.expenseId],
-              });
-              qc.invalidateQueries({
-                queryKey: ["expenseAuditLog", payload.tabId, payload.expenseId],
-              });
-            }
-          }
-          qc.invalidateQueries({ queryKey: ["tabs"] });
-          qc.invalidateQueries({ queryKey: ["activity"] });
-        } else if (payload.type === "placeholder_merged") {
-          if (payload.tabId) {
-            qc.invalidateQueries({ queryKey: ["tab", payload.tabId] });
-            qc.invalidateQueries({ queryKey: ["tabs"] });
-            qc.invalidateQueries({
-              queryKey: ["expenses", payload.tabId],
-            });
-            qc.invalidateQueries({
-              queryKey: ["balances", payload.tabId],
-            });
-            qc.invalidateQueries({ queryKey: ["activity"] });
-            qc.invalidateQueries({
-              queryKey: ["settlements", payload.tabId],
-            });
-          }
-        } else if (payload.type === "push_resubscription_required") {
           setResub?.(true);
           toast("Push notifications need to be re-enabled", {
             description: "Your push subscription is no longer valid.",
             action: {
               label: "Settings",
-              onClick: () => nav("/me"),
+              onClick: () => {
+                window.location.assign("/me");
+              },
             },
           });
+          return;
         }
+
+        invalidateForNotification(qc, payload);
       },
     );
 
-    const unsubscribeState = notificationManager.addStateListener(
+    const unsubscribeState = realtimeManager.addStateListener(
       (state: ConnectionState) => {
         setConnectionState(state);
       },
     );
 
-    notificationManager.connect();
+    realtimeManager.connect();
 
     return () => {
       unsubscribeNotification();
       unsubscribeState();
-      notificationManager.disconnect();
+      realtimeManager.disconnect();
     };
   }, [enabled]);
 

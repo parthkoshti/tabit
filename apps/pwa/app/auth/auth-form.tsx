@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useForm } from "@tanstack/react-form";
+import { z } from "zod";
+import { useNavigate, useSearchParams, Link } from "@/lib/navigation";
 import { authClient } from "@/lib/auth-client";
+import { zodFieldErrors } from "@/lib/form-zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +19,14 @@ import { Spinner } from "@/components/ui/spinner";
 import { Mail, KeyRound, Loader2, ArrowLeft } from "lucide-react";
 
 type AuthMode = "login" | "signup";
+
+const emailSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+});
+
+const otpSchema = z.object({
+  otp: z.string().length(6, "Enter the 6-digit code"),
+});
 
 const COPY: Record<
   AuthMode,
@@ -61,13 +72,60 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const callbackURL = searchParams.get("callbackURL") ?? "/tabs";
   const navigate = useNavigate();
   const { data: session, isPending } = authClient.useSession();
-  const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState("");
   const [step, setStep] = useState<"email" | "otp">("email");
-  const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
-  const [error, setError] = useState<string | null>(null);
+  const [verifiedEmail, setVerifiedEmail] = useState("");
 
   const copy = COPY[mode];
+
+  const otpForm = useForm({
+    defaultValues: { otp: "" },
+    validators: {
+      onSubmit: ({ value }) => zodFieldErrors(otpSchema, value),
+    },
+    onSubmit: async ({ value }) => {
+      const { error: err } = await authClient.signIn.emailOtp({
+        email: verifiedEmail,
+        otp: value.otp,
+        callbackURL,
+      });
+
+      if (err) {
+        otpForm.setErrorMap({
+          onSubmit: {
+            form: err.message ?? "Invalid or expired code",
+            fields: {},
+          },
+        });
+        return;
+      }
+
+      navigate(callbackURL);
+    },
+  });
+
+  const emailForm = useForm({
+    defaultValues: { email: "" },
+    validators: {
+      onSubmit: ({ value }) => zodFieldErrors(emailSchema, value),
+    },
+    onSubmit: async ({ value }) => {
+      const { error: err } = await authClient.emailOtp.sendVerificationOtp({
+        email: value.email.trim(),
+        type: "sign-in",
+      });
+
+      if (err) {
+        emailForm.setErrorMap({
+          onSubmit: { form: err.message ?? "Failed to send OTP", fields: {} },
+        });
+        return;
+      }
+
+      setVerifiedEmail(value.email.trim());
+      otpForm.reset();
+      setStep("otp");
+    },
+  });
 
   useEffect(() => {
     if (!isPending && session?.user) {
@@ -75,52 +133,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     }
   }, [session, isPending, navigate, callbackURL]);
 
-  async function handleSendOtp(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus("loading");
-    setError(null);
-
-    const { error: err } = await authClient.emailOtp.sendVerificationOtp({
-      email,
-      type: "sign-in",
-    });
-
-    if (err) {
-      setStatus("error");
-      setError(err.message ?? "Failed to send OTP");
-      return;
-    }
-
-    setStep("otp");
-    setStatus("idle");
-    setError(null);
-  }
-
-  async function handleVerifyOtp(e: React.FormEvent) {
-    e.preventDefault();
-    setStatus("loading");
-    setError(null);
-
-    const { error: err } = await authClient.signIn.emailOtp({
-      email,
-      otp,
-      callbackURL,
-    });
-
-    if (err) {
-      setStatus("error");
-      setError(err.message ?? "Invalid or expired code");
-      return;
-    }
-
-    navigate(callbackURL);
-  }
-
   function handleBackToEmail() {
     setStep("email");
-    setOtp("");
-    setError(null);
-    setStatus("idle");
+    otpForm.reset();
   }
 
   const switchHrefWithCallback =
@@ -164,36 +179,55 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           <CardDescription>
             {step === "email"
               ? copy.emailDescription
-              : `We sent a 6-digit code to ${email}. Enter it below.`}
+              : `We sent a 6-digit code to ${verifiedEmail}. Enter it below.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {step === "email" ? (
-            <form onSubmit={handleSendOtp} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  disabled={status === "loading"}
-                  placeholder="you@example.com"
-                  className="h-11"
-                />
-              </div>
-              {error && (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void emailForm.handleSubmit();
+              }}
+              className="space-y-4"
+            >
+              <emailForm.Field name="email">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={field.state.value}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      onBlur={field.handleBlur}
+                      required
+                      disabled={emailForm.state.isSubmitting}
+                      placeholder="you@example.com"
+                      className="h-11"
+                    />
+                    {field.state.meta.errors[0] ? (
+                      <p className="text-sm text-destructive">
+                        {String(field.state.meta.errors[0])}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
+              </emailForm.Field>
+              {emailForm.state.errorMap.onSubmit?.form ? (
                 <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>
+                    {String(emailForm.state.errorMap.onSubmit.form)}
+                  </AlertDescription>
                 </Alert>
-              )}
+              ) : null}
               <Button
                 type="submit"
-                disabled={status === "loading"}
+                disabled={emailForm.state.isSubmitting}
                 className="h-11 w-full"
               >
-                {status === "loading" ? (
+                {emailForm.state.isSubmitting ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Sending...
@@ -204,54 +238,86 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
               </Button>
             </form>
           ) : (
-            <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="otp">Verification code</Label>
-                <Input
-                  id="otp"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={otp}
-                  onChange={(e) =>
-                    setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
-                  }
-                  required
-                  disabled={status === "loading"}
-                  placeholder="000000"
-                  maxLength={6}
-                  className="h-12 text-center text-lg tracking-[0.5em] input-no-spinner"
-                />
-              </div>
-              {error && (
-                <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-              <Button
-                type="submit"
-                disabled={status === "loading" || otp.length !== 6}
-                className="h-11 w-full"
-              >
-                {status === "loading" ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Verifying...
-                  </>
-                ) : (
-                  copy.verifyButton
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void otpForm.handleSubmit();
+              }}
+              className="space-y-4"
+            >
+              <otpForm.Field name="otp">
+                {(field) => (
+                  <div className="space-y-2">
+                    <Label htmlFor="otp">Verification code</Label>
+                    <Input
+                      id="otp"
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={field.state.value}
+                      onChange={(e) =>
+                        field.handleChange(
+                          e.target.value.replace(/\D/g, "").slice(0, 6),
+                        )
+                      }
+                      onBlur={field.handleBlur}
+                      required
+                      disabled={otpForm.state.isSubmitting}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="h-12 text-center text-lg tracking-[0.5em] input-no-spinner"
+                    />
+                    {field.state.meta.errors[0] ? (
+                      <p className="text-sm text-destructive">
+                        {String(field.state.meta.errors[0])}
+                      </p>
+                    ) : null}
+                  </div>
                 )}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleBackToEmail}
-                disabled={status === "loading"}
-                className="h-10 w-full text-muted-foreground"
+              </otpForm.Field>
+              {otpForm.state.errorMap.onSubmit?.form ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    {String(otpForm.state.errorMap.onSubmit.form)}
+                  </AlertDescription>
+                </Alert>
+              ) : null}
+              <otpForm.Subscribe
+                selector={(state) => ({
+                  otp: state.values.otp,
+                  isSubmitting: state.isSubmitting,
+                })}
               >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Use a different email
-              </Button>
+                {({ otp, isSubmitting }) => (
+                  <>
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting || otp.length !== 6}
+                      className="h-11 w-full"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Verifying...
+                        </>
+                      ) : (
+                        copy.verifyButton
+                      )}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleBackToEmail}
+                      disabled={isSubmitting}
+                      className="h-10 w-full text-muted-foreground"
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Use a different email
+                    </Button>
+                  </>
+                )}
+              </otpForm.Subscribe>
             </form>
           )}
         </CardContent>

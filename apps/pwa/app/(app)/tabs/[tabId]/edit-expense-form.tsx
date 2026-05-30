@@ -1,7 +1,14 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { useForm } from "@tanstack/react-form";
 import { api } from "@/lib/api-client";
+import {
+  buildExpenseUpdateBody,
+  parseExpenseAmount,
+  resolveExpensePayerParticipantId,
+  validateExpenseFormValues,
+} from "@/lib/expense-form";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "@/lib/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -166,33 +173,23 @@ export function EditExpenseForm({
   onCancel?: () => void;
 }) {
   const navigate = useNavigate();
-  const [amount, setAmount] = useState(() =>
-    (expense.originalAmount ?? expense.amount).toFixed(2),
+  const [splitConfig, setSplitConfig] = useState<SplitConfig | null>(() =>
+    inferSplitConfig(expense),
   );
-  const [currency, setCurrency] = useState(
-    expense.currency ?? tabCurrency,
-  );
-  const [description, setDescription] = useState(expense.description);
-  const [expenseDate, setExpenseDate] = useState<Date>(
-    () => new Date(expense.expenseDate),
-  );
-  const [paidByParticipantId, setPaidByParticipantId] = useState("");
-  const [participantIds, setParticipantIds] = useState<Set<string>>(
-    () => new Set(),
-  );
-  const [loading, setLoading] = useState(false);
+  const splitConfigRef = useRef(splitConfig);
+  splitConfigRef.current = splitConfig;
+  const [splitDialogOpen, setSplitDialogOpen] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const descriptionRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const [fxPreview, setFxPreview] = useState<{
     amountTab: number;
     tabCurrency: string;
   } | null>(null);
   const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
-
-  const [splitConfig, setSplitConfig] = useState<SplitConfig | null>(() =>
-    inferSplitConfig(expense),
-  );
-  const [splitDialogOpen, setSplitDialogOpen] = useState(false);
 
   const tabParticipants = useMemo((): TabParticipant[] => {
     if (participants.length > 0) return participants;
@@ -208,33 +205,85 @@ export function EditExpenseForm({
     }));
   }, [participants, members]);
 
+  const initialValues = useMemo(
+    () => ({
+      amount: (expense.originalAmount ?? expense.amount).toFixed(2),
+      currency: expense.currency ?? tabCurrency,
+      description: expense.description,
+      expenseDate: new Date(expense.expenseDate),
+      paidByParticipantId: resolveExpensePayerParticipantId(
+        expense,
+        tabParticipants,
+      ),
+      participantIds: expense.splits
+        .map((s) => splitRowKey(s))
+        .filter((id) => id.length > 0),
+    }),
+    [expense, tabParticipants, tabCurrency],
+  );
+
+  const form = useForm({
+    defaultValues: initialValues,
+    validators: {
+      onSubmit: ({ value }) =>
+        validateExpenseFormValues(
+          tabId,
+          value,
+          value.paidByParticipantId,
+          splitConfigRef.current,
+          tabParticipants,
+        ),
+    },
+    onSubmit: async ({ value }) => {
+      const updateBody = buildExpenseUpdateBody(
+        value,
+        value.paidByParticipantId,
+        splitConfigRef.current,
+      );
+
+      const result = await api.expenses.update(tabId, expenseId, updateBody);
+
+      if (result.success) {
+        queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
+        queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
+        queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
+        queryClient.invalidateQueries({ queryKey: ["activity"] });
+        queryClient.invalidateQueries({
+          queryKey: ["expense", tabId, expenseId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ["expenseAuditLog", tabId, expenseId],
+        });
+        toast.success("Expense updated");
+        if (onSuccess) onSuccess();
+        else navigate(`/tabs/${tabId}`);
+        return;
+      }
+
+      form.setErrorMap({
+        onSubmit: {
+          form: result.error ?? "Failed to update expense",
+          fields: {},
+        },
+      });
+    },
+  });
+
+  const { amount, currency, expenseDate, participantIds } = form.state.values;
+  const participantIdSet = useMemo(
+    () => new Set(participantIds),
+    [participantIds],
+  );
+  const busy = form.state.isSubmitting || deleting;
+
   useEffect(() => {
     if (tabParticipants.length === 0) return;
     setSplitConfig(inferSplitConfig(expense));
-    const initPayer =
-      expense.paidByParticipantId ??
-      tabParticipants.find((p) => p.userId != null && p.userId === expense.paidById)
-        ?.id ??
-      tabParticipants.find((p) => p.id === expense.paidById)?.id ??
-      tabParticipants[0]!.id;
-    setPaidByParticipantId(initPayer);
-    setParticipantIds(
-      new Set(
-        expense.splits
-          .map((s) => splitRowKey(s))
-          .filter((id) => id.length > 0),
-      ),
-    );
-  }, [expense, tabParticipants]);
-
-  function parseAmount(value: string): number | null {
-    const num = parseFloat(value);
-    if (isNaN(num) || num < 0.01) return null;
-    return num;
-  }
+    form.reset(initialValues);
+  }, [expense, tabParticipants, initialValues, form]);
 
   useEffect(() => {
-    const parsed = parseAmount(amount);
+    const parsed = parseExpenseAmount(amount);
     if (parsed === null || currency === tabCurrency) {
       setFxPreview(null);
       setFxPreviewLoading(false);
@@ -281,8 +330,8 @@ export function EditExpenseForm({
   }, []);
 
   const selectedParticipants = useMemo(
-    () => tabParticipants.filter((p) => participantIds.has(p.id)),
-    [tabParticipants, participantIds],
+    () => tabParticipants.filter((p) => participantIdSet.has(p.id)),
+    [tabParticipants, participantIdSet],
   );
 
   const hasPlaceholderInSplit = useMemo(
@@ -306,7 +355,10 @@ export function EditExpenseForm({
     [selectedParticipants],
   );
 
-  const parsedAmountForSplit = useMemo(() => parseAmount(amount), [amount]);
+  const parsedAmountForSplit = useMemo(
+    () => parseExpenseAmount(amount),
+    [amount],
+  );
 
   const tabTotalForSplit = useMemo(() => {
     if (parsedAmountForSplit === null) return null;
@@ -320,116 +372,29 @@ export function EditExpenseForm({
 
   function toggleParticipant(participantId: string) {
     setSplitConfig(null);
-    setParticipantIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(participantId)) {
-        if (next.size <= 1) {
-          setError("At least one person must be in the split");
-          return prev;
-        }
-        next.delete(participantId);
-      } else {
-        next.add(participantId);
-        setError(null);
+    const current = form.state.values.participantIds;
+    if (current.includes(participantId)) {
+      if (current.length <= 1) {
+        form.setErrorMap({
+          onSubmit: {
+            form: "At least one person must be in the split",
+            fields: {},
+          },
+        });
+        return;
       }
-      return next;
-    });
-  }
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const queryClient = useQueryClient();
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
-    const parsedAmount = parseAmount(amount);
-    if (parsedAmount === null) {
-      setError("Please enter a valid amount (min $0.01)");
-      setLoading(false);
-      return;
-    }
-
-    if (selectedParticipants.length < 1) {
-      setError("At least one person must be in the split");
-      setLoading(false);
-      return;
-    }
-
-    if (
-      selectedParticipants.length === 1 &&
-      selectedParticipants[0]!.id === paidByParticipantId
-    ) {
-      setError("Payer cannot be the only member of the split");
-      setLoading(false);
-      return;
-    }
-
-    const participantIdsList = selectedParticipants.map((p) => p.id);
-
-    const updateBody =
-      splitConfig == null || splitConfig.splitType === "equal"
-        ? {
-            amount: parsedAmount,
-            currency,
-            description,
-            paidByParticipantId,
-            splitType: "equal" as const,
-            expenseDate: expenseDate.toISOString().slice(0, 10),
-            participantIds: participantIdsList,
-          }
-        : splitConfig.splitType === "custom"
-          ? {
-              amount: parsedAmount,
-              currency,
-              description,
-              paidByParticipantId,
-              splitType: "custom" as const,
-              expenseDate: expenseDate.toISOString().slice(0, 10),
-              participantIds: participantIdsList,
-              splits: splitConfig.splits,
-            }
-          : {
-              amount: parsedAmount,
-              currency,
-              description,
-              paidByParticipantId,
-              splitType: splitConfig.splitType,
-              expenseDate: expenseDate.toISOString().slice(0, 10),
-              participantIds: participantIdsList,
-              splits: splitConfig.splits.map((s) => ({
-                userId: s.userId,
-                weight: s.weight,
-              })),
-            };
-
-    const result = await api.expenses.update(tabId, expenseId, updateBody);
-
-    if (result.success) {
-      queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["balances", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["tab", tabId] });
-      queryClient.invalidateQueries({ queryKey: ["activity"] });
-      queryClient.invalidateQueries({
-        queryKey: ["expense", tabId, expenseId],
-      });
-      queryClient.invalidateQueries({
-        queryKey: ["expenseAuditLog", tabId, expenseId],
-      });
-      toast.success("Expense updated");
-      if (onSuccess) onSuccess();
-      else navigate(`/tabs/${tabId}`);
+      form.setFieldValue(
+        "participantIds",
+        current.filter((id) => id !== participantId),
+      );
     } else {
-      setError(result.error ?? "Failed to update expense");
+      form.setFieldValue("participantIds", [...current, participantId]);
     }
-    setLoading(false);
   }
 
   async function handleDelete() {
     setDeleteOpen(false);
-    setLoading(true);
+    setDeleting(true);
     const result = await api.expenses.delete(tabId, expenseId);
     if (result.success) {
       queryClient.invalidateQueries({ queryKey: ["expenses", tabId] });
@@ -440,9 +405,14 @@ export function EditExpenseForm({
       if (cb) cb();
       else navigate(`/tabs/${tabId}`);
     } else {
-      setError(result.error ?? "Failed to delete expense");
+      form.setErrorMap({
+        onSubmit: {
+          form: result.error ?? "Failed to delete expense",
+          fields: {},
+        },
+      });
     }
-    setLoading(false);
+    setDeleting(false);
   }
 
   return (
@@ -461,76 +431,100 @@ export function EditExpenseForm({
           onConfirm={setSplitConfig}
         />
       ) : null}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-4"
+      >
         <div className="flex gap-2">
-          <Select
-            value={paidByParticipantId}
-            onValueChange={setPaidByParticipantId}
-            disabled={loading}
-          >
-            <SelectTrigger className="flex-1 min-w-0 [&>span]:line-clamp-none">
-              <SelectValue placeholder="Select who paid">
-                {(() => {
-                  const payer = tabParticipants.find(
-                    (p) => p.id === paidByParticipantId,
-                  );
-                  return payer ? (
-                    <span className="flex items-center gap-2">
-                      <UserAvatar
-                        userId={payer.userId ?? payer.id}
-                        size="xs"
-                      />
-                      {participantLabel(payer, currentUserId)}
-                      <span className="text-muted-foreground">paid</span>
-                    </span>
-                  ) : null;
-                })()}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {tabParticipants.map((p) => (
-                <SelectItem key={p.id} value={p.id}>
-                  <span className="flex items-center gap-2">
-                    <UserAvatar userId={p.userId ?? p.id} size="xs" />
-                    {participantLabel(p, currentUserId)}
-                  </span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                disabled={loading}
-                className={cn(
-                  "h-9 shrink-0 gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
-                  !expenseDate && "text-muted-foreground",
-                )}
-              >
-                <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                {expenseDate ? formatAbsoluteDate(expenseDate) : "Date"}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              className={CALENDAR_POPOVER_CONTENT_CLASSNAME}
-              align="end"
-              sideOffset={4}
-              collisionPadding={12}
-            >
-              <Calendar
-                mode="single"
-                selected={expenseDate}
-                className="w-full"
-                onSelect={(date) => {
-                  if (date) {
-                    setExpenseDate(date);
-                    setDatePickerOpen(false);
-                  }
-                }}
-              />
-            </PopoverContent>
-          </Popover>
+          <form.Field name="paidByParticipantId">
+            {(field) => (
+              <div className="min-w-0 flex-1 space-y-1">
+                <Select
+                  value={field.state.value || undefined}
+                  onValueChange={field.handleChange}
+                  disabled={busy}
+                >
+                  <SelectTrigger className="w-full min-w-0 [&>span]:line-clamp-none">
+                    <SelectValue placeholder="Select who paid">
+                      {(() => {
+                        const payer = tabParticipants.find(
+                          (p) => p.id === field.state.value,
+                        );
+                        return payer ? (
+                          <span className="flex items-center gap-2">
+                            <UserAvatar
+                              userId={payer.userId ?? payer.id}
+                              size="xs"
+                            />
+                            {participantLabel(payer, currentUserId)}
+                            <span className="text-muted-foreground">paid</span>
+                          </span>
+                        ) : null;
+                      })()}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tabParticipants.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="flex items-center gap-2">
+                          <UserAvatar userId={p.userId ?? p.id} size="xs" />
+                          {participantLabel(p, currentUserId)}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {field.state.meta.errors[0] ? (
+                  <p className="text-sm text-destructive">
+                    {String(field.state.meta.errors[0])}
+                  </p>
+                ) : null}
+              </div>
+            )}
+          </form.Field>
+          <form.Field name="expenseDate">
+            {(field) => (
+              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    disabled={busy}
+                    className={cn(
+                      "h-9 shrink-0 gap-2 rounded-md border-input bg-input-bg px-3 text-sm font-normal shadow-sm hover:bg-input-bg",
+                      !field.state.value && "text-muted-foreground",
+                    )}
+                  >
+                    <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    {field.state.value
+                      ? formatAbsoluteDate(field.state.value)
+                      : "Date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className={CALENDAR_POPOVER_CONTENT_CLASSNAME}
+                  align="end"
+                  sideOffset={4}
+                  collisionPadding={12}
+                >
+                  <Calendar
+                    mode="single"
+                    selected={field.state.value}
+                    className="w-full"
+                    onSelect={(date) => {
+                      if (date) {
+                        field.handleChange(date);
+                        setDatePickerOpen(false);
+                      }
+                    }}
+                  />
+                </PopoverContent>
+              </Popover>
+            )}
+          </form.Field>
         </div>
         <div className="space-y-2">
           <Label>Split with</Label>
@@ -540,10 +534,10 @@ export function EditExpenseForm({
                 key={p.id}
                 type="button"
                 onClick={() => toggleParticipant(p.id)}
-                disabled={loading}
+                disabled={busy}
                 className={cn(
                   "flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
-                  participantIds.has(p.id)
+                  participantIdSet.has(p.id)
                     ? "border-primary/50 bg-primary/10 text-foreground"
                     : "border-border text-muted-foreground hover:bg-muted/50",
                 )}
@@ -559,9 +553,7 @@ export function EditExpenseForm({
             type="button"
             variant="outline"
             className="w-full"
-            disabled={
-              loading || splitButtonDisabled || hasPlaceholderInSplit
-            }
+            disabled={busy || splitButtonDisabled || hasPlaceholderInSplit}
             onClick={() => setSplitDialogOpen(true)}
           >
             {splitConfigLabel(splitConfig)}
@@ -578,101 +570,135 @@ export function EditExpenseForm({
                     : `Custom amounts for ${selectedParticipants.length} participants`}
           </p>
         </div>
-        <div className="space-y-2">
-          <div className="flex h-12 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
-            <span className="pl-3 text-base text-muted-foreground">For</span>
-            <Input
-              ref={descriptionRef}
-              id="description"
-              type="text"
-              autoComplete="off"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="eg. Dinner"
-              required
-              disabled={loading}
-              className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              autoFocus
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="amount">Amount</Label>
-          <div className="flex gap-2">
-            <div className="flex h-12 min-w-0 flex-1 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
-              <span className="pl-3 text-base text-muted-foreground">
-                {getCurrency(currency)?.symbol ?? currency}
-              </span>
-              <Input
-                id="amount"
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                value={amount}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) setAmount(v);
-                }}
-                onBlur={() => {
-                  const num = parseFloat(amount);
-                  if (!isNaN(num) && num > 0) setAmount(num.toFixed(2));
-                }}
-                placeholder="0.00"
-                required
-                disabled={loading}
-                className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-              />
-            </div>
-            <Select
-              value={currency}
-              onValueChange={setCurrency}
-              disabled={loading}
-            >
-              <SelectTrigger className="h-12 w-[min(7.5rem,28vw)] shrink-0">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="max-h-60">
-                {CURATED_CURRENCIES.map((code) => {
-                  const c = getCurrency(code);
-                  return (
-                    <SelectItem key={code} value={code}>
-                      {code}
-                      {c?.symbol ? ` (${c.symbol})` : ""}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          </div>
-          {currency !== tabCurrency &&
-            parseAmount(amount) != null &&
-            (fxPreviewLoading ? (
-              <Skeleton className="mt-0.5 h-4 w-[min(100%,12rem)]" />
-            ) : (
-              fxPreview && (
-                <p className="text-xs text-muted-foreground">
-                  ≈ {formatAmount(fxPreview.amountTab, fxPreview.tabCurrency)} in
-                  tab currency
+        <form.Field name="description">
+          {(field) => (
+            <div className="space-y-2">
+              <div className="flex h-12 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
+                <span className="pl-3 text-base text-muted-foreground">For</span>
+                <Input
+                  ref={descriptionRef}
+                  id="description"
+                  type="text"
+                  autoComplete="off"
+                  value={field.state.value}
+                  onChange={(e) => field.handleChange(e.target.value)}
+                  onBlur={field.handleBlur}
+                  placeholder="eg. Dinner"
+                  required
+                  disabled={busy}
+                  className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  autoFocus
+                />
+              </div>
+              {field.state.meta.errors[0] ? (
+                <p className="text-sm text-destructive">
+                  {String(field.state.meta.errors[0])}
                 </p>
-              )
-            ))}
-        </div>
-        {error && (
+              ) : null}
+            </div>
+          )}
+        </form.Field>
+        <form.Field name="amount">
+          {(field) => (
+            <div className="space-y-2">
+              <Label htmlFor="amount">Amount</Label>
+              <div className="flex gap-2">
+                <div className="flex h-12 min-w-0 flex-1 items-center rounded-md border border-input bg-input-bg shadow-sm focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-ring-offset focus-within:ring-offset-2">
+                  <span className="pl-3 text-base text-muted-foreground">
+                    {getCurrency(currency)?.symbol ?? currency}
+                  </span>
+                  <Input
+                    id="amount"
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    value={field.state.value}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (v === "" || /^\d*\.?\d{0,2}$/.test(v)) {
+                        field.handleChange(v);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = parseFloat(field.state.value);
+                      if (!isNaN(num) && num > 0) {
+                        field.handleChange(num.toFixed(2));
+                      }
+                      field.handleBlur();
+                    }}
+                    placeholder="0.00"
+                    required
+                    disabled={busy}
+                    className="h-12 flex-1 border-0 bg-transparent pl-1 pr-3 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+                <form.Field name="currency">
+                  {(currencyField) => (
+                    <Select
+                      value={currencyField.state.value}
+                      onValueChange={currencyField.handleChange}
+                      disabled={busy}
+                    >
+                      <SelectTrigger className="h-12 w-[min(7.5rem,28vw)] shrink-0">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {CURATED_CURRENCIES.map((code) => {
+                          const c = getCurrency(code);
+                          return (
+                            <SelectItem key={code} value={code}>
+                              {code}
+                              {c?.symbol ? ` (${c.symbol})` : ""}
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </form.Field>
+              </div>
+              {field.state.meta.errors[0] ? (
+                <p className="text-sm text-destructive">
+                  {String(field.state.meta.errors[0])}
+                </p>
+              ) : null}
+              {currency !== tabCurrency &&
+                parseExpenseAmount(field.state.value) != null &&
+                (fxPreviewLoading ? (
+                  <Skeleton className="mt-0.5 h-4 w-[min(100%,12rem)]" />
+                ) : (
+                  fxPreview && (
+                    <p className="text-xs text-muted-foreground">
+                      ≈ {formatAmount(fxPreview.amountTab, fxPreview.tabCurrency)}{" "}
+                      in tab currency
+                    </p>
+                  )
+                ))}
+            </div>
+          )}
+        </form.Field>
+        {form.state.errorMap.onSubmit?.form ? (
           <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
+            <AlertDescription>
+              {String(form.state.errorMap.onSubmit.form)}
+            </AlertDescription>
           </Alert>
-        )}
+        ) : null}
         <div className="flex flex-col gap-2">
-          <Button type="submit" disabled={loading} className="w-full gap-2">
-            {loading ? "Saving..." : "Save"}
-            <CornerDownLeft className="h-4 w-4" />
-          </Button>
+          <form.Subscribe selector={(state) => state.isSubmitting}>
+            {(isSubmitting) => (
+              <Button type="submit" disabled={busy} className="w-full gap-2">
+                {isSubmitting ? "Saving..." : "Save"}
+                <CornerDownLeft className="h-4 w-4" />
+              </Button>
+            )}
+          </form.Subscribe>
           <div className="flex flex-col gap-2">
             {onCancel && (
               <Button
                 type="button"
                 variant="outline"
-                disabled={loading}
+                disabled={busy}
                 onClick={onCancel}
                 className="w-full"
               >
@@ -683,7 +709,7 @@ export function EditExpenseForm({
               type="button"
               variant="outline"
               className="w-full gap-2 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              disabled={loading}
+              disabled={busy}
               onClick={() => setDeleteOpen(true)}
             >
               <Trash2 className="h-4 w-4" />
@@ -705,7 +731,7 @@ export function EditExpenseForm({
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                handleDelete();
+                void handleDelete();
               }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >

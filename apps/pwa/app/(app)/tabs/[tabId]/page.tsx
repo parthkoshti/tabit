@@ -7,7 +7,7 @@ import {
 } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { authClient } from "@/lib/auth-client";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link } from "@/lib/navigation";
 import { useNavTitle } from "../../context/nav-title-context";
 import { SettleUpForm } from "./settle-up-form";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,13 +30,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronRight, SortDesc, UserPlus, Wallet } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Spinner } from "@/components/ui/spinner";
+import { TabPageSkeleton, ExpenseListSkeleton } from "@/components/page-skeletons";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { formatAmount } from "@/lib/format-amount";
 import { TabExpenseCard } from "@/components/tab-expense-card";
+import type { Expense } from "@/lib/domain-types";
 import { TabSettlementCard } from "@/components/tab-settlement-card";
 import { PaymentReminderDialog } from "@/components/payment-reminder-dialog";
 
@@ -52,7 +52,7 @@ export function TabPage() {
     "all" | "involved" | "owed" | "owe" | "settlements"
   >("all");
 
-  const { data: tab, isLoading: tabLoading } = useQuery({
+  const { data: tab, isPending: tabPending } = useQuery({
     queryKey: ["tab", tabIdOrEmpty],
     queryFn: async () => {
       const r = await api.tabs.get(tabIdOrEmpty);
@@ -250,12 +250,8 @@ export function TabPage() {
 
   if (!tabIdOrEmpty) return null;
 
-  if (tabLoading) {
-    return (
-      <div className="flex min-h-[200px] items-center justify-center p-4">
-        <Spinner />
-      </div>
-    );
+  if (tabPending) {
+    return <TabPageSkeleton />;
   }
 
   if (!tab) {
@@ -298,7 +294,7 @@ export function TabPage() {
 
   return (
     <div className="p-4">
-      <div className="mx-auto max-w-3xl space-y-6 pb-60">
+      <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex gap-2 overflow-x-auto overflow-y-hidden -mx-1 px-1 app-scroll-hide">
           {!tab.isDirect && avatarUserIds.length > 0 && (
             <Button
@@ -583,29 +579,7 @@ export function TabPage() {
               </Button>
             </div>
           ) : expensesLoading || settlementsLoading ? (
-            <div className="flex flex-col gap-4">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Card key={i}>
-                  <CardContent className="flex flex-col gap-1 p-4">
-                    <div className="flex items-center justify-between gap-2">
-                      <Skeleton className="h-5 w-5 shrink-0 rounded" />
-                      <Skeleton className="h-4 flex-1 max-w-48" />
-                      <Skeleton className="h-4 w-16 shrink-0" />
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Skeleton className="h-3 w-14" />
-                      <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
-                      <Skeleton className="h-3 w-20" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                    <div className="flex gap-4">
-                      <Skeleton className="h-3 w-28" />
-                      <Skeleton className="h-3 w-24" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <ExpenseListSkeleton />
           ) : expensesAndSettlements.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
               {expenseFilter === "all"
@@ -632,7 +606,7 @@ export function TabPage() {
                     <Link to={`/tabs/${tabIdOrEmpty}/expenses/${item.id}`}>
                       <AnimatedCard>
                         <TabExpenseCard
-                          expense={item}
+                          expense={item as unknown as Expense}
                           tabCurrency={tabCurrency}
                           tabId={tabIdOrEmpty}
                           isDirect={!!tab?.isDirect}
@@ -660,27 +634,7 @@ export function TabPage() {
                   </motion.div>
                 );
               })}
-              {isLoadingMoreExpenses && (
-                <div className="flex flex-col gap-4">
-                  {Array.from({ length: 2 }).map((_, i) => (
-                    <Card key={i}>
-                      <CardContent className="flex flex-col gap-1 p-4">
-                        <div className="flex items-center justify-between gap-2">
-                          <Skeleton className="h-5 w-5 shrink-0 rounded" />
-                          <Skeleton className="h-4 flex-1 max-w-48" />
-                          <Skeleton className="h-4 w-16 shrink-0" />
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Skeleton className="h-3 w-14" />
-                          <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
-                          <Skeleton className="h-3 w-20" />
-                          <Skeleton className="h-3 w-24" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              )}
+              {isLoadingMoreExpenses && <ExpenseListSkeleton count={2} />}
               {hasMoreExpenses && <div ref={infiniteRef} className="h-1" />}
             </motion.div>
           )}

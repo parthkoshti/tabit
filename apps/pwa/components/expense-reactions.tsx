@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api-client";
-import type { ExpenseReaction } from "data";
+import type { ExpenseReaction } from "@/lib/domain-types";
 import { SmilePlus } from "lucide-react";
 import { UserAvatar } from "@/components/user-avatar";
 

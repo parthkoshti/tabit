@@ -3,7 +3,7 @@ import {
   useNavigate,
   useSearchParams,
   Link,
-} from "react-router-dom";
+} from "@/lib/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
 import { useNavTitle } from "../../../../context/nav-title-context";
@@ -28,7 +28,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Spinner } from "@/components/ui/spinner";
+import { LedgerDetailSkeleton } from "@/components/page-skeletons";
 import { getDisplayName } from "@/lib/display-name";
 import { UserAvatar } from "@/components/user-avatar";
 import {
@@ -41,7 +41,7 @@ import {
   formatAppDate,
 } from "@/lib/format-date";
 import { ExpenseReactions } from "@/components/expense-reactions";
-import type { Expense as LedgerExpense } from "data";
+import type { Expense as LedgerExpense } from "@/lib/domain-types";
 
 export function ExpensePage() {
   const { tabId, expenseId } = useParams<{
@@ -60,7 +60,7 @@ export function ExpensePage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [restoreLoading, setRestoreLoading] = useState(false);
 
-  const { data: expense, isLoading: expenseLoading } = useQuery({
+  const { data: expense, isPending: expensePending } = useQuery({
     queryKey: ["expense", tabIdOrEmpty, expenseIdOrEmpty],
     queryFn: async () => {
       const r = await api.expenses.get(tabIdOrEmpty, expenseIdOrEmpty);
@@ -109,12 +109,8 @@ export function ExpensePage() {
 
   if (!tabIdOrEmpty || !expenseIdOrEmpty) return null;
 
-  if (expenseLoading) {
-    return (
-      <div className="flex min-h-[200px] items-center justify-center p-4">
-        <Spinner />
-      </div>
-    );
+  if (expensePending) {
+    return <LedgerDetailSkeleton />;
   }
 
   if (!expense) {
@@ -264,7 +260,7 @@ export function ExpensePage() {
   }
 
   return (
-    <div className="p-4 pb-20">
+    <div className="p-4">
       <div className="mx-auto max-w-md space-y-8">
         <div className="space-y-5">
           {expense.deletedAt && (

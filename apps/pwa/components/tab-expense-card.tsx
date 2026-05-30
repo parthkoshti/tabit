@@ -9,7 +9,7 @@ import {
 import { formatAppDate } from "@/lib/format-date";
 import { ExpenseReactions } from "@/components/expense-reactions";
 import { ExpenseYourBalance } from "@/components/expense-your-balance";
-import type { Expense } from "data";
+import type { Expense } from "@/lib/domain-types";
 
 function splitIsForPayer(s: Expense["splits"][number], expense: Expense): boolean {
   if (expense.paidById != null && s.userId === expense.paidById) return true;
