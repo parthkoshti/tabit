@@ -29,8 +29,8 @@ RUN pnpm exec turbo build --filter=api...
 
 # Stage 3: Production
 FROM node:24-alpine AS prod
-RUN apk add --no-cache curl
-RUN curl -sLf --retry 3 https://cli.doppler.com/install.sh | sh
+RUN apk add --no-cache curl gnupg \
+    && curl -sLf --retry 3 https://cli.doppler.com/install.sh | sh
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
 
