@@ -7,12 +7,12 @@ import { CORSPlugin } from "@orpc/server/plugins";
 import { onError } from "@orpc/server";
 import { auth } from "auth";
 import { appRouter, type RpcContext } from "rpc";
+import { resolveCorsOrigins } from "shared";
 import { log } from "./lib/logger.js";
 
 const app = new Hono();
 
-const corsOrigin = process.env.CORS_ORIGIN ?? "http://localhost:3003";
-const origins = corsOrigin.split(",").map((o) => o.trim());
+const origins = resolveCorsOrigins();
 
 app.use(
   "*",
@@ -20,7 +20,14 @@ app.use(
     origin: origins,
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowHeaders: ["Content-Type", "Authorization", "Cookie"],
+    allowHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Cookie",
+      "Accept",
+      "Origin",
+      "X-Requested-With",
+    ],
   }),
 );
 

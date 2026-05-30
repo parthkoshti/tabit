@@ -1,5 +1,5 @@
 import { betterAuth } from "better-auth";
-import { createFullId } from "shared";
+import { createFullId, parseCorsOrigins } from "shared";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
 import PlunkModule from "@plunk/node";
@@ -45,6 +45,7 @@ const plunk =
     : null;
 
 export const auth = betterAuth({
+  secret: process.env.BETTER_AUTH_SECRET,
   session: {
     expiresIn: 60 * 60 * 24 * 30,
   },
@@ -150,14 +151,13 @@ export const auth = betterAuth({
     process.env.VITE_API_URL ??
     process.env.VITE_BACKEND_URL ??
     "http://localhost:3001",
-  trustedOrigins: [
-    process.env.NEXT_PUBLIC_PWA_URL!,
-    "https://localhost:3003",
-    "http://localhost:3003",
+  trustedOrigins: parseCorsOrigins(
+    process.env.NEXT_PUBLIC_PWA_URL,
+    process.env.BETTER_AUTH_TRUSTED_ORIGINS,
+    process.env.CORS_ORIGIN,
     "https://app.tabit.in",
     "https://wrk.tabit.in",
-    ...(process.env.BETTER_AUTH_TRUSTED_ORIGINS
-      ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map((o) => o.trim())
-      : []),
-  ],
+    "https://localhost:3003",
+    "http://localhost:3003",
+  ),
 });

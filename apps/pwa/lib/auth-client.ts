@@ -11,6 +11,9 @@ function getAuthBaseUrl(): string {
 
 export const authClient = createAuthClient({
   baseURL: getAuthBaseUrl(),
+  fetchOptions: {
+    credentials: "include",
+  },
   plugins: [
     emailOTPClient(),
     inferAdditionalFields({

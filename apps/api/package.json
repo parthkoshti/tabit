@@ -16,7 +16,8 @@
     "auth": "workspace:*",
     "hono": "^4.6.0",
     "otel": "workspace:*",
-    "rpc": "workspace:*"
+    "rpc": "workspace:*",
+    "shared": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

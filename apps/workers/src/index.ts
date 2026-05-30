@@ -10,7 +10,7 @@ import { auth } from "auth";
 import { warmLatestRatesForBases, recurringExpenseService } from "services";
 import { createNotificationsWorker, type NotificationJobData } from "queue";
 import type { NotificationPayload } from "models";
-import { sendDiscordWebhook } from "shared";
+import { sendDiscordWebhook, resolveCorsOrigins } from "shared";
 import { log as otelLog } from "otel";
 import { sendPushNotifications } from "./push-delivery.js";
 
@@ -24,8 +24,7 @@ function log(
   otelLog(level, `${LOG_PREFIX} ${msg}`, data);
 }
 
-const corsOrigin = process.env.CORS_ORIGIN ?? "https://app.tabit.in";
-const corsOrigins = corsOrigin.split(",").map((o) => o.trim());
+const corsOrigins = resolveCorsOrigins();
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const certDir = path.resolve(moduleDir, "../../../certs");

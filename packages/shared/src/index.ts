@@ -1,5 +1,6 @@
 export * from "./id.js";
 export * from "./discord.js";
+export * from "./cors.js";
 export {
   CURRENCIES,
   CURRENCY_CODES,
