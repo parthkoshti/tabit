@@ -6,7 +6,7 @@
     "dev": "doppler run -- vite --port 3003 --host",
     "dev:http": "doppler run -- vite --port 3003",
     "generate-https-certs": "node ../../scripts/generate-https-certs.js",
-    "build": "doppler run -- vite build",
+    "build": "vite build",
     "preview": "vite preview --port 3003",
     "start": "vite preview --port 3003",
     "start:prod": "vite preview --port 3003 --host",

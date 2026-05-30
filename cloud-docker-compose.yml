@@ -90,7 +90,6 @@ services:
         - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME_PWA}
         - TURBO_TEAM=${TURBO_TEAM}
         - TURBO_TOKEN=${TURBO_TOKEN}
-        - DOPPLER_TOKEN=${DOPPLER_TOKEN_PWA}
     expose:
       - "3003"
     depends_on:

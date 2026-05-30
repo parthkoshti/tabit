@@ -12,8 +12,6 @@ RUN turbo prune pwa --docker
 
 # Stage 2: Install dependencies
 FROM node:24-alpine AS builder
-RUN apk add --no-cache curl gnupg \
-    && curl -sLf --retry 3 https://cli.doppler.com/install.sh | sh
 RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
 WORKDIR /app
 
@@ -30,7 +28,6 @@ ARG VITE_VAPID_PUBLIC_KEY=
 ARG OTEL_EXPORTER_OTLP_ENDPOINT=
 ARG OTEL_EXPORTER_OTLP_HEADERS=
 ARG OTEL_SERVICE_NAME=
-ARG DOPPLER_TOKEN=
 ARG TURBO_TEAM
 ARG TURBO_TOKEN
 
@@ -42,11 +39,10 @@ ENV VITE_VAPID_PUBLIC_KEY=$VITE_VAPID_PUBLIC_KEY
 ENV OTEL_EXPORTER_OTLP_ENDPOINT=$OTEL_EXPORTER_OTLP_ENDPOINT
 ENV OTEL_EXPORTER_OTLP_HEADERS=$OTEL_EXPORTER_OTLP_HEADERS
 ENV OTEL_SERVICE_NAME=$OTEL_SERVICE_NAME
-ENV DOPPLER_TOKEN=$DOPPLER_TOKEN
 ENV TURBO_TEAM=$TURBO_TEAM
 ENV TURBO_TOKEN=$TURBO_TOKEN
 
-RUN if [ -n "$DOPPLER_TOKEN" ]; then doppler run -- pnpm exec turbo build --filter=pwa...; else pnpm exec turbo build --filter=pwa...; fi
+RUN pnpm exec turbo build --filter=pwa...
 
 # Stage 3: Production
 FROM nginx:1.27-alpine AS prod
