@@ -31,9 +31,6 @@ services:
       - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED}
     expose:
       - "3001"
-    depends_on:
-      redis:
-        condition: service_healthy
     networks:
       - tabit
     restart: always
@@ -74,9 +71,6 @@ services:
       - OTEL_SDK_DISABLED=${OTEL_SDK_DISABLED}
     expose:
       - "3002"
-    depends_on:
-      redis:
-        condition: service_healthy
     networks:
       - tabit
     restart: always
