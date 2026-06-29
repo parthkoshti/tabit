@@ -5,18 +5,13 @@ import {
   ArrowLeft,
   Plus,
   ReceiptText,
-  Download,
-  CircleFadingArrowUp,
   Settings,
 } from "lucide-react";
-import { useUpdateBanner } from "@/app/(app)/context/update-banner-context";
 import { AnimatePresence, motion } from "framer-motion";
 import { appConfig } from "@/src/config";
 import { useNavTitleConfig } from "../context/nav-title-context";
 import { useNavStore } from "@/lib/stores/nav-store";
 import { SignOutButton } from "./sign-out-button";
-import { ChangelogDialog } from "@/components/changelog-dialog";
-import { UpdateDialog } from "@/components/update-dialog";
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/user-avatar";
 import { transitionSpring } from "@/lib/animations";
@@ -46,16 +41,6 @@ export function TopNavbar() {
   const mainTabId = isMainTabPage
     ? displayPathname.replace(/^\/tabs\//, "").split("/")[0]
     : null;
-  const isActivityPage = displayPathname === "/activity";
-  const [changelogOpen, setChangelogOpen] = useState(false);
-  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
-  const {
-    needRefresh,
-    showBanner,
-    updateServiceWorker,
-  } = useUpdateBanner();
-
-  const showUpdateButton = needRefresh && !showBanner;
 
   return (
     <header className="top-nav-safe fixed left-0 right-0 top-0 z-40 border-b border-border bg-background">
@@ -113,17 +98,6 @@ export function TopNavbar() {
               </div>
             </div>
             <div className="relative z-10 flex w-20 shrink-0 justify-end gap-1">
-              {showUpdateButton && (
-                <Button
-                  variant="default"
-                  size="sm"
-                  aria-label="Update app"
-                  onClick={() => setUpdateDialogOpen(true)}
-                >
-                  <Download className="h-5 w-5" />
-                  <span>Update</span>
-                </Button>
-              )}
               {isMainTabPage && mainTabId && (
                 <Button
                   variant="ghost"
@@ -149,19 +123,7 @@ export function TopNavbar() {
                 height={52}
               />
             </Link>
-            {showUpdateButton ? (
-              <div className="relative z-10 flex shrink-0 justify-end">
-                <Button
-                  variant="default"
-                  size="sm"
-                  aria-label="Update app"
-                  onClick={() => setUpdateDialogOpen(true)}
-                >
-                  <Download className="h-5 w-5" />
-                  <span>Update</span>
-                </Button>
-              </div>
-            ) : isMePage ? (
+            {isMePage ? (
               <div className="relative z-10 flex shrink-0 justify-end">
                 <SignOutButton />
               </div>
@@ -188,32 +150,10 @@ export function TopNavbar() {
                   </Link>
                 </Button>
               </div>
-            ) : isActivityPage ? (
-              <div className="relative z-10 flex shrink-0 justify-end">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Changelog"
-                  onClick={() => setChangelogOpen(true)}
-                >
-                  <CircleFadingArrowUp className="h-5 w-5" />
-                </Button>
-                <ChangelogDialog
-                  open={changelogOpen}
-                  onOpenChange={setChangelogOpen}
-                />
-              </div>
             ) : null}
           </>
         )}
       </div>
-      {showUpdateButton && (
-        <UpdateDialog
-          open={updateDialogOpen}
-          onOpenChange={setUpdateDialogOpen}
-          onUpdate={() => updateServiceWorker(true)}
-        />
-      )}
     </header>
   );
 }

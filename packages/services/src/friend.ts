@@ -1,6 +1,7 @@
 import { createShortId, formatAmount } from "shared";
 import type { PaymentReminderTone } from "models";
 import { tab, friend as friendData, user as userData } from "data";
+import { log } from "otel";
 import { ok, err, type Result } from "./types.js";
 import { notificationService } from "./notification.js";
 
@@ -70,6 +71,7 @@ export const friendService = {
       createdAt,
     });
 
+    log("info", "Friend request sent", { requestId, fromUserId: userId, toUserId: targetUser.id });
     return ok(undefined);
   },
 
@@ -97,6 +99,7 @@ export const friendService = {
       createdAt: new Date(),
     });
 
+    log("info", "Friend request accepted", { requestId, userId, fromUserId: req.fromUserId, friendTabId });
     return ok({ friendTabId });
   },
 
@@ -105,6 +108,7 @@ export const friendService = {
     userId: string,
   ): Promise<Result<void>> => {
     await friendData.updateRequestStatusForToUser(requestId, userId, "rejected");
+    log("info", "Friend request rejected", { requestId, userId });
     return ok(undefined);
   },
 
@@ -179,6 +183,7 @@ export const friendService = {
     const friendTabId = await tab.createDirect(userId, pending.userId, currency);
     await friendData.deletePendingFriend(pending.id);
 
+    log("info", "Friend added by token", { userId, friendUserId: pending.userId, friendTabId });
     return ok({ friendTabId });
   },
 
@@ -240,6 +245,7 @@ export const friendService = {
       createdAt: new Date(),
     });
 
+    log("info", "Poke sent", { fromUserId: userId, toUserId: friendUserId, friendTabId: trimmed });
     return ok(undefined);
   },
 
@@ -298,6 +304,7 @@ export const friendService = {
       createdAt: new Date(),
     });
 
+    log("info", "Payment reminder sent", { fromUserId: userId, toUserId: friendUserId, friendTabId: trimmed, tone, amountDisplay });
     return ok(undefined);
   },
 };

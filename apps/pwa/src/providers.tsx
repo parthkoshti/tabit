@@ -12,11 +12,11 @@ const idbStore =
     ? createStore("tabit-query-cache", "queries")
     : null;
 
-declare const __APP_VERSION__: string;
+declare const __BUILD_TIME__: string;
 
 const CACHE_BUSTER =
-  typeof __APP_VERSION__ !== "undefined"
-    ? __APP_VERSION__
+  typeof __BUILD_TIME__ !== "undefined"
+    ? __BUILD_TIME__
     : (import.meta.env.VITE_QUERY_CACHE_BUSTER ?? "v1");
 
 const persister = idbStore

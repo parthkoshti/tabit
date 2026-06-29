@@ -18,9 +18,6 @@ const https =
 const isProd = process.env.NODE_ENV === "production";
 const useDevProxy = !process.env.VITE_API_URL;
 
-const pkg = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "package.json"), "utf-8"),
-) as { version: string };
 
 function getAllowedHosts(): string[] {
   const hosts = ["localhost"];
@@ -39,7 +36,7 @@ function getAllowedHosts(): string[] {
 export default defineConfig({
   envPrefix: ["VITE_", "NEXT_PUBLIC_"],
   define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
+    __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
   },
   plugins: [
     TanStackRouterVite({

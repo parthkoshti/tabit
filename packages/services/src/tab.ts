@@ -7,6 +7,7 @@ import {
   mergePlaceholderIntoMember,
 } from "data";
 import { CURRENCY_CODES } from "shared";
+import { log } from "otel";
 import { ok, err, type Result } from "./types.js";
 import { notificationService } from "./notification.js";
 
@@ -126,6 +127,7 @@ export const tabService = {
     }
 
     const id = await tab.create(name, userId, resolvedCurrency);
+    log("info", "Tab created", { tabId: id, userId, currency: resolvedCurrency });
     return ok({ tabId: id });
   },
 
@@ -163,6 +165,7 @@ export const tabService = {
     }
 
     await tab.update(tabId, resolvedUpdates);
+    log("info", "Tab updated", { tabId, userId, updates: resolvedUpdates });
     return ok(undefined);
   },
 
@@ -189,6 +192,7 @@ export const tabService = {
     }
 
     await tab.addMember(tabId, targetUser.id, role ?? "member");
+    log("info", "Tab member added", { tabId, addedUserId: targetUser.id, addedByUserId: userId, role: role ?? "member" });
     return ok(undefined);
   },
 
@@ -212,6 +216,7 @@ export const tabService = {
     }
 
     await tab.removeMember(tabId, targetUserId);
+    log("info", "Tab member removed", { tabId, removedUserId: targetUserId, removedByUserId: userId });
     return ok(undefined);
   },
 
@@ -234,6 +239,7 @@ export const tabService = {
         displayName,
         createdByUserId: userId,
       });
+      log("info", "Placeholder participant created", { tabId, participantId, displayName, createdByUserId: userId });
       return ok({ participantId });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to create placeholder";
@@ -261,6 +267,7 @@ export const tabService = {
         participantId,
         displayName,
       });
+      log("info", "Placeholder participant renamed", { tabId, participantId, displayName, userId });
       return ok(undefined);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Failed to rename placeholder";
@@ -297,6 +304,7 @@ export const tabService = {
         targetUserId,
         performedByUserId: userId,
       });
+      log("info", "Placeholder participant merged", { tabId, placeholderParticipantId, targetUserId, performedByUserId: userId });
       if (targetUserId !== userId) {
         const actor = await userData.getById(userId);
         const actorName = actor

@@ -550,6 +550,10 @@ export function MePage() {
         <InviteSection />
 
         <BustCacheSection />
+
+        <p className="text-center text-xs text-muted-foreground pb-2">
+          Built {new Date(__BUILD_TIME__).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC", timeZoneName: "short" })}
+        </p>
       </div>
     </div>
   );

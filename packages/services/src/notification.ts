@@ -1,5 +1,6 @@
 import { enqueueNotification } from "queue";
 import type { NotificationPayload, PaymentReminderTone } from "models";
+import { log } from "otel";
 import {
   createExpenseAddedNotificationPayload,
   createExpenseUpdatedNotificationPayload,
@@ -22,6 +23,7 @@ async function publish(
   payload: NotificationPayload,
   options?: { forcePush?: boolean },
 ): Promise<void> {
+  log("info", "Notification enqueued", { userId, type: payload.type, forcePush: options?.forcePush });
   await enqueueNotification(userId, payload, options);
 }
 

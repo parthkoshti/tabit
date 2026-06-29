@@ -1,4 +1,5 @@
 import { tabInvite as tabInviteData, tab, user } from "data";
+import { log } from "otel";
 import { notificationService } from "./notification.js";
 import { ok, err, type Result } from "./types.js";
 
@@ -43,11 +44,13 @@ export const tabInviteService = {
     const existing = await tabInviteData.isMember(pending.tabId, userId);
     if (existing) {
       await tabInviteData.deletePendingInvite(pending.id);
+      log("info", "Tab join by token: already a member", { userId, tabId: pending.tabId });
       return ok({ tabId: pending.tabId, alreadyMember: true });
     }
 
     await addUserToTabAndCreateFriendships(userId, pending.tabId);
     await tabInviteData.deletePendingInvite(pending.id);
+    log("info", "Tab joined by token", { userId, tabId: pending.tabId });
     return ok({ tabId: pending.tabId });
   },
 
@@ -169,6 +172,7 @@ export const tabInviteService = {
       createdAt: inserted.createdAt,
     });
 
+    log("info", "Tab invite sent", { requestId: inserted.id, tabId, fromUserId: userId, toUserId: targetUser.id });
     return ok(undefined);
   },
 
@@ -185,12 +189,14 @@ export const tabInviteService = {
     if (existing) {
       await tabInviteData.updateRequestStatus(requestId, "accepted");
       await publishTabInviteAcceptedNotification(userId, requestId, req);
+      log("info", "Tab invite accepted: already a member", { requestId, userId, tabId: req.tabId });
       return ok({ tabId: req.tabId, alreadyMember: true });
     }
 
     await addUserToTabAndCreateFriendships(userId, req.tabId);
     await tabInviteData.updateRequestStatus(requestId, "accepted");
     await publishTabInviteAcceptedNotification(userId, requestId, req);
+    log("info", "Tab invite accepted", { requestId, userId, tabId: req.tabId });
     return ok({ tabId: req.tabId });
   },
 
@@ -204,6 +210,7 @@ export const tabInviteService = {
     }
 
     await tabInviteData.updateRequestStatus(requestId, "rejected");
+    log("info", "Tab invite rejected", { requestId, userId });
     return ok(undefined);
   },
 };

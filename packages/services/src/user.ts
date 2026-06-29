@@ -5,6 +5,7 @@ import {
   isAddExpensePreference,
   type AddExpensePreference,
 } from "models";
+import { log } from "otel";
 import { ok, err, type Result } from "./types.js";
 
 const NAME_MAX_LENGTH = 64;
@@ -69,6 +70,7 @@ export const userService = {
     }
 
     await userData.updateProfile(userId, resolved);
+    log("info", "User profile updated", { userId, updates: Object.keys(resolved) });
     return ok(undefined);
   },
 
@@ -117,6 +119,7 @@ export const userService = {
     }
 
     await userData.updateUsername(userId, normalized);
+    log("info", "Username updated", { userId });
     return ok(undefined);
   },
 
@@ -162,6 +165,7 @@ export const userService = {
         await preferenceData.delete(userId, ADD_EXPENSE_PREFERENCE_KEY);
       }
     }
+    log("info", "User preferences updated", { userId, updates: Object.keys(updates) });
     return ok(undefined);
   },
 };

@@ -1,4 +1,6 @@
-const FRANKFURTER_BASE = "https://api.frankfurter.dev/v1";
+import { log } from "otel";
+
+const FRANKFURTER_BASE = "https://api.frankfurter.dev/v2";
 
 export type FrankfurterRatesResponse = {
   amount: number;
@@ -10,15 +12,23 @@ export type FrankfurterRatesResponse = {
 async function fetchJson<T>(url: string, timeoutMs = 15_000): Promise<T> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  const start = Date.now();
+  log("info", "Frankfurter request started", { url });
   try {
     const res = await fetch(url, { signal: ctrl.signal });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
-      throw new Error(
-        `Frankfurter HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ""}`,
-      );
+      const msg = `Frankfurter HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ""}`;
+      log("error", "Frankfurter request failed", { url, status: res.status, durationMs: Date.now() - start });
+      throw new Error(msg);
     }
+    log("info", "Frankfurter request completed", { url, status: res.status, durationMs: Date.now() - start });
     return (await res.json()) as T;
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      log("error", "Frankfurter request timed out", { url, timeoutMs, durationMs: Date.now() - start });
+    }
+    throw e;
   } finally {
     clearTimeout(t);
   }
@@ -29,14 +39,14 @@ async function fetchJson<T>(url: string, timeoutMs = 15_000): Promise<T> {
  */
 export async function fetchLatestRates(
   base: string,
-  symbols?: string[],
+  quotes?: string[],
 ): Promise<FrankfurterRatesResponse> {
   const params = new URLSearchParams({ base });
-  if (symbols?.length) {
-    params.set("symbols", symbols.join(","));
+  if (quotes?.length) {
+    params.set("quotes", quotes.join(","));
   }
   return fetchJson<FrankfurterRatesResponse>(
-    `${FRANKFURTER_BASE}/latest?${params}`,
+    `${FRANKFURTER_BASE}/rates?${params}`,
   );
 }
 
@@ -46,13 +56,13 @@ export async function fetchLatestRates(
 export async function fetchRatesForDate(
   date: string,
   base: string,
-  symbols?: string[],
+  quotes?: string[],
 ): Promise<FrankfurterRatesResponse> {
-  const params = new URLSearchParams({ base });
-  if (symbols?.length) {
-    params.set("symbols", symbols.join(","));
+  const params = new URLSearchParams({ base, date });
+  if (quotes?.length) {
+    params.set("quotes", quotes.join(","));
   }
   return fetchJson<FrankfurterRatesResponse>(
-    `${FRANKFURTER_BASE}/${date}?${params}`,
+    `${FRANKFURTER_BASE}/rates?${params}`,
   );
 }
