@@ -123,7 +123,14 @@ createNotificationsWorker(async (job) => {
     type: payload.type,
     jobId: job.id,
   });
+  const start = Date.now();
   await deliverNotification(userId, payload, forcePush);
+  log("info", "Notification job completed", {
+    userId,
+    type: payload.type,
+    jobId: job.id,
+    durationMs: Date.now() - start,
+  });
 });
 
 cron.schedule(

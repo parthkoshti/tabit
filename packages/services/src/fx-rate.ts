@@ -1,4 +1,5 @@
 import { fxRate } from "data";
+import { log } from "otel";
 import { fetchLatestRates, fetchRatesForDate } from "./integrations/frankfurter.js";
 import { ok, err, type Result } from "./types.js";
 
@@ -74,10 +75,17 @@ export async function convertToTabCurrency(
       cached != null &&
       Date.now() - cached.fetchedAt.getTime() > TODAY_TTL_MS;
     if (fromCache !== undefined && Number.isFinite(fromCache) && !isTodayStale) {
+      log("info", "FX rate cache hit", { from, to: tabCurrency, date: lookupDate, rate: fromCache });
       return ok({
         amountTab: roundTo2(originalAmount * fromCache),
         rateDate: lookupDate,
       });
+    }
+
+    if (isTodayStale) {
+      log("info", "FX rate cache stale, refetching", { from, to: tabCurrency, date: lookupDate });
+    } else {
+      log("info", "FX rate cache miss, fetching from Frankfurter", { from, to: tabCurrency, date: lookupDate, useLatest });
     }
 
     const data = useLatest
@@ -86,12 +94,14 @@ export async function convertToTabCurrency(
 
     const rate = data.rates[tabCurrency];
     if (rate === undefined || !Number.isFinite(rate)) {
+      log("warn", "FX rate not found in Frankfurter response", { from, to: tabCurrency, date: requestDate });
       return err(
         `No exchange rate from ${from} to ${tabCurrency} for this date`,
         400,
       );
     }
 
+    log("info", "FX rate fetched and cached", { from, to: tabCurrency, date: data.date, rate });
     await upsertSnapshotWithAlias(data.date, lookupDate, from, data.rates);
 
     return ok({
@@ -100,6 +110,7 @@ export async function convertToTabCurrency(
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    log("error", "FX rate fetch failed", { from, to: tabCurrency, date: lookupDate, error: msg });
     return err(`Exchange rate unavailable: ${msg}`, 503);
   }
 }

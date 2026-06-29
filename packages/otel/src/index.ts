@@ -10,12 +10,23 @@ import { NodeSDK } from "@opentelemetry/sdk-node";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-http";
 import { getNodeAutoInstrumentations } from "@opentelemetry/auto-instrumentations-node";
 import { Resource } from "@opentelemetry/resources";
+import pino from "pino";
+import pinoPretty from "pino-pretty";
 
 const SEVERITY: Record<string, SeverityNumber> = {
   info: 9,
   warn: 13,
   error: 17,
 };
+
+const isDev = process.env.NODE_ENV !== "production";
+
+const pinoLogger = isDev
+  ? pino(
+      { level: "trace" },
+      pinoPretty({ colorize: true, translateTime: "HH:MM:ss.l", ignore: "pid,hostname" }),
+    )
+  : pino({ level: "info" });
 
 let loggerProvider: LoggerProvider | null = null;
 let otelLogger: ReturnType<LoggerProvider["getLogger"]> | null = null;
@@ -64,10 +75,7 @@ export function log(
   msg: string,
   data?: Record<string, unknown>,
 ): void {
-  const line = data ? `${msg} ${JSON.stringify(data)}` : msg;
-  if (level === "error") console.error(line);
-  else if (level === "warn") console.warn(line);
-  else console.log(line);
+  pinoLogger[level](data ?? {}, msg);
 
   if (otelLogger) {
     const attributes: Record<string, string | number | boolean> = {};

@@ -384,45 +384,86 @@ export const tab = {
       .where(and(isDirectTrue, eq(tabMember.userId, userId)))
       .orderBy(desc(tabTable.createdAt));
 
+    if (directTabs.length === 0) return [];
+
+    const tabIds = directTabs.map((t) => t.id);
+
+    // Batch all simple queries across all tabs at once
+    const [allMembers, expenseCounts, latestExpenses, latestSettlements] =
+      await Promise.all([
+        db
+          .select({
+            tabId: tabMember.tabId,
+            userId: tabMember.userId,
+            email: user.email,
+            name: user.name,
+            username: user.username,
+          })
+          .from(tabMember)
+          .innerJoin(user, eq(tabMember.userId, user.id))
+          .where(inArray(tabMember.tabId, tabIds)),
+
+        db
+          .select({
+            tabId: expenseTable.tabId,
+            count: sql<number>`count(*)::int`,
+          })
+          .from(expenseTable)
+          .where(
+            and(inArray(expenseTable.tabId, tabIds), isNull(expenseTable.deletedAt)),
+          )
+          .groupBy(expenseTable.tabId),
+
+        db
+          .select({
+            tabId: expenseTable.tabId,
+            createdAt: sql<Date>`max(${expenseTable.createdAt})`,
+          })
+          .from(expenseTable)
+          .where(
+            and(inArray(expenseTable.tabId, tabIds), isNull(expenseTable.deletedAt)),
+          )
+          .groupBy(expenseTable.tabId),
+
+        db
+          .select({
+            tabId: settlementTable.tabId,
+            createdAt: sql<Date>`max(${settlementTable.createdAt})`,
+          })
+          .from(settlementTable)
+          .where(inArray(settlementTable.tabId, tabIds))
+          .groupBy(settlementTable.tabId),
+      ]);
+
+    const membersByTab = new Map<string, typeof allMembers>();
+    for (const m of allMembers) {
+      const list = membersByTab.get(m.tabId) ?? [];
+      list.push(m);
+      membersByTab.set(m.tabId, list);
+    }
+    const countByTab = new Map(expenseCounts.map((r) => [r.tabId, r.count]));
+    const latestExpByTab = new Map(latestExpenses.map((r) => [r.tabId, r.createdAt]));
+    const latestSetByTab = new Map(latestSettlements.map((r) => [r.tabId, r.createdAt]));
+
+    // Parallelize balance computation (each call is independent)
+    const balancesByTab = new Map(
+      await Promise.all(
+        tabIds.map(async (id) => [id, await getBalancesForTab(id)] as const),
+      ),
+    );
+
     const result: FriendTab[] = [];
     for (const t of directTabs) {
-      const members = await db
-        .select({
-          userId: tabMember.userId,
-          email: user.email,
-          name: user.name,
-          username: user.username,
-        })
-        .from(tabMember)
-        .innerJoin(user, eq(tabMember.userId, user.id))
-        .where(eq(tabMember.tabId, t.id));
-
+      const members = membersByTab.get(t.id) ?? [];
       const other = members.find((m) => m.userId !== userId);
       if (other) {
-        const balances = await getBalancesForTab(t.id);
+        const balances = balancesByTab.get(t.id) ?? [];
         const myBalance = balances.find((b) => b.userId === userId);
-        const deletedAtNull = isNull(expenseTable.deletedAt);
-        const [countRow] = await db
-          .select({ count: sql<number>`count(*)::int` })
-          .from(expenseTable)
-          .where(and(eq(expenseTable.tabId, t.id), deletedAtNull));
-        const [latestExp] = await db
-          .select({ createdAt: expenseTable.createdAt })
-          .from(expenseTable)
-          .where(and(eq(expenseTable.tabId, t.id), deletedAtNull))
-          .orderBy(desc(expenseTable.createdAt))
-          .limit(1);
-        const [latestSet] = await db
-          .select({ createdAt: settlementTable.createdAt })
-          .from(settlementTable)
-          .where(eq(settlementTable.tabId, t.id))
-          .orderBy(desc(settlementTable.createdAt))
-          .limit(1);
-        const expTime = latestExp?.createdAt
-          ? new Date(latestExp.createdAt).getTime()
+        const expTime = latestExpByTab.get(t.id)
+          ? new Date(latestExpByTab.get(t.id)!).getTime()
           : 0;
-        const setTime = latestSet?.createdAt
-          ? new Date(latestSet.createdAt).getTime()
+        const setTime = latestSetByTab.get(t.id)
+          ? new Date(latestSetByTab.get(t.id)!).getTime()
           : 0;
         const lastExpenseDate =
           expTime || setTime ? new Date(Math.max(expTime, setTime)) : null;
@@ -431,7 +472,7 @@ export const tab = {
           currency: t.currency,
           createdAt: t.createdAt,
           balance: myBalance ? myBalance.amount : 0,
-          expenseCount: countRow?.count ?? 0,
+          expenseCount: countByTab.get(t.id) ?? 0,
           lastExpenseDate,
           friend: {
             id: other.userId,

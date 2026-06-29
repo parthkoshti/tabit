@@ -4,7 +4,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { RPCHandler } from "@orpc/server/fetch";
 import { CORSPlugin } from "@orpc/server/plugins";
-import { onError } from "@orpc/server";
 import { auth } from "auth";
 import { appRouter, type RpcContext } from "rpc";
 import { resolveCorsOrigins } from "shared";
@@ -60,11 +59,6 @@ app.on(["GET", "POST"], "/api/auth/*", async (c) => auth.handler(c.req.raw));
 
 const rpcHandler = new RPCHandler(appRouter, {
   plugins: [new CORSPlugin()],
-  interceptors: [
-    onError((error) => {
-      log("error", "oRPC error", { error: String(error) });
-    }),
-  ],
 });
 
 const BODY_PARSER_METHODS = new Set([

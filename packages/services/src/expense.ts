@@ -15,6 +15,7 @@ import {
   type CreateRecurringExpenseRuleInput,
 } from "models";
 import { CURRENCY_CODES, getCurrency } from "shared";
+import { log } from "otel";
 import { DateTime } from "luxon";
 import { ok, err, type Result } from "./types.js";
 import { notificationService } from "./notification.js";
@@ -471,8 +472,26 @@ export const expenseService = {
         expenseDateKey,
       );
       expenseId = linked.expenseId;
+      log("info", "Expense created with recurring rule", {
+        expenseId,
+        tabId: input.tabId,
+        performedById,
+        amount: amountTab,
+        currency: expenseCurrency,
+        splitType: input.splitType,
+        participantCount: members.length,
+      });
     } else {
       expenseId = await expense.create(expensePayload);
+      log("info", "Expense created", {
+        expenseId,
+        tabId: input.tabId,
+        performedById,
+        amount: amountTab,
+        currency: expenseCurrency,
+        splitType: input.splitType,
+        participantCount: members.length,
+      });
     }
 
     const tabInfo = await tab.getTabInfoForNotifications(input.tabId, performedById);
@@ -822,6 +841,15 @@ export const expenseService = {
       })),
     );
 
+    log("info", "Expense updated", {
+      expenseId,
+      tabId,
+      performedById,
+      amount: amountTab,
+      currency: expenseCurrency,
+      splitType: input.splitType,
+    });
+
     const tabInfo = await tab.getTabInfoForNotifications(tabId, performedById);
     const fromUser = await userData.getById(performedById);
     const previousDescription = existingExp.description ?? "";
@@ -883,6 +911,8 @@ export const expenseService = {
 
     await expense.delete(expenseId, tabId, userId);
 
+    log("info", "Expense deleted", { expenseId, tabId, userId });
+
     const tabInfo = await tab.getTabInfoForNotifications(tabId, userId);
     const fromUser = await userData.getById(userId);
     const tabCurrency = (await tab.getCurrency(tabId)) ?? "USD";
@@ -936,6 +966,8 @@ export const expenseService = {
     }
 
     await expense.restore(expenseId, tabId, userId);
+
+    log("info", "Expense restored", { expenseId, tabId, userId });
 
     const tabInfo = await tab.getTabInfoForNotifications(tabId, userId);
     const fromUser = await userData.getById(userId);
@@ -1132,6 +1164,14 @@ export const expenseService = {
         }
       }
     }
+
+    log("info", "Bulk expense import completed", {
+      tabId,
+      userId,
+      submitted: rawExpenses.length,
+      imported,
+      failed: rawExpenses.length - imported,
+    });
 
     if (imported > 0 && tabInfo && fromUser) {
       for (const m of tabDetail.members) {

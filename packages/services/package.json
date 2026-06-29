@@ -25,6 +25,7 @@
     "queue": "workspace:*",
     "luxon": "^3.5.0",
     "models": "workspace:*",
+    "otel": "workspace:*",
     "shared": "workspace:*",
     "zod": "^3.25.76"
   },

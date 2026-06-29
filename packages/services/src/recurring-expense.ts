@@ -7,6 +7,7 @@ import {
 } from "models";
 import { recurringExpense, tab, user as userData } from "data";
 import type { RecurringRuleRow } from "data";
+import { log } from "otel";
 import { ok, err, type Result } from "./types.js";
 import { expenseService } from "./expense.js";
 import { notificationService } from "./notification.js";
@@ -146,21 +147,51 @@ export const recurringExpenseService = {
 
   async runTick(): Promise<void> {
     const rules = await recurringExpense.listAllActiveRules();
+    log("info", "Recurring expense tick started", { ruleCount: rules.length });
+
+    let rulesProcessed = 0;
+    let occurrencesPosted = 0;
+    let rulesSkipped = 0;
+    let rulesPaused = 0;
+
     for (const rule of rules) {
       const owner = await userData.getById(rule.ownerUserId);
       const zone = resolveIanaZone(owner?.timezone);
       const todayKey = DateTime.now().setZone(zone).toFormat("yyyy-LL-dd");
 
-      if (dateKeyCompare(rule.nextDueKey, todayKey) > 0) continue;
-      if (dateKeyCompare(rule.startsOn, todayKey) > 0) continue;
+      if (dateKeyCompare(rule.nextDueKey, todayKey) > 0) {
+        rulesSkipped++;
+        continue;
+      }
+      if (dateKeyCompare(rule.startsOn, todayKey) > 0) {
+        rulesSkipped++;
+        continue;
+      }
+
+      rulesProcessed++;
+      log("info", "Processing recurring rule", {
+        ruleId: rule.id,
+        tabId: rule.tabId,
+        ownerUserId: rule.ownerUserId,
+        nextDueKey: rule.nextDueKey,
+        todayKey,
+      });
 
       const scheduleParse = recurringScheduleSchema.safeParse(rule.schedule);
       const templateParse = recurringExpenseTemplateSchema.safeParse(rule.template);
       if (!scheduleParse.success || !templateParse.success) {
+        log("warn", "Recurring rule paused: schema validation failed", {
+          ruleId: rule.id,
+          tabId: rule.tabId,
+          ownerUserId: rule.ownerUserId,
+          scheduleError: scheduleParse.success ? undefined : scheduleParse.error.message,
+          templateError: templateParse.success ? undefined : templateParse.error.message,
+        });
         await recurringExpense.updateRule(rule.id, {
           status: "paused_needs_fix",
           pausedAt: new Date(),
         });
+        rulesPaused++;
         const tabName = await tabDisplayNameForOwner(rule.tabId, rule.ownerUserId);
         await notificationService.publishRecurringRuleNeedsFixToUser(rule.ownerUserId, {
           ruleId: rule.id,
@@ -216,10 +247,17 @@ export const recurringExpenseService = {
         );
 
         if (!r.success) {
+          log("warn", "Recurring rule paused: occurrence posting failed", {
+            ruleId: rule.id,
+            tabId: rule.tabId,
+            occurrenceKey: key,
+            error: r.error,
+          });
           await recurringExpense.updateRule(rule.id, {
             status: "paused_needs_fix",
             pausedAt: new Date(),
           });
+          rulesPaused++;
           const tabName = await tabDisplayNameForOwner(rule.tabId, rule.ownerUserId);
           await notificationService.publishRecurringRuleNeedsFixToUser(rule.ownerUserId, {
             ruleId: rule.id,
@@ -232,7 +270,16 @@ export const recurringExpenseService = {
           break;
         }
 
-        if (r.data.created) posted++;
+        if (r.data.created) {
+          posted++;
+          occurrencesPosted++;
+          log("info", "Recurring occurrence posted", {
+            ruleId: rule.id,
+            tabId: rule.tabId,
+            expenseId: r.data.expenseId,
+            occurrenceKey: key,
+          });
+        }
         lastHandled = key;
       }
 
@@ -244,5 +291,13 @@ export const recurringExpenseService = {
         });
       }
     }
+
+    log("info", "Recurring expense tick completed", {
+      rulesTotal: rules.length,
+      rulesProcessed,
+      rulesSkipped,
+      rulesPaused,
+      occurrencesPosted,
+    });
   },
 };
