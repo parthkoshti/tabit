@@ -1,4 +1,10 @@
-import { context } from "@opentelemetry/api";
+import {
+  context,
+  SpanStatusCode,
+  trace,
+  type Span,
+  type SpanOptions,
+} from "@opentelemetry/api";
 import type { SeverityNumber } from "@opentelemetry/api-logs";
 import { logs } from "@opentelemetry/api-logs";
 import {
@@ -31,6 +37,7 @@ const pinoLogger = isDev
 let loggerProvider: LoggerProvider | null = null;
 let otelLogger: ReturnType<LoggerProvider["getLogger"]> | null = null;
 let sdk: NodeSDK | null = null;
+const tracer = trace.getTracer("tabit", "1.0.0");
 
 function isOtelEnabled(): boolean {
   if (process.env.OTEL_SDK_DISABLED === "true") return false;
@@ -75,12 +82,23 @@ export function log(
   msg: string,
   data?: Record<string, unknown>,
 ): void {
-  pinoLogger[level](data ?? {}, msg);
+  const activeSpan = trace.getSpan(context.active());
+  const spanContext = activeSpan?.spanContext();
+  const enriched =
+    spanContext && spanContext.traceId
+      ? {
+          traceId: spanContext.traceId,
+          spanId: spanContext.spanId,
+          ...(data ?? {}),
+        }
+      : (data ?? {});
+
+  pinoLogger[level](enriched, msg);
 
   if (otelLogger) {
     const attributes: Record<string, string | number | boolean> = {};
-    if (data) {
-      for (const [k, v] of Object.entries(data)) {
+    if (enriched) {
+      for (const [k, v] of Object.entries(enriched)) {
         if (v !== undefined && v !== null) {
           attributes[k] =
             typeof v === "object"
@@ -97,4 +115,35 @@ export function log(
       context: context.active(),
     });
   }
+}
+
+export async function withSpan<T>(
+  name: string,
+  attributes: Record<string, string | number | boolean | undefined | null>,
+  fn: (span: Span) => Promise<T>,
+  options?: SpanOptions,
+): Promise<T> {
+  const span = tracer.startSpan(name, options);
+  for (const [key, value] of Object.entries(attributes)) {
+    if (value !== undefined && value !== null) {
+      span.setAttribute(key, value);
+    }
+  }
+
+  return context.with(trace.setSpan(context.active(), span), async () => {
+    try {
+      const result = await fn(span);
+      span.setStatus({ code: SpanStatusCode.OK });
+      return result;
+    } catch (err) {
+      span.recordException(err instanceof Error ? err : new Error(String(err)));
+      span.setStatus({
+        code: SpanStatusCode.ERROR,
+        message: err instanceof Error ? err.message : String(err),
+      });
+      throw err;
+    } finally {
+      span.end();
+    }
+  });
 }

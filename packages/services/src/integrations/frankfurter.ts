@@ -32,20 +32,59 @@ async function fetchJson<T>(url: string, timeoutMs = 15_000): Promise<T> {
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
   const start = Date.now();
-  log("info", "Frankfurter request started", { url });
+  const requestStartedAt = new Date();
+  log("info", "Frankfurter request started", {
+    operation: "fx.frankfurter.request",
+    entityType: "fx_rate_provider",
+    action: "start",
+    provider: "frankfurter",
+    url,
+    timeoutMs,
+    requestStartedAt: requestStartedAt.toISOString(),
+  });
   try {
     const res = await fetch(url, { signal: ctrl.signal });
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       const msg = `Frankfurter HTTP ${res.status}${text ? `: ${text.slice(0, 200)}` : ""}`;
-      log("error", "Frankfurter request failed", { url, status: res.status, durationMs: Date.now() - start });
+      log("error", "Frankfurter request failed", {
+        operation: "fx.frankfurter.request",
+        entityType: "fx_rate_provider",
+        action: "error",
+        provider: "frankfurter",
+        url,
+        status: res.status,
+        requestStartedAt: requestStartedAt.toISOString(),
+        requestFailedAt: new Date().toISOString(),
+        durationMs: Date.now() - start,
+      });
       throw new Error(msg);
     }
-    log("info", "Frankfurter request completed", { url, status: res.status, durationMs: Date.now() - start });
+    log("info", "Frankfurter request completed", {
+      operation: "fx.frankfurter.request",
+      entityType: "fx_rate_provider",
+      action: "complete",
+      provider: "frankfurter",
+      url,
+      status: res.status,
+      requestStartedAt: requestStartedAt.toISOString(),
+      requestCompletedAt: new Date().toISOString(),
+      durationMs: Date.now() - start,
+    });
     return (await res.json()) as T;
   } catch (e) {
     if (e instanceof Error && e.name === "AbortError") {
-      log("error", "Frankfurter request timed out", { url, timeoutMs, durationMs: Date.now() - start });
+      log("error", "Frankfurter request timed out", {
+        operation: "fx.frankfurter.request",
+        entityType: "fx_rate_provider",
+        action: "timeout",
+        provider: "frankfurter",
+        url,
+        timeoutMs,
+        requestStartedAt: requestStartedAt.toISOString(),
+        requestFailedAt: new Date().toISOString(),
+        durationMs: Date.now() - start,
+      });
     }
     throw e;
   } finally {

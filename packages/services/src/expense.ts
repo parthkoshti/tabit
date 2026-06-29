@@ -44,6 +44,24 @@ type ResolvedSplitRow = {
   weight: number | null;
 };
 
+function splitSummary(splits: ResolvedSplitRow[]) {
+  return {
+    splitCount: splits.length,
+    splitParticipantIds: splits.map((s) => s.participantId),
+    splitUserIds: splits.map((s) => s.userId).filter((id): id is string => id != null),
+    splitAmounts: splits.map((s) => ({
+      participantId: s.participantId,
+      userId: s.userId,
+      amount: roundTo2(s.amount),
+      weight: s.weight != null ? roundTo2(s.weight) : null,
+    })),
+  };
+}
+
+function formatExpenseLogDate(date: Date): string {
+  return date.toISOString().slice(0, 10);
+}
+
 function resolveLedgerMembers(
   tabParticipants: Array<{ id: string; userId: string | null }>,
   orderedKeys: string[],
@@ -345,6 +363,24 @@ export const expenseService = {
     input: CreateExpenseInput,
     performedById: string,
   ): Promise<Result<CreateExpenseSuccess>> => {
+    const serviceStartedAt = new Date();
+    const serviceStartMs = Date.now();
+    log("info", "Expense create service started", {
+      operation: "expense.create",
+      entityType: "expense",
+      action: "service_start",
+      tabId: input.tabId,
+      performedById,
+      amount: input.amount,
+      currency: input.currency,
+      splitType: input.splitType,
+      participantCount: input.participantIds?.length,
+      splitInputCount: input.splits?.length,
+      expenseDate: formatExpenseLogDate(input.expenseDate),
+      hasRecurringRule: input.createRecurringRule != null,
+      serviceStartedAt: serviceStartedAt.toISOString(),
+    });
+
     const isMember = await tab.isMember(input.tabId, performedById);
     if (!isMember) {
       return err("Not a member of this tab", 403);
@@ -355,6 +391,18 @@ export const expenseService = {
       return err("Tab not found", 404);
     }
     await ensureMemberParticipantsForTab(input.tabId);
+    log("info", "Expense create tab context loaded", {
+      operation: "expense.create",
+      entityType: "expense",
+      action: "tab_context_loaded",
+      tabId: input.tabId,
+      performedById,
+      tabCurrency: tabDetail.currency,
+      memberCount: tabDetail.members.length,
+      participantCount: tabDetail.participants.length,
+      isDirect: tabDetail.isDirect ?? false,
+      durationMs: Date.now() - serviceStartMs,
+    });
 
     const paidByParticipantId =
       input.paidByParticipantId ??
@@ -412,6 +460,23 @@ export const expenseService = {
       return err(splitResult.error, 400);
     }
     const splits = splitResult.splits;
+    log("info", "Expense create split calculated", {
+      operation: "expense.create",
+      entityType: "expense",
+      action: "split_calculated",
+      tabId: input.tabId,
+      performedById,
+      paidByUserId,
+      paidByParticipantId,
+      amount: amountTab,
+      originalAmount: input.amount,
+      tabCurrency,
+      currency: expenseCurrency,
+      splitType: input.splitType,
+      expenseDate: formatExpenseLogDate(input.expenseDate),
+      ...splitSummary(splits),
+      durationMs: Date.now() - serviceStartMs,
+    });
 
     const expensePayload = {
       tabId: input.tabId,
@@ -433,6 +498,17 @@ export const expenseService = {
     };
 
     let expenseId: string;
+    const persistStartMs = Date.now();
+    log("info", "Expense create persistence started", {
+      operation: "expense.create",
+      entityType: "expense",
+      action: "persist_start",
+      tabId: input.tabId,
+      performedById,
+      hasRecurringRule: input.createRecurringRule != null,
+      splitCount: splits.length,
+      durationMs: persistStartMs - serviceStartMs,
+    });
     if (input.createRecurringRule) {
       const crParsed = createRecurringExpenseRuleSchema.safeParse(input.createRecurringRule);
       if (!crParsed.success) {
@@ -473,26 +549,60 @@ export const expenseService = {
       );
       expenseId = linked.expenseId;
       log("info", "Expense created with recurring rule", {
+        operation: "expense.create",
+        entityType: "expense",
+        action: "create",
         expenseId,
         tabId: input.tabId,
         performedById,
+        paidByUserId,
+        paidByParticipantId,
         amount: amountTab,
+        originalAmount: input.amount,
+        tabCurrency,
         currency: expenseCurrency,
         splitType: input.splitType,
         participantCount: members.length,
+        expenseDate: formatExpenseLogDate(input.expenseDate),
+        descriptionLength: input.description.length,
+        hasRecurringRule: true,
+        recurringRuleId: linked.ruleId,
+        ...splitSummary(splits),
       });
     } else {
       expenseId = await expense.create(expensePayload);
       log("info", "Expense created", {
+        operation: "expense.create",
+        entityType: "expense",
+        action: "create",
         expenseId,
         tabId: input.tabId,
         performedById,
+        paidByUserId,
+        paidByParticipantId,
         amount: amountTab,
+        originalAmount: input.amount,
+        tabCurrency,
         currency: expenseCurrency,
         splitType: input.splitType,
         participantCount: members.length,
+        expenseDate: formatExpenseLogDate(input.expenseDate),
+        descriptionLength: input.description.length,
+        hasRecurringRule: false,
+        ...splitSummary(splits),
       });
     }
+    log("info", "Expense create persistence completed", {
+      operation: "expense.create",
+      entityType: "expense",
+      action: "persist_complete",
+      expenseId,
+      tabId: input.tabId,
+      performedById,
+      hasRecurringRule: input.createRecurringRule != null,
+      persistDurationMs: Date.now() - persistStartMs,
+      durationMs: Date.now() - serviceStartMs,
+    });
 
     const tabInfo = await tab.getTabInfoForNotifications(input.tabId, performedById);
     const payerUser = paidByUserId ? await userData.getById(paidByUserId) : null;
@@ -525,6 +635,23 @@ export const expenseService = {
 
     const notifyFromUserId = paidByUserId ?? performedById;
 
+    const notificationRecipients = members.filter(
+      (m) => m.userId != null && m.userId !== performedById,
+    );
+    const notificationStartMs = Date.now();
+    log("info", "Expense create notifications started", {
+      operation: "expense.create",
+      entityType: "expense_notification",
+      action: "notifications_start",
+      expenseId,
+      tabId: input.tabId,
+      performedById,
+      notifyFromUserId,
+      recipientCount: notificationRecipients.length,
+      recipientUserIds: notificationRecipients.map((m) => m.userId),
+      durationMs: notificationStartMs - serviceStartMs,
+    });
+
     if (tabInfo) {
       for (const m of members) {
         if (m.userId != null && m.userId !== performedById) {
@@ -544,6 +671,36 @@ export const expenseService = {
         }
       }
     }
+    log("info", "Expense create notifications completed", {
+      operation: "expense.create",
+      entityType: "expense_notification",
+      action: "notifications_complete",
+      expenseId,
+      tabId: input.tabId,
+      performedById,
+      recipientCount: notificationRecipients.length,
+      notificationDurationMs: Date.now() - notificationStartMs,
+      durationMs: Date.now() - serviceStartMs,
+    });
+
+    log("info", "Expense create service completed", {
+      operation: "expense.create",
+      entityType: "expense",
+      action: "service_complete",
+      expenseId,
+      tabId: input.tabId,
+      performedById,
+      amount: amountTab,
+      originalAmount: input.amount,
+      tabCurrency,
+      currency: expenseCurrency,
+      fxRateDate: expenseCurrency !== tabCurrency ? conv.data.rateDate : undefined,
+      splitType: input.splitType,
+      participantCount: members.length,
+      serviceStartedAt: serviceStartedAt.toISOString(),
+      serviceCompletedAt: new Date().toISOString(),
+      durationMs: Date.now() - serviceStartMs,
+    });
 
     return ok({
       expenseId,
@@ -842,12 +999,39 @@ export const expenseService = {
     );
 
     log("info", "Expense updated", {
+      operation: "expense.update",
+      entityType: "expense",
+      action: "update",
       expenseId,
       tabId,
       performedById,
+      paidByUserId,
+      paidByParticipantId,
       amount: amountTab,
+      previousAmount: existingExp.amount,
+      originalAmount: input.amount,
+      previousOriginalAmount: existingExp.originalAmount,
+      tabCurrency,
       currency: expenseCurrency,
+      previousCurrency: existingExp.currency,
       splitType: input.splitType,
+      previousSplitType: existingExp.splitType,
+      expenseDate: formatExpenseLogDate(input.expenseDate),
+      previousExpenseDate: formatExpenseLogDate(existingExp.expenseDate),
+      descriptionChanged: input.description !== existingExp.description,
+      descriptionLength: input.description.length,
+      previousDescriptionLength: existingExp.description.length,
+      amountChanged: amountTab !== Number(existingExp.amount),
+      currencyChanged: expenseCurrency !== existingExp.currency,
+      payerChanged:
+        paidByUserId !== existingExp.paidById ||
+        paidByParticipantId !== existingExp.paidByParticipantId,
+      splitTypeChanged: input.splitType !== existingExp.splitType,
+      splitCountChanged: splits.length !== existingExp.splits.length,
+      ...splitSummary(splits),
+      previousSplitParticipantIds: existingExp.splits.map(
+        (s) => s.participantId ?? s.userId ?? "",
+      ),
     });
 
     const tabInfo = await tab.getTabInfoForNotifications(tabId, performedById);
@@ -911,7 +1095,24 @@ export const expenseService = {
 
     await expense.delete(expenseId, tabId, userId);
 
-    log("info", "Expense deleted", { expenseId, tabId, userId });
+    log("info", "Expense deleted", {
+      operation: "expense.delete",
+      entityType: "expense",
+      action: "delete",
+      expenseId,
+      tabId,
+      performedById: userId,
+      paidByUserId: exp.paidById,
+      paidByParticipantId: exp.paidByParticipantId,
+      amount: exp.amount,
+      currency: exp.currency,
+      originalAmount: exp.originalAmount,
+      splitType: exp.splitType,
+      splitCount: exp.splits.length,
+      splitParticipantIds: exp.splits.map((s) => s.participantId ?? s.userId ?? ""),
+      expenseDate: formatExpenseLogDate(exp.expenseDate),
+      descriptionLength: exp.description.length,
+    });
 
     const tabInfo = await tab.getTabInfoForNotifications(tabId, userId);
     const fromUser = await userData.getById(userId);

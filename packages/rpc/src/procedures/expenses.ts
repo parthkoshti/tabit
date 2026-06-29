@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import {
   createExpenseSchema,
   createRecurringExpenseRuleSchema,
@@ -10,6 +11,7 @@ import { convertToTabCurrency, expenseService } from "services";
 import { authed } from "../auth-middleware.js";
 import { ORPCError } from "@orpc/server";
 import { unwrap, zodFirstError } from "../utils.js";
+import { log } from "otel";
 
 function bodyForExpenseZodParse(
   body: Record<string, unknown>,
@@ -139,47 +141,142 @@ export const expensesProcedures = {
       }),
     )
     .handler(async ({ context, input }) => {
+      const expenseCreateRequestId = randomUUID();
+      const requestStartedAt = new Date();
+      const startedAtMs = Date.now();
       const body = input.body as Record<string, unknown>;
-      const parsed = createExpenseSchema.safeParse(
-        bodyForExpenseZodParse(body, input.tabId, context.userId!),
-      );
-      if (!parsed.success) {
-        throw new ORPCError("BAD_REQUEST", { message: zodFirstError(parsed.error) });
-      }
-      let createRecurringRule: CreateRecurringExpenseRuleInput | undefined;
-      if (body.createRecurringRule != null) {
-        const crParsed = createRecurringExpenseRuleSchema.safeParse(
-          body.createRecurringRule,
+      log("info", "Expense create request started", {
+        operation: "expense.create.request",
+        entityType: "expense",
+        action: "start",
+        expenseCreateRequestId,
+        tabId: input.tabId,
+        performedById: context.userId,
+        requestStartedAt: requestStartedAt.toISOString(),
+        bodyKeys: Object.keys(body).sort(),
+        hasRecurringRule: body.createRecurringRule != null,
+      });
+
+      try {
+        const parsed = createExpenseSchema.safeParse(
+          bodyForExpenseZodParse(body, input.tabId, context.userId!),
         );
-        if (!crParsed.success) {
-          throw new ORPCError("BAD_REQUEST", {
-            message: zodFirstError(crParsed.error),
+        if (!parsed.success) {
+          const validationError = zodFirstError(parsed.error);
+          log("warn", "Expense create request validation failed", {
+            operation: "expense.create.request",
+            entityType: "expense",
+            action: "validation_error",
+            expenseCreateRequestId,
+            tabId: input.tabId,
+            performedById: context.userId,
+            error: validationError,
+            durationMs: Date.now() - startedAtMs,
           });
+          throw new ORPCError("BAD_REQUEST", { message: validationError });
         }
-        createRecurringRule = crParsed.data;
+
+        let createRecurringRule: CreateRecurringExpenseRuleInput | undefined;
+        if (body.createRecurringRule != null) {
+          const crParsed = createRecurringExpenseRuleSchema.safeParse(
+            body.createRecurringRule,
+          );
+          if (!crParsed.success) {
+            const validationError = zodFirstError(crParsed.error);
+            log("warn", "Expense recurring rule validation failed", {
+              operation: "expense.create.request",
+              entityType: "expense",
+              action: "recurring_validation_error",
+              expenseCreateRequestId,
+              tabId: input.tabId,
+              performedById: context.userId,
+              error: validationError,
+              durationMs: Date.now() - startedAtMs,
+            });
+            throw new ORPCError("BAD_REQUEST", {
+              message: validationError,
+            });
+          }
+          createRecurringRule = crParsed.data;
+        }
+
+        log("info", "Expense create request validated", {
+          operation: "expense.create.request",
+          entityType: "expense",
+          action: "validated",
+          expenseCreateRequestId,
+          tabId: input.tabId,
+          performedById: context.userId,
+          amount: parsed.data.amount,
+          currency: parsed.data.currency,
+          paidById: parsed.data.paidById,
+          paidByParticipantId: parsed.data.paidByParticipantId,
+          splitType: parsed.data.splitType,
+          participantCount: (body.participantIds as string[] | undefined)?.length,
+          splitCount: parsed.data.splits?.length,
+          expenseDate: parsed.data.expenseDate.toISOString(),
+          hasRecurringRule: createRecurringRule != null,
+          durationMs: Date.now() - startedAtMs,
+        });
+
+        const data = unwrap(
+          await expenseService.create(
+            {
+              ...parsed.data,
+              participantIds: body.participantIds as string[] | undefined,
+              ...(createRecurringRule ? { createRecurringRule } : {}),
+            },
+            context.userId!,
+          ),
+        );
+
+        log("info", "Expense create request completed", {
+          operation: "expense.create.request",
+          entityType: "expense",
+          action: "complete",
+          expenseCreateRequestId,
+          expenseId: data.expenseId,
+          tabId: data.tabId,
+          performedById: context.userId,
+          amount: data.amount,
+          originalAmount: data.originalAmount,
+          tabCurrency: data.currency,
+          expenseCurrency: data.expenseCurrency,
+          fxRateDate: data.fxRateDate,
+          participantCount: data.participants.length,
+          requestStartedAt: requestStartedAt.toISOString(),
+          requestCompletedAt: new Date().toISOString(),
+          durationMs: Date.now() - startedAtMs,
+        });
+
+        return {
+          expenseId: data.expenseId,
+          tabId: data.tabId,
+          amount: data.amount,
+          description: data.description,
+          tabName: data.tabName,
+          currency: data.currency,
+          expenseCurrency: data.expenseCurrency,
+          originalAmount: data.originalAmount,
+          fxRateDate: data.fxRateDate,
+          participants: data.participants,
+        };
+      } catch (err) {
+        log("error", "Expense create request failed", {
+          operation: "expense.create.request",
+          entityType: "expense",
+          action: "error",
+          expenseCreateRequestId,
+          tabId: input.tabId,
+          performedById: context.userId,
+          error: err instanceof Error ? err.message : String(err),
+          errorName: err instanceof Error ? err.name : undefined,
+          requestStartedAt: requestStartedAt.toISOString(),
+          requestFailedAt: new Date().toISOString(),
+          durationMs: Date.now() - startedAtMs,
+        });
+        throw err;
       }
-      const data = unwrap(
-        await expenseService.create(
-          {
-            ...parsed.data,
-            participantIds: body.participantIds as string[] | undefined,
-            ...(createRecurringRule ? { createRecurringRule } : {}),
-          },
-          context.userId!,
-        ),
-      );
-      return {
-        expenseId: data.expenseId,
-        tabId: data.tabId,
-        amount: data.amount,
-        description: data.description,
-        tabName: data.tabName,
-        currency: data.currency,
-        expenseCurrency: data.expenseCurrency,
-        originalAmount: data.originalAmount,
-        fxRateDate: data.fxRateDate,
-        participants: data.participants,
-      };
     }),
 
   createBulk: authed

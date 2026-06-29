@@ -71,7 +71,17 @@ export const friendService = {
       createdAt,
     });
 
-    log("info", "Friend request sent", { requestId, fromUserId: userId, toUserId: targetUser.id });
+    log("info", "Friend request sent", {
+      operation: "friend.request.send",
+      entityType: "friend_request",
+      action: "send",
+      requestId,
+      performedById: userId,
+      fromUserId: userId,
+      fromUsername: sender?.username ?? null,
+      toUserId: targetUser.id,
+      toUsername: targetUser.username,
+    });
     return ok(undefined);
   },
 
@@ -99,7 +109,17 @@ export const friendService = {
       createdAt: new Date(),
     });
 
-    log("info", "Friend request accepted", { requestId, userId, fromUserId: req.fromUserId, friendTabId });
+    log("info", "Friend request accepted", {
+      operation: "friend.request.accept",
+      entityType: "friend_request",
+      action: "accept",
+      requestId,
+      performedById: userId,
+      acceptedByUserId: userId,
+      fromUserId: req.fromUserId,
+      friendTabId,
+      currency,
+    });
     return ok({ friendTabId });
   },
 
@@ -108,7 +128,13 @@ export const friendService = {
     userId: string,
   ): Promise<Result<void>> => {
     await friendData.updateRequestStatusForToUser(requestId, userId, "rejected");
-    log("info", "Friend request rejected", { requestId, userId });
+    log("info", "Friend request rejected", {
+      operation: "friend.request.reject",
+      entityType: "friend_request",
+      action: "reject",
+      requestId,
+      performedById: userId,
+    });
     return ok(undefined);
   },
 
@@ -176,6 +202,16 @@ export const friendService = {
     const existingDirectTab = await friendData.getDirectTabBetween(userId, pending.userId);
     if (existingDirectTab) {
       await friendData.deletePendingFriend(pending.id);
+      log("info", "Friend invite token used by existing friend", {
+        operation: "friend.token.add",
+        entityType: "friend_invite_token",
+        action: "add_existing",
+        performedById: userId,
+        ownerUserId: pending.userId,
+        pendingFriendId: pending.id,
+        friendTabId: existingDirectTab,
+        alreadyFriends: true,
+      });
       return ok({ friendTabId: existingDirectTab, alreadyFriends: true });
     }
 
@@ -183,7 +219,17 @@ export const friendService = {
     const friendTabId = await tab.createDirect(userId, pending.userId, currency);
     await friendData.deletePendingFriend(pending.id);
 
-    log("info", "Friend added by token", { userId, friendUserId: pending.userId, friendTabId });
+    log("info", "Friend added by token", {
+      operation: "friend.token.add",
+      entityType: "friend_invite_token",
+      action: "add",
+      performedById: userId,
+      ownerUserId: pending.userId,
+      pendingFriendId: pending.id,
+      friendTabId,
+      currency,
+      alreadyFriends: false,
+    });
     return ok({ friendTabId });
   },
 
@@ -245,7 +291,16 @@ export const friendService = {
       createdAt: new Date(),
     });
 
-    log("info", "Poke sent", { fromUserId: userId, toUserId: friendUserId, friendTabId: trimmed });
+    log("info", "Poke sent", {
+      operation: "friend.poke",
+      entityType: "friend_notification",
+      action: "poke",
+      performedById: userId,
+      fromUserId: userId,
+      fromUsername: sender?.username ?? null,
+      toUserId: friendUserId,
+      friendTabId: trimmed,
+    });
     return ok(undefined);
   },
 
@@ -304,7 +359,20 @@ export const friendService = {
       createdAt: new Date(),
     });
 
-    log("info", "Payment reminder sent", { fromUserId: userId, toUserId: friendUserId, friendTabId: trimmed, tone, amountDisplay });
+    log("info", "Payment reminder sent", {
+      operation: "friend.payment_reminder.send",
+      entityType: "friend_notification",
+      action: "send_payment_reminder",
+      performedById: userId,
+      fromUserId: userId,
+      fromUsername: sender?.username ?? null,
+      toUserId: friendUserId,
+      friendTabId: trimmed,
+      tone,
+      amountDisplay,
+      balanceAmount: myNet,
+      currency: tabData.currency ?? "USD",
+    });
     return ok(undefined);
   },
 };

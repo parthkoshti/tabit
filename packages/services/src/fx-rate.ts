@@ -1,5 +1,5 @@
 import { fxRate } from "data";
-import { log } from "otel";
+import { log, withSpan } from "otel";
 import { fetchLatestRates, fetchRatesForDate } from "./integrations/frankfurter.js";
 import { ok, err, type Result } from "./types.js";
 
@@ -50,17 +50,55 @@ export async function convertToTabCurrency(
   input: ConvertToTabInput,
 ): Promise<Result<{ amountTab: number; rateDate: string }>> {
   const { originalAmount, from, tabCurrency, asOfDate } = input;
+  const conversionStart = Date.now();
+  const requestDate = toYyyyMmDdUtc(asOfDate);
+  return withSpan(
+    "fx.convert_to_tab_currency",
+    {
+      "fx.from": from,
+      "fx.to": tabCurrency,
+      "fx.original_amount": originalAmount,
+      "fx.request_date": requestDate,
+    },
+    async (span) => {
+      log("info", "FX conversion started", {
+        operation: "fx.convert",
+        entityType: "fx_rate",
+        action: "start",
+        from,
+        to: tabCurrency,
+        originalAmount,
+        requestDate,
+      });
+
   if (from === tabCurrency) {
+    const amountTab = roundTo2(originalAmount);
+    span.setAttribute("fx.cache_status", "not_needed");
+    span.setAttribute("fx.amount_tab", amountTab);
+    span.setAttribute("fx.rate_date", requestDate);
+    log("info", "FX conversion completed without exchange", {
+      operation: "fx.convert",
+      entityType: "fx_rate",
+      action: "complete",
+      from,
+      to: tabCurrency,
+      originalAmount,
+      amountTab,
+      rateDate: requestDate,
+      cacheStatus: "not_needed",
+      durationMs: Date.now() - conversionStart,
+    });
     return ok({
-      amountTab: roundTo2(originalAmount),
-      rateDate: toYyyyMmDdUtc(asOfDate),
+      amountTab,
+      rateDate: requestDate,
     });
   }
 
-  const requestDate = toYyyyMmDdUtc(asOfDate);
   const today = todayUtcYyyyMmDd();
   const useLatest = requestDate > today;
   const lookupDate = useLatest ? today : requestDate;
+  span.setAttribute("fx.lookup_date", lookupDate);
+  span.setAttribute("fx.use_latest", useLatest);
 
   // Today's rates can change (ECB publishes ~16:00 CET daily); treat cache as
   // stale after 12 hours so on-demand fetches for non-warmed bases stay fresh.
@@ -75,17 +113,55 @@ export async function convertToTabCurrency(
       cached != null &&
       Date.now() - cached.fetchedAt.getTime() > TODAY_TTL_MS;
     if (fromCache !== undefined && Number.isFinite(fromCache) && !isTodayStale) {
-      log("info", "FX rate cache hit", { from, to: tabCurrency, date: lookupDate, rate: fromCache });
+      const amountTab = roundTo2(originalAmount * fromCache);
+      span.setAttribute("fx.cache_status", "hit");
+      span.setAttribute("fx.rate", fromCache);
+      span.setAttribute("fx.amount_tab", amountTab);
+      span.setAttribute("fx.rate_date", lookupDate);
+      log("info", "FX rate cache hit", {
+        operation: "fx.convert",
+        entityType: "fx_rate",
+        action: "cache_hit",
+        from,
+        to: tabCurrency,
+        originalAmount,
+        amountTab,
+        requestDate,
+        lookupDate,
+        rateDate: lookupDate,
+        rate: fromCache,
+        durationMs: Date.now() - conversionStart,
+      });
       return ok({
-        amountTab: roundTo2(originalAmount * fromCache),
+        amountTab,
         rateDate: lookupDate,
       });
     }
 
     if (isTodayStale) {
-      log("info", "FX rate cache stale, refetching", { from, to: tabCurrency, date: lookupDate });
+      span.setAttribute("fx.cache_status", "stale");
+      log("info", "FX rate cache stale, refetching", {
+        operation: "fx.convert",
+        entityType: "fx_rate",
+        action: "cache_stale",
+        from,
+        to: tabCurrency,
+        requestDate,
+        lookupDate,
+        cachedFetchedAt: cached?.fetchedAt.toISOString(),
+      });
     } else {
-      log("info", "FX rate cache miss, fetching from Frankfurter", { from, to: tabCurrency, date: lookupDate, useLatest });
+      span.setAttribute("fx.cache_status", "miss");
+      log("info", "FX rate cache miss, fetching from Frankfurter", {
+        operation: "fx.convert",
+        entityType: "fx_rate",
+        action: "cache_miss",
+        from,
+        to: tabCurrency,
+        requestDate,
+        lookupDate,
+        useLatest,
+      });
     }
 
     const data = useLatest
@@ -94,25 +170,64 @@ export async function convertToTabCurrency(
 
     const rate = data.rates[tabCurrency];
     if (rate === undefined || !Number.isFinite(rate)) {
-      log("warn", "FX rate not found in Frankfurter response", { from, to: tabCurrency, date: requestDate });
+      log("warn", "FX rate not found in Frankfurter response", {
+        operation: "fx.convert",
+        entityType: "fx_rate",
+        action: "missing_rate",
+        from,
+        to: tabCurrency,
+        requestDate,
+        lookupDate,
+        frankfurterRateDate: data.date,
+        durationMs: Date.now() - conversionStart,
+      });
       return err(
         `No exchange rate from ${from} to ${tabCurrency} for this date`,
         400,
       );
     }
 
-    log("info", "FX rate fetched and cached", { from, to: tabCurrency, date: data.date, rate });
+    const amountTab = roundTo2(originalAmount * rate);
+    span.setAttribute("fx.rate", rate);
+    span.setAttribute("fx.amount_tab", amountTab);
+    span.setAttribute("fx.rate_date", data.date);
+    log("info", "FX rate fetched and cached", {
+      operation: "fx.convert",
+      entityType: "fx_rate",
+      action: "fetched",
+      from,
+      to: tabCurrency,
+      originalAmount,
+      amountTab,
+      requestDate,
+      lookupDate,
+      rateDate: data.date,
+      rate,
+      durationMs: Date.now() - conversionStart,
+    });
     await upsertSnapshotWithAlias(data.date, lookupDate, from, data.rates);
 
     return ok({
-      amountTab: roundTo2(originalAmount * rate),
+      amountTab,
       rateDate: data.date,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    log("error", "FX rate fetch failed", { from, to: tabCurrency, date: lookupDate, error: msg });
+    log("error", "FX rate fetch failed", {
+      operation: "fx.convert",
+      entityType: "fx_rate",
+      action: "error",
+      from,
+      to: tabCurrency,
+      requestDate,
+      lookupDate,
+      error: msg,
+      durationMs: Date.now() - conversionStart,
+    });
     return err(`Exchange rate unavailable: ${msg}`, 503);
   }
+    },
+  );
 }
 
 /**
