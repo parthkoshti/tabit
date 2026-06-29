@@ -61,7 +61,7 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 - `packages/models` — Shared Zod schemas and TypeScript types
 - `packages/rpc` — oRPC `appRouter` (procedures call `services`)
 - `packages/queue` — BullMQ `notifications` queue + worker factory
-- `packages/auth` — Better Auth (email OTP, 30-day sessions, emails via Plunk)
+- `packages/auth` — Better Auth (email OTP, 1-year sessions, emails via Plunk)
 - `packages/shared` — Shared utilities (e.g. `createId`)
 - `packages/otel` — OpenTelemetry setup (logs + traces to OTLP/SigNoz)
 - `packages/services` — Business logic; used by `rpc` procedures and workers
@@ -71,7 +71,7 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 
 **PWA dev proxy**: Vite proxies `/api/auth` and `/rpc` to `api:3001`. Client uses `VITE_API_URL` (production: `https://api.tabit.in`) and `VITE_REALTIME_URL` (`https://wrk.tabit.in`). The oRPC client lives in `apps/pwa/src/lib/orpc-client.ts`; `apps/pwa/lib/api.ts` is a compatibility facade with `{ success, error }` shape.
 
-**Auth**: Better Auth at `/api/auth/*` on the API. Sessions are 30 days. PWA uses `better-auth/react` via `apps/pwa/lib/auth-client.ts` with `credentials: 'include'`.
+**Auth**: Better Auth at `/api/auth/*` on the API. Sessions are 1 year. PWA uses `better-auth/react` via `apps/pwa/lib/auth-client.ts` with `credentials: 'include'`.
 
 **API**: No REST `/v1`. All app mutations and reads go through oRPC (`packages/rpc`) mounted at `/rpc/*` on `apps/api`.
 

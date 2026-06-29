@@ -24,7 +24,6 @@ const RPC_URL = API_BASE ? `${API_BASE.replace(/\/$/, "")}/rpc` : "/rpc";
 const PERIODIC_SYNC_TAG = "check-notifications";
 const OFFLINE_SYNC_TAG = "sync-offline-mutations";
 
-self.skipWaiting();
 clientsClaim();
 
 self.addEventListener("message", (event) => {

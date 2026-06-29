@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { recordSettlementSchema } from "models";
 import { api } from "@/lib/api-client";
 import { zodFieldErrors } from "@/lib/form-zod";
@@ -167,7 +167,9 @@ export function SettleUpForm({
     },
   });
 
-  const { amount, currency, settlementDate } = form.state.values;
+  const amount = useStore(form.store, (s) => s.values.amount);
+  const currency = useStore(form.store, (s) => s.values.currency);
+  const settlementDate = useStore(form.store, (s) => s.values.settlementDate);
 
   useEffect(() => {
     form.setFieldValue("currency", tabCurrency);

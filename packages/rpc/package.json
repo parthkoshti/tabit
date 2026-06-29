@@ -24,6 +24,7 @@
     "auth": "workspace:*",
     "data": "workspace:*",
     "models": "workspace:*",
+    "otel": "workspace:*",
     "queue": "workspace:*",
     "services": "workspace:*",
     "shared": "workspace:*",

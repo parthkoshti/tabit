@@ -9,16 +9,16 @@ import { useChangelog } from "@/lib/use-changelog";
 import { useUpdateBanner } from "@/app/(app)/context/update-banner-context";
 
 export function VersionMismatchBanner() {
-  const { showBanner, updateServiceWorker } = useUpdateBanner();
-  const releases = useChangelog(showBanner);
+  const { showBanner, needRefresh, updateServiceWorker } = useUpdateBanner();
+  const open = showBanner || needRefresh;
+  const releases = useChangelog(open);
 
-  const handleUpdate = async () => {
+  const handleUpdate = () => {
     updateServiceWorker(true);
-    window.location.reload();
   };
 
   return (
-    <Dialog open={showBanner} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent
         className="max-h-[85vh] max-w-[90vw] flex flex-col rounded-lg"
         showCloseButton={false}
@@ -39,7 +39,7 @@ export function VersionMismatchBanner() {
         </DialogHeader>
         <div className="flex max-h-96 flex-col gap-3 overflow-auto">
           <ChangelogContent
-            enabled={showBanner}
+            enabled={open}
             className="flex flex-col gap-3"
           />
         </div>

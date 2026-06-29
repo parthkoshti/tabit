@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { api } from "@/lib/api-client";
 import {
   buildExpenseUpdateBody,
@@ -269,7 +269,10 @@ export function EditExpenseForm({
     },
   });
 
-  const { amount, currency, expenseDate, participantIds } = form.state.values;
+  const amount = useStore(form.store, (s) => s.values.amount);
+  const currency = useStore(form.store, (s) => s.values.currency);
+  const expenseDate = useStore(form.store, (s) => s.values.expenseDate);
+  const participantIds = useStore(form.store, (s) => s.values.participantIds);
   const participantIdSet = useMemo(
     () => new Set(participantIds),
     [participantIds],

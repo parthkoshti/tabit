@@ -47,7 +47,7 @@ const plunk =
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
   session: {
-    expiresIn: 60 * 60 * 24 * 30,
+    expiresIn: 60 * 60 * 24 * 365,
   },
   user: {
     additionalFields: {

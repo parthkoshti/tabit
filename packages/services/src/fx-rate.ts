@@ -61,10 +61,19 @@ export async function convertToTabCurrency(
   const useLatest = requestDate > today;
   const lookupDate = useLatest ? today : requestDate;
 
+  // Today's rates can change (ECB publishes ~16:00 CET daily); treat cache as
+  // stale after 12 hours so on-demand fetches for non-warmed bases stay fresh.
+  // Historical dates never change so they are cached indefinitely.
+  const TODAY_TTL_MS = 12 * 60 * 60 * 1000;
+
   try {
     const cached = await fxRate.getSnapshot(lookupDate, from);
     const fromCache = cached?.rates[tabCurrency];
-    if (fromCache !== undefined && Number.isFinite(fromCache)) {
+    const isTodayStale =
+      lookupDate === today &&
+      cached != null &&
+      Date.now() - cached.fetchedAt.getTime() > TODAY_TTL_MS;
+    if (fromCache !== undefined && Number.isFinite(fromCache) && !isTodayStale) {
       return ok({
         amountTab: roundTo2(originalAmount * fromCache),
         rateDate: lookupDate,

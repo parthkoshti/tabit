@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect } from "react";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { api } from "@/lib/api-client";
 import {
   buildExpenseCreateBody,
@@ -33,7 +33,9 @@ import { formatRelativeCalendarDate } from "@/lib/format-date";
 import {
   Calendar as CalendarIcon,
   CalendarSync,
+  Check,
   CornerDownLeft,
+  Search,
   Split,
 } from "lucide-react";
 import { getDisplayName } from "@/lib/display-name";
@@ -49,6 +51,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -92,6 +95,139 @@ function participantLabel(p: TabParticipant, currentUserId: string): string {
 
 function participantAvatarSeed(p: TabParticipant): string {
   return p.userId ?? p.id;
+}
+
+function CurrencyPickerDialog({
+  value,
+  onValueChange,
+  disabled,
+}: {
+  value: string;
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const selectedCurrency = getCurrency(value);
+  const normalizedQuery = query.trim().toLowerCase();
+  const currencies = useMemo(
+    () =>
+      CURATED_CURRENCIES.filter((code) => {
+        if (!normalizedQuery) return true;
+        const currency = getCurrency(code);
+        return [code, currency?.name, currency?.symbol]
+          .filter(Boolean)
+          .some((part) => part!.toLowerCase().includes(normalizedQuery));
+      }),
+    [normalizedQuery],
+  );
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={disabled}
+        onClick={() => {
+          setQuery("");
+          setOpen(true);
+        }}
+        className="h-12 w-16 shrink-0 border-input bg-input-bg px-2 text-base font-semibold shadow-sm hover:bg-input-bg"
+        aria-label={`Currency, currently ${value}`}
+      >
+        {value}
+      </Button>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) setQuery("");
+        }}
+      >
+        <DialogContent className="flex max-h-[min(90vh,34rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-md">
+          <DialogHeader className="border-b border-border px-5 pb-4 pt-5">
+            <DialogTitle className="text-xl">Select currency</DialogTitle>
+            <DialogDescription>
+              Search by currency code, name, or symbol.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="border-b border-border bg-background px-5 py-4">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                type="search"
+                autoFocus
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search currencies"
+                aria-label="Search currencies"
+                className="h-11 pl-9"
+              />
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
+            {currencies.length > 0 ? (
+              <div className="space-y-1">
+                {currencies.map((code) => {
+                  const currency = getCurrency(code);
+                  const selected = code === value;
+
+                  return (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => {
+                        onValueChange(code);
+                        setOpen(false);
+                        setQuery("");
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+                        selected &&
+                          "bg-primary/10 text-foreground ring-1 ring-primary/25",
+                      )}
+                    >
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
+                        {currency?.symbol ?? code}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2 font-medium">
+                          <span>{code}</span>
+                          <span className="min-w-0 truncate text-muted-foreground">
+                            {currency?.name ?? code}
+                          </span>
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {currency?.name_plural ?? currency?.name ?? code}
+                        </span>
+                      </span>
+                      {selected ? (
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
+                          <Check className="size-4" />
+                          <span className="sr-only">Selected</span>
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No currencies found.
+              </p>
+            )}
+          </div>
+          <div className="border-t border-border bg-muted/30 px-5 py-3 text-xs text-muted-foreground">
+            Current:{" "}
+            <span className="font-medium text-foreground">
+              {value}
+              {selectedCurrency?.name ? ` - ${selectedCurrency.name}` : ""}
+            </span>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 }
 
 /** Ledger row for the signed-in user, if they belong to this tab. */
@@ -379,7 +515,10 @@ export function AddExpenseForm({
     },
   });
 
-  const { amount, currency, expenseDate, participantIds } = form.state.values;
+  const amount = useStore(form.store, (s) => s.values.amount);
+  const currency = useStore(form.store, (s) => s.values.currency);
+  const expenseDate = useStore(form.store, (s) => s.values.expenseDate);
+  const participantIds = useStore(form.store, (s) => s.values.participantIds);
   const participantIdSet = useMemo(
     () => new Set(participantIds),
     [participantIds],
@@ -891,22 +1030,11 @@ export function AddExpenseForm({
                 </div>
                 <form.Field name="currency">
                   {(currencyField) => (
-                    <Select
+                    <CurrencyPickerDialog
                       value={currencyField.state.value}
                       onValueChange={currencyField.handleChange}
                       disabled={form.state.isSubmitting}
-                    >
-                      <SelectTrigger className="h-12 w-16 items-center justify-center shrink-0">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-60">
-                        {CURATED_CURRENCIES.map((code) => (
-                          <SelectItem key={code} value={code}>
-                            {code}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    />
                   )}
                 </form.Field>
               </div>
@@ -915,18 +1043,20 @@ export function AddExpenseForm({
                   {String(field.state.meta.errors[0])}
                 </p>
               ) : null}
-              {currency !== tabCurrency &&
-                parseExpenseAmount(field.state.value) != null &&
-                (fxPreviewLoading ? (
-                  <Skeleton className="mt-0.5 h-4 w-[min(100%,12rem)]" />
-                ) : (
-                  fxPreview && (
+              <div className="h-4" aria-live="polite">
+                {currency !== tabCurrency &&
+                parseExpenseAmount(field.state.value) != null ? (
+                  fxPreviewLoading ? (
+                    <Skeleton className="h-4 w-[min(100%,12rem)]" />
+                  ) : fxPreview ? (
                     <p className="text-xs text-muted-foreground">
-                      ≈ {formatAmount(fxPreview.amountTab, fxPreview.tabCurrency)}{" "}
+                      ≈{" "}
+                      {formatAmount(fxPreview.amountTab, fxPreview.tabCurrency)}{" "}
                       in tab currency
                     </p>
-                  )
-                ))}
+                  ) : null
+                ) : null}
+              </div>
             </div>
           )}
         </form.Field>
