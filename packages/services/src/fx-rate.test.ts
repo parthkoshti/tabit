@@ -55,12 +55,9 @@ describe("convertToTabCurrency", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
-          Promise.resolve({
-            amount: 1,
-            base: "EUR",
-            date: "2024-06-03",
-            rates: { USD: 1.08 },
-          }),
+          Promise.resolve([
+            { date: "2024-06-03", base: "EUR", quote: "USD", rate: 1.08 },
+          ]),
       }),
     );
 
@@ -91,12 +88,9 @@ describe("warmLatestRatesForBases", () => {
       vi.fn().mockResolvedValue({
         ok: true,
         json: () =>
-          Promise.resolve({
-            amount: 1,
-            base: "EUR",
-            date: "2024-06-03",
-            rates: { USD: 1.08 },
-          }),
+          Promise.resolve([
+            { date: "2024-06-03", base: "EUR", quote: "USD", rate: 1.08 },
+          ]),
       }),
     );
 

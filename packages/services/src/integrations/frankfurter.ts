@@ -2,12 +2,31 @@ import { log } from "otel";
 
 const FRANKFURTER_BASE = "https://api.frankfurter.dev/v2";
 
+type FrankfurterV2Entry = {
+  date: string;
+  base: string;
+  quote: string;
+  rate: number;
+};
+
 export type FrankfurterRatesResponse = {
-  amount: number;
   base: string;
   date: string;
   rates: Record<string, number>;
 };
+
+function parseV2Response(entries: FrankfurterV2Entry[]): FrankfurterRatesResponse {
+  if (entries.length === 0) {
+    throw new Error("Frankfurter returned empty rates array");
+  }
+  const base = entries[0].base;
+  const date = entries.reduce((max, e) => (e.date > max ? e.date : max), entries[0].date);
+  const rates: Record<string, number> = {};
+  for (const entry of entries) {
+    rates[entry.quote] = entry.rate;
+  }
+  return { base, date, rates };
+}
 
 async function fetchJson<T>(url: string, timeoutMs = 15_000): Promise<T> {
   const ctrl = new AbortController();
@@ -45,9 +64,10 @@ export async function fetchLatestRates(
   if (quotes?.length) {
     params.set("quotes", quotes.join(","));
   }
-  return fetchJson<FrankfurterRatesResponse>(
+  const entries = await fetchJson<FrankfurterV2Entry[]>(
     `${FRANKFURTER_BASE}/rates?${params}`,
   );
+  return parseV2Response(entries);
 }
 
 /**
@@ -62,7 +82,8 @@ export async function fetchRatesForDate(
   if (quotes?.length) {
     params.set("quotes", quotes.join(","));
   }
-  return fetchJson<FrankfurterRatesResponse>(
+  const entries = await fetchJson<FrankfurterV2Entry[]>(
     `${FRANKFURTER_BASE}/rates?${params}`,
   );
+  return parseV2Response(entries);
 }
