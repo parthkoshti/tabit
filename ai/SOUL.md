@@ -108,7 +108,11 @@ Prefer **Doppler** (`doppler run --`) for dev and Docker (`DOPPLER_TOKEN_*`). Fa
 - `VAPID_*` / `VITE_VAPID_PUBLIC_KEY` — Web push
 - `DISCORD_WEBHOOK_URL` — Cron/job failure alerts in workers
 
-**OpenTelemetry (optional)**: When `OTEL_EXPORTER_OTLP_ENDPOINT` is set, logs and traces are sent to SigNoz or any OTLP-compatible backend. Variables: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS` (e.g. `signoz-ingestion-key=<key>` for SigNoz Cloud), `OTEL_SERVICE_NAME`, `OTEL_SDK_DISABLED`, `OTEL_TRACES_EXPORTER`, `OTEL_LOGS_EXPORTER`.
+**OpenTelemetry**: Tracing is always enabled unless `OTEL_SDK_DISABLED=true`. Set `OTEL_EXPORTER_OTLP_ENDPOINT` (+ `OTEL_EXPORTER_OTLP_HEADERS` for SigNoz) to export traces and logs to a backend; without an endpoint, spans still run locally and `traceId` appears in console logs. `LOG_LEVEL` controls console/OTLP verbosity (`debug` | `info` | `warn` | `error`, default `info`). Slow RPCs log at `warn` when duration ≥ 1s (`SLOW_RPC_MS` in `packages/otel`).
+
+**Logging policy**: Use **spans + span events** for request timing and internal phases. Use **INFO** for business/audit events (e.g. `Expense created`, `Settlement recorded`). Use **DEBUG** for routine operational detail (RPC start/complete, cache hits, notification delivery). Use **WARN/ERROR** for validation failures, slow paths, and errors. Do not duplicate HTTP + RPC completion logs for `/rpc/*` happy paths.
+
+Variables: `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_EXPORTER_OTLP_HEADERS`, `OTEL_SERVICE_NAME`, `OTEL_SDK_DISABLED`, `LOG_LEVEL`, `OTEL_TRACES_EXPORTER`, `OTEL_LOGS_EXPORTER`.
 
 ### HTTPS for PWA (local dev)
 

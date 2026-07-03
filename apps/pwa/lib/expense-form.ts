@@ -56,6 +56,30 @@ export function resolveExpensePayerParticipantId(
   return tabParticipants[0]!.id;
 }
 
+export function isExpenseFormSubmitDisabled(
+  tabId: string,
+  value: ExpenseFormValues,
+  paidByParticipantId: string,
+  splitConfig: SplitConfig | null,
+  tabParticipants: TabParticipant[],
+  options: {
+    isSubmitting?: boolean;
+    splitButtonDisabled?: boolean;
+  } = {},
+): boolean {
+  if (options.isSubmitting) return true;
+  if (options.splitButtonDisabled) return true;
+  return (
+    validateExpenseFormValues(
+      tabId,
+      value,
+      paidByParticipantId,
+      splitConfig,
+      tabParticipants,
+    ) != null
+  );
+}
+
 export function validateExpenseFormValues(
   tabId: string,
   value: ExpenseFormValues,

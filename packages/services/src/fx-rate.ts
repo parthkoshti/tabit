@@ -1,5 +1,5 @@
 import { fxRate } from "data";
-import { log, withSpan } from "otel";
+import { debug, log, spanEvent, withSpan } from "otel";
 import { fetchLatestRates, fetchRatesForDate } from "./integrations/frankfurter.js";
 import { ok, err, type Result } from "./types.js";
 
@@ -61,31 +61,17 @@ export async function convertToTabCurrency(
       "fx.request_date": requestDate,
     },
     async (span) => {
-      log("info", "FX conversion started", {
-        operation: "fx.convert",
-        entityType: "fx_rate",
-        action: "start",
-        from,
-        to: tabCurrency,
-        originalAmount,
-        requestDate,
-      });
+      spanEvent("fx.convert.start", { from, to: tabCurrency, requestDate });
 
   if (from === tabCurrency) {
     const amountTab = roundTo2(originalAmount);
     span.setAttribute("fx.cache_status", "not_needed");
     span.setAttribute("fx.amount_tab", amountTab);
     span.setAttribute("fx.rate_date", requestDate);
-    log("info", "FX conversion completed without exchange", {
-      operation: "fx.convert",
-      entityType: "fx_rate",
-      action: "complete",
+    debug("FX conversion completed without exchange", {
       from,
       to: tabCurrency,
-      originalAmount,
       amountTab,
-      rateDate: requestDate,
-      cacheStatus: "not_needed",
       durationMs: Date.now() - conversionStart,
     });
     return ok({
@@ -118,17 +104,10 @@ export async function convertToTabCurrency(
       span.setAttribute("fx.rate", fromCache);
       span.setAttribute("fx.amount_tab", amountTab);
       span.setAttribute("fx.rate_date", lookupDate);
-      log("info", "FX rate cache hit", {
-        operation: "fx.convert",
-        entityType: "fx_rate",
-        action: "cache_hit",
+      debug("FX rate cache hit", {
         from,
         to: tabCurrency,
-        originalAmount,
         amountTab,
-        requestDate,
-        lookupDate,
-        rateDate: lookupDate,
         rate: fromCache,
         durationMs: Date.now() - conversionStart,
       });
@@ -140,28 +119,10 @@ export async function convertToTabCurrency(
 
     if (isTodayStale) {
       span.setAttribute("fx.cache_status", "stale");
-      log("info", "FX rate cache stale, refetching", {
-        operation: "fx.convert",
-        entityType: "fx_rate",
-        action: "cache_stale",
-        from,
-        to: tabCurrency,
-        requestDate,
-        lookupDate,
-        cachedFetchedAt: cached?.fetchedAt.toISOString(),
-      });
+      spanEvent("fx.convert.cache_stale", { lookupDate });
     } else {
       span.setAttribute("fx.cache_status", "miss");
-      log("info", "FX rate cache miss, fetching from Frankfurter", {
-        operation: "fx.convert",
-        entityType: "fx_rate",
-        action: "cache_miss",
-        from,
-        to: tabCurrency,
-        requestDate,
-        lookupDate,
-        useLatest,
-      });
+      spanEvent("fx.convert.cache_miss", { lookupDate, useLatest });
     }
 
     const data = useLatest
@@ -171,9 +132,6 @@ export async function convertToTabCurrency(
     const rate = data.rates[tabCurrency];
     if (rate === undefined || !Number.isFinite(rate)) {
       log("warn", "FX rate not found in Frankfurter response", {
-        operation: "fx.convert",
-        entityType: "fx_rate",
-        action: "missing_rate",
         from,
         to: tabCurrency,
         requestDate,
@@ -191,16 +149,10 @@ export async function convertToTabCurrency(
     span.setAttribute("fx.rate", rate);
     span.setAttribute("fx.amount_tab", amountTab);
     span.setAttribute("fx.rate_date", data.date);
-    log("info", "FX rate fetched and cached", {
-      operation: "fx.convert",
-      entityType: "fx_rate",
-      action: "fetched",
+    debug("FX rate fetched and cached", {
       from,
       to: tabCurrency,
-      originalAmount,
       amountTab,
-      requestDate,
-      lookupDate,
       rateDate: data.date,
       rate,
       durationMs: Date.now() - conversionStart,
@@ -214,9 +166,6 @@ export async function convertToTabCurrency(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     log("error", "FX rate fetch failed", {
-      operation: "fx.convert",
-      entityType: "fx_rate",
-      action: "error",
       from,
       to: tabCurrency,
       requestDate,

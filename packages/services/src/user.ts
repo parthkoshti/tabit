@@ -70,7 +70,11 @@ export const userService = {
     }
 
     await userData.updateProfile(userId, resolved);
-    log("info", "User profile updated", { userId, updates: Object.keys(resolved) });
+    log("info", `User profile updated ${userId}`, {
+      event: "user.profile.updated",
+      userId,
+      updates: Object.keys(resolved),
+    });
     return ok(undefined);
   },
 
@@ -119,7 +123,7 @@ export const userService = {
     }
 
     await userData.updateUsername(userId, normalized);
-    log("info", "Username updated", { userId });
+    log("info", `Username updated ${userId}`, { event: "user.username.updated", userId });
     return ok(undefined);
   },
 
@@ -165,7 +169,11 @@ export const userService = {
         await preferenceData.delete(userId, ADD_EXPENSE_PREFERENCE_KEY);
       }
     }
-    log("info", "User preferences updated", { userId, updates: Object.keys(updates) });
+    log("info", `User preferences updated ${userId}`, {
+      event: "user.preferences.updated",
+      userId,
+      updates: Object.keys(updates),
+    });
     return ok(undefined);
   },
 };

@@ -7,7 +7,7 @@ import {
 } from "models";
 import { recurringExpense, tab, user as userData } from "data";
 import type { RecurringRuleRow } from "data";
-import { log } from "otel";
+import { debug, log } from "otel";
 import { ok, err, type Result } from "./types.js";
 import { expenseService } from "./expense.js";
 import { notificationService } from "./notification.js";
@@ -147,7 +147,10 @@ export const recurringExpenseService = {
 
   async runTick(): Promise<void> {
     const rules = await recurringExpense.listAllActiveRules();
-    log("info", "Recurring expense tick started", { ruleCount: rules.length });
+    log("info", `Recurring expense tick started (${rules.length} rules)`, {
+      event: "recurring_expense.tick.started",
+      ruleCount: rules.length,
+    });
 
     let rulesProcessed = 0;
     let occurrencesPosted = 0;
@@ -169,10 +172,9 @@ export const recurringExpenseService = {
       }
 
       rulesProcessed++;
-      log("info", "Processing recurring rule", {
+      debug("Processing recurring rule", {
         ruleId: rule.id,
         tabId: rule.tabId,
-        ownerUserId: rule.ownerUserId,
         nextDueKey: rule.nextDueKey,
         todayKey,
       });
@@ -273,7 +275,8 @@ export const recurringExpenseService = {
         if (r.data.created) {
           posted++;
           occurrencesPosted++;
-          log("info", "Recurring occurrence posted", {
+          log("info", `Recurring occurrence posted ${r.data.expenseId}`, {
+            event: "recurring_occurrence.posted",
             ruleId: rule.id,
             tabId: rule.tabId,
             expenseId: r.data.expenseId,
@@ -293,6 +296,7 @@ export const recurringExpenseService = {
     }
 
     log("info", "Recurring expense tick completed", {
+      event: "recurring_expense.tick.completed",
       rulesTotal: rules.length,
       rulesProcessed,
       rulesSkipped,

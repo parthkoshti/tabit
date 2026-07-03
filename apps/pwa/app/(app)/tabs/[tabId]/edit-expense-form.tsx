@@ -3,12 +3,14 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { api } from "@/lib/api-client";
 import {
   buildExpenseUpdateBody,
+  isExpenseFormSubmitDisabled,
   parseExpenseAmount,
   resolveExpensePayerParticipantId,
   validateExpenseFormValues,
 } from "@/lib/expense-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/navigation";
+import { useExpenseFxPreview } from "@/lib/use-expense-fx-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -185,12 +187,6 @@ export function EditExpenseForm({
   const descriptionRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  const [fxPreview, setFxPreview] = useState<{
-    amountTab: number;
-    tabCurrency: string;
-  } | null>(null);
-  const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
-
   const tabParticipants = useMemo((): TabParticipant[] => {
     if (participants.length > 0) return participants;
     return members.map((m) => ({
@@ -271,58 +267,43 @@ export function EditExpenseForm({
 
   const amount = useStore(form.store, (s) => s.values.amount);
   const currency = useStore(form.store, (s) => s.values.currency);
+  const description = useStore(form.store, (s) => s.values.description);
   const expenseDate = useStore(form.store, (s) => s.values.expenseDate);
+  const expenseDateMs = useStore(
+    form.store,
+    (s) => s.values.expenseDate.getTime(),
+  );
   const participantIds = useStore(form.store, (s) => s.values.participantIds);
+  const paidByParticipantId = useStore(
+    form.store,
+    (s) => s.values.paidByParticipantId,
+  );
+  const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
   const participantIdSet = useMemo(
     () => new Set(participantIds),
     [participantIds],
   );
-  const busy = form.state.isSubmitting || deleting;
+  const busy = isSubmitting || deleting;
+
+  const {
+    fxPreview,
+    fxPreviewLoading,
+    parsedAmount: parsedAmountForSplit,
+    tabTotalForSplit,
+    splitButtonDisabled,
+  } = useExpenseFxPreview({
+    tabId,
+    tabCurrency,
+    amount,
+    currency,
+    expenseDateMs,
+  });
 
   useEffect(() => {
     if (tabParticipants.length === 0) return;
     setSplitConfig(inferSplitConfig(expense));
     form.reset(initialValues);
   }, [expense, tabParticipants, initialValues, form]);
-
-  useEffect(() => {
-    const parsed = parseExpenseAmount(amount);
-    if (parsed === null || currency === tabCurrency) {
-      setFxPreview(null);
-      setFxPreviewLoading(false);
-      return;
-    }
-
-    setFxPreview(null);
-    setFxPreviewLoading(true);
-
-    let cancelled = false;
-    const t = setTimeout(() => {
-      if (cancelled) return;
-      void (async () => {
-        const r = await api.expenses.fxPreview(tabId, {
-          amount: parsed,
-          currency,
-          expenseDate: expenseDate.toISOString(),
-        });
-        if (cancelled) return;
-        setFxPreviewLoading(false);
-        if (r.success && r.amountTab != null) {
-          setFxPreview({
-            amountTab: r.amountTab,
-            tabCurrency: r.tabCurrency ?? tabCurrency,
-          });
-        } else {
-          setFxPreview(null);
-        }
-      })();
-    }, 400);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [amount, currency, expenseDate, tabId, tabCurrency]);
 
   useEffect(() => {
     const input = descriptionRef.current;
@@ -358,20 +339,37 @@ export function EditExpenseForm({
     [selectedParticipants],
   );
 
-  const parsedAmountForSplit = useMemo(
-    () => parseExpenseAmount(amount),
-    [amount],
+  const expenseFormValues = useMemo(
+    () => ({
+      amount,
+      currency,
+      description,
+      expenseDate,
+      participantIds,
+    }),
+    [amount, currency, description, expenseDate, participantIds],
   );
 
-  const tabTotalForSplit = useMemo(() => {
-    if (parsedAmountForSplit === null) return null;
-    if (currency === tabCurrency) return parsedAmountForSplit;
-    return fxPreview?.amountTab ?? null;
-  }, [parsedAmountForSplit, currency, tabCurrency, fxPreview?.amountTab]);
-
-  const splitButtonDisabled =
-    parsedAmountForSplit === null ||
-    (currency !== tabCurrency && (fxPreviewLoading || tabTotalForSplit === null));
+  const submitDisabled = useMemo(
+    () =>
+      isExpenseFormSubmitDisabled(
+        tabId,
+        expenseFormValues,
+        paidByParticipantId,
+        splitConfig,
+        tabParticipants,
+        { isSubmitting, splitButtonDisabled },
+      ),
+    [
+      tabId,
+      expenseFormValues,
+      paidByParticipantId,
+      splitConfig,
+      tabParticipants,
+      isSubmitting,
+      splitButtonDisabled,
+    ],
+  );
 
   function toggleParticipant(participantId: string) {
     setSplitConfig(null);
@@ -689,9 +687,13 @@ export function EditExpenseForm({
         ) : null}
         <div className="flex flex-col gap-2">
           <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <Button type="submit" disabled={busy} className="w-full gap-2">
-                {isSubmitting ? "Saving..." : "Save"}
+            {(formIsSubmitting) => (
+              <Button
+                type="submit"
+                disabled={submitDisabled || deleting}
+                className="w-full gap-2"
+              >
+                {formIsSubmitting ? "Saving..." : "Save"}
                 <CornerDownLeft className="h-4 w-4" />
               </Button>
             )}

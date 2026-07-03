@@ -11,13 +11,18 @@ import { warmLatestRatesForBases, recurringExpenseService } from "services";
 import { createNotificationsWorker, type NotificationJobData } from "queue";
 import type { NotificationPayload } from "models";
 import { sendDiscordWebhook, resolveCorsOrigins } from "shared";
-import { log as otelLog } from "otel";
+import {
+  log as otelLog,
+  runWithTraceContext,
+  SLOW_RPC_MS,
+  withSpan,
+} from "otel";
 import { sendPushNotifications } from "./push-delivery.js";
 
 const LOG_PREFIX = "[workers]";
 
 function log(
-  level: "info" | "warn" | "error",
+  level: "debug" | "info" | "warn" | "error",
   msg: string,
   data?: Record<string, unknown>,
 ) {
@@ -86,10 +91,10 @@ io.use(async (socket, next) => {
 io.on("connection", (socket) => {
   const userId = socket.data.userId as string;
   void socket.join(`user:${userId}`);
-  log("info", "Socket.IO client connected", { userId, socketId: socket.id });
+  log("debug", "Socket.IO client connected", { userId, socketId: socket.id });
 
   socket.on("disconnect", () => {
-    log("info", "Socket.IO client disconnected", {
+    log("debug", "Socket.IO client disconnected", {
       userId,
       socketId: socket.id,
     });
@@ -117,26 +122,52 @@ async function deliverNotification(
 }
 
 createNotificationsWorker(async (job) => {
-  const { userId, payload, forcePush } = job.data as NotificationJobData;
-  log("info", "Processing notification job", {
-    userId,
-    type: payload.type,
-    jobId: job.id,
-  });
-  const start = Date.now();
-  await deliverNotification(userId, payload, forcePush);
-  log("info", "Notification job completed", {
-    userId,
-    type: payload.type,
-    jobId: job.id,
-    durationMs: Date.now() - start,
-  });
+  const { userId, payload, forcePush, traceContext } =
+    job.data as NotificationJobData;
+
+  await runWithTraceContext(traceContext, async () =>
+    withSpan(
+      "notification.deliver",
+      {
+        "notification.type": payload.type,
+        "enduser.id": userId,
+        "job.id": String(job.id ?? ""),
+      },
+      async () => {
+        const start = Date.now();
+        log("debug", "Processing notification job", {
+          userId,
+          type: payload.type,
+          jobId: job.id,
+        });
+        await deliverNotification(userId, payload, forcePush);
+        const durationMs = Date.now() - start;
+        if (durationMs >= SLOW_RPC_MS) {
+          log("warn", "Slow notification job", {
+            userId,
+            type: payload.type,
+            jobId: job.id,
+            durationMs,
+          });
+        } else {
+          log("debug", "Notification job completed", {
+            userId,
+            type: payload.type,
+            jobId: job.id,
+            durationMs,
+          });
+        }
+      },
+    ),
+  );
 });
 
 cron.schedule(
   "0 16 * * *",
   () => {
-    void warmLatestRatesForBases(["EUR", "USD"]).catch((e) => {
+    void withSpan("cron.fx_warm", { "cron.schedule": "0 16 * * *" }, async () => {
+      await warmLatestRatesForBases(["EUR", "USD"]);
+    }).catch((e) => {
       const msg = `FX warm cron failed: ${String(e)}`;
       log("error", msg);
       sendDiscordWebhook(msg);
@@ -146,7 +177,9 @@ cron.schedule(
 );
 
 cron.schedule("*/15 * * * *", () => {
-  void recurringExpenseService.runTick().catch((e) => {
+  void withSpan("cron.recurring_expense_tick", { "cron.schedule": "*/15 * * * *" }, async () => {
+    await recurringExpenseService.runTick();
+  }).catch((e) => {
     const msg = `recurringExpenseService.runTick failed: ${String(e)}`;
     log("error", msg);
     sendDiscordWebhook(msg);

@@ -7,6 +7,7 @@ import { CORSPlugin } from "@orpc/server/plugins";
 import { auth } from "auth";
 import { appRouter, type RpcContext } from "rpc";
 import { resolveCorsOrigins } from "shared";
+import { SLOW_RPC_MS } from "otel";
 import { log } from "./lib/logger.js";
 
 const app = new Hono();
@@ -44,13 +45,22 @@ app.use("*", async (c, next) => {
   }
   const duration = Date.now() - start;
   const status = c.res.status;
+  const isRpc = c.req.path.startsWith("/rpc/");
+  const isSlow = duration >= SLOW_RPC_MS;
   const level = status >= 500 ? "error" : status >= 400 ? "warn" : "info";
-  log(level, "Request", {
-    method: c.req.method,
-    path: c.req.path,
-    status,
-    durationMs: duration,
-  });
+
+  // RPC middleware owns logging for /rpc/* (including slow + errors).
+  if (isRpc) return;
+
+  if (status >= 400 || isSlow) {
+    const summary = `${c.req.method} ${c.req.path} ${status} ${duration}ms`;
+    log(level, summary, {
+      method: c.req.method,
+      path: c.req.path,
+      status,
+      durationMs: duration,
+    });
+  }
 });
 
 app.get("/health", (c) => c.json({ status: "ok" }));

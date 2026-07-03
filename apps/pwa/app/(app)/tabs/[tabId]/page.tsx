@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/select";
 import { ChevronRight, SortDesc, UserPlus, Wallet } from "lucide-react";
 import { TabPageSkeleton, ExpenseListSkeleton } from "@/components/page-skeletons";
+import { TabExpensesChart } from "@/components/tab-expenses-chart";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
@@ -521,6 +522,14 @@ export function TabPage() {
             </CardContent>
           </Card>
         </section>
+
+        <TabExpensesChart
+          tabId={tabIdOrEmpty}
+          tabCurrency={tabCurrency}
+          currentUserId={currentUserId}
+          getMemberUser={getMemberUser}
+          participants={tab.participants ?? []}
+        />
 
         {tab.isDirect && (
           <PaymentReminderDialog

@@ -4,6 +4,7 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { emailOTP } from "better-auth/plugins";
 import PlunkModule from "@plunk/node";
 import { db, user, session, account, verification } from "db";
+import { debug, log } from "otel";
 import { sendDiscordWebhook } from "shared";
 
 const appName = process.env.APP_NAME ?? "Tab";
@@ -43,6 +44,15 @@ const plunk =
   plunkSecret && plunkBaseUrl
     ? new PlunkClass(plunkSecret, { baseUrl: plunkBaseUrl })
     : null;
+
+function emailDomain(email: string): string {
+  const at = email.lastIndexOf("@");
+  return at >= 0 ? email.slice(at + 1) : "unknown";
+}
+
+function logOtpToConsole(type: string, email: string, otp: string): void {
+  debug(`Auth OTP ${type} *@${emailDomain(email)}: ${otp}`, { authType: type });
+}
 
 export const auth = betterAuth({
   secret: process.env.BETTER_AUTH_SECRET,
@@ -110,7 +120,7 @@ export const auth = betterAuth({
                 body: `Your sign-in code for ${appName} is: ${otp}\n\nThis code expires in 5 minutes.`,
               });
             } else {
-              console.log("OTP (no Plunk configured):", otp);
+              logOtpToConsole(type, email, otp);
             }
           } else if (type === "email-verification") {
             if (plunk) {
@@ -120,7 +130,7 @@ export const auth = betterAuth({
                 body: `Your verification code for ${appName} is: ${otp}\n\nThis code expires in 5 minutes.`,
               });
             } else {
-              console.log("Verification OTP (no Plunk configured):", otp);
+              logOtpToConsole(type, email, otp);
             }
           } else {
             if (plunk) {
@@ -130,18 +140,19 @@ export const auth = betterAuth({
                 body: `Your password reset code for ${appName} is: ${otp}\n\nThis code expires in 5 minutes.`,
               });
             } else {
-              console.log("Password reset OTP (no Plunk configured):", otp);
+              logOtpToConsole(type, email, otp);
             }
           }
         };
         try {
           await send();
         } catch (err) {
-          console.error(
-            "Failed to send OTP email, falling back to console:",
-            err,
-          );
-          console.log("OTP for", email, ":", otp);
+          log("error", "Failed to send OTP email", {
+            authType: type,
+            emailDomain: emailDomain(email),
+            error: err instanceof Error ? err.message : String(err),
+          });
+          logOtpToConsole(type, email, otp);
         }
       },
       expiresIn: 60 * 5,

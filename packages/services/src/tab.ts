@@ -127,10 +127,8 @@ export const tabService = {
     }
 
     const id = await tab.create(name, userId, resolvedCurrency);
-    log("info", "Tab created", {
-      operation: "tab.create",
-      entityType: "tab",
-      action: "create",
+    log("info", `Tab created ${id}`, {
+      event: "tab.created",
       tabId: id,
       performedById: userId,
       currency: resolvedCurrency,
@@ -173,24 +171,13 @@ export const tabService = {
     }
 
     await tab.update(tabId, resolvedUpdates);
-    log("info", "Tab updated", {
-      operation: "tab.update",
-      entityType: "tab",
-      action: "update",
+    log("info", `Tab updated ${tabId}`, {
+      event: "tab.updated",
       tabId,
       performedById: userId,
       changedFields: Object.keys(resolvedUpdates),
-      nameChanged:
-        resolvedUpdates.name !== undefined && resolvedUpdates.name !== existingTab.name,
-      nameLength: resolvedUpdates.name?.length,
-      previousNameLength: existingTab.name.length,
       currency: resolvedUpdates.currency ?? existingTab.currency,
-      previousCurrency: existingTab.currency,
-      currencyChanged:
-        resolvedUpdates.currency !== undefined &&
-        resolvedUpdates.currency !== existingTab.currency,
       memberCount: existingTab.members.length,
-      isDirect: existingTab.isDirect ?? false,
     });
     return ok(undefined);
   },
@@ -218,16 +205,12 @@ export const tabService = {
     }
 
     await tab.addMember(tabId, targetUser.id, role ?? "member");
-    log("info", "Tab member added", {
-      operation: "tab.member.add",
-      entityType: "tab_member",
-      action: "add",
+    log("info", `Tab member added ${tabId}`, {
+      event: "tab.member.added",
       tabId,
       performedById: userId,
       targetUserId: targetUser.id,
-      targetUsername: targetUser.username,
       role: role ?? "member",
-      previousMemberCount: existingMembers.length,
       memberCount: existingMembers.length + 1,
     });
     return ok(undefined);
@@ -254,14 +237,11 @@ export const tabService = {
 
     const existingMembers = await tab.getMembers(tabId);
     await tab.removeMember(tabId, targetUserId);
-    log("info", "Tab member removed", {
-      operation: "tab.member.remove",
-      entityType: "tab_member",
-      action: "remove",
+    log("info", `Tab member removed ${tabId}`, {
+      event: "tab.member.removed",
       tabId,
       performedById: userId,
       targetUserId,
-      previousMemberCount: existingMembers.length,
       memberCount: Math.max(existingMembers.length - 1, 0),
     });
     return ok(undefined);
@@ -286,16 +266,12 @@ export const tabService = {
         displayName,
         createdByUserId: userId,
       });
-      log("info", "Placeholder participant created", {
-        operation: "tab.placeholder.create",
-        entityType: "tab_participant",
-        action: "create",
+      log("info", `Placeholder created ${tabId}`, {
+        event: "tab.placeholder.created",
         tabId,
         participantId,
         performedById: userId,
         displayNameLength: displayName.trim().length,
-        memberCount: tabData.members.length,
-        participantCount: tabData.participants.length + 1,
       });
       return ok({ participantId });
     } catch (e) {
@@ -324,17 +300,12 @@ export const tabService = {
         participantId,
         displayName,
       });
-      const previous = tabData.participants.find((p) => p.id === participantId);
-      log("info", "Placeholder participant renamed", {
-        operation: "tab.placeholder.rename",
-        entityType: "tab_participant",
-        action: "rename",
+      log("info", `Placeholder renamed ${tabId}`, {
+        event: "tab.placeholder.renamed",
         tabId,
         participantId,
         performedById: userId,
         displayNameLength: displayName.trim().length,
-        previousDisplayNameLength: previous?.displayName.length,
-        displayNameChanged: previous?.displayName !== displayName,
       });
       return ok(undefined);
     } catch (e) {
@@ -372,18 +343,13 @@ export const tabService = {
         targetUserId,
         performedByUserId: userId,
       });
-      log("info", "Placeholder participant merged", {
-        operation: "tab.placeholder.merge",
-        entityType: "tab_participant",
-        action: "merge",
+      log("info", `Placeholder merged ${tabId}`, {
+        event: "tab.placeholder.merged",
         tabId,
         placeholderParticipantId,
         targetUserId,
         performedById: userId,
         affectedExpenseCount: result.affectedExpenseIds.length,
-        affectedExpenseIds: result.affectedExpenseIds,
-        placeholderDisplayNameLength: result.placeholderDisplayName.length,
-        targetDisplayNameLength: result.targetDisplayName.length,
       });
       if (targetUserId !== userId) {
         const actor = await userData.getById(userId);

@@ -8,7 +8,7 @@ import type { NotificationPayload } from "models";
 const LOG_PREFIX = "[workers]";
 
 function log(
-  level: "info" | "warn" | "error",
+  level: "debug" | "info" | "warn" | "error",
   msg: string,
   data?: Record<string, unknown>,
 ) {
@@ -355,11 +355,10 @@ async function sendPushNotificationsInternal(
 
   const payloadObj =
     typeof payload === "string" ? JSON.parse(payload) : payload;
-  log("info", "Sending push notifications", {
+  log("debug", "Sending push notifications", {
     userId,
     subscriptionCount: subs.length,
     type: payloadObj?.type,
-    vapidPublicKey,
   });
   const title = getPushTitle(payloadObj);
   const body = getPushBody(payloadObj);
@@ -432,13 +431,12 @@ async function sendPushNotificationsInternal(
             userId,
             endpoint: sub.endpoint.slice(0, 60),
             reason: isVapidMismatch ? "VAPID mismatch" : "expired",
-            vapidPublicKey,
           });
         }
       }
     }
   }
-  log("info", "Push notifications sent", { userId, fulfilled, rejected });
+  log("debug", "Push notifications sent", { userId, fulfilled, rejected });
   return { removedInvalidSubscriptions };
 }
 

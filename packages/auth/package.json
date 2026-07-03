@@ -13,6 +13,7 @@
     "@plunk/node": "^3.0.3",
     "better-auth": "^1.0.0",
     "db": "workspace:*",
+    "otel": "workspace:*",
     "shared": "workspace:*"
   },
   "devDependencies": {

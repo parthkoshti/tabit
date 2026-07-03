@@ -101,6 +101,20 @@ export function TabPageSkeleton() {
             </CardContent>
           </Card>
         </section>
+        <section>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <Skeleton className="h-5 w-28" />
+            <div className="flex shrink-0 items-center gap-2">
+              <Skeleton className="h-8 w-28 rounded-md" />
+              <Skeleton className="h-8 w-28 rounded-md" />
+            </div>
+          </div>
+          <Card>
+            <CardContent className="p-3 pt-4">
+              <Skeleton className="h-36 w-full rounded-md" />
+            </CardContent>
+          </Card>
+        </section>
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="space-y-1">

@@ -5,6 +5,7 @@ import { api } from "@/lib/api-client";
 import { zodFieldErrors } from "@/lib/form-zod";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@/lib/navigation";
+import { useExpenseFxPreview } from "@/lib/use-expense-fx-preview";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -131,12 +132,6 @@ export function EditSettlementForm({
   const [deleting, setDeleting] = useState(false);
   const queryClient = useQueryClient();
 
-  const [fxPreview, setFxPreview] = useState<{
-    amountTab: number;
-    tabCurrency: string;
-  } | null>(null);
-  const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
-
   const tabParticipants = useMemo((): TabParticipant[] => {
     if (participants.length > 0) return participants;
     return members.map((m) => ({
@@ -248,8 +243,19 @@ export function EditSettlementForm({
 
   const amount = useStore(form.store, (s) => s.values.amount);
   const currency = useStore(form.store, (s) => s.values.currency);
-  const settlementDate = useStore(form.store, (s) => s.values.settlementDate);
+  const settlementDateMs = useStore(
+    form.store,
+    (s) => s.values.settlementDate.getTime(),
+  );
   const busy = form.state.isSubmitting || deleting;
+
+  const { fxPreview, fxPreviewLoading } = useExpenseFxPreview({
+    tabId,
+    tabCurrency,
+    amount,
+    currency,
+    expenseDateMs: settlementDateMs,
+  });
 
   useEffect(() => {
     if (tabParticipants.length === 0) return;
@@ -273,45 +279,6 @@ export function EditSettlementForm({
       displayAmountForSettlement(settlement, tabCurrency),
     );
   }, [settlement, tabCurrency, tabParticipants, form]);
-
-  useEffect(() => {
-    const parsed = parseAmount(amount);
-    if (parsed === null || currency === tabCurrency) {
-      setFxPreview(null);
-      setFxPreviewLoading(false);
-      return;
-    }
-
-    setFxPreview(null);
-    setFxPreviewLoading(true);
-
-    let cancelled = false;
-    const t = setTimeout(() => {
-      if (cancelled) return;
-      void (async () => {
-        const r = await api.expenses.fxPreview(tabId, {
-          amount: parsed,
-          currency,
-          expenseDate: settlementDate.toISOString(),
-        });
-        if (cancelled) return;
-        setFxPreviewLoading(false);
-        if (r.success && r.amountTab != null) {
-          setFxPreview({
-            amountTab: r.amountTab,
-            tabCurrency: r.tabCurrency ?? tabCurrency,
-          });
-        } else {
-          setFxPreview(null);
-        }
-      })();
-    }, 400);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [amount, currency, tabId, tabCurrency, settlementDate]);
 
   async function handleDelete() {
     setDeleteOpen(false);

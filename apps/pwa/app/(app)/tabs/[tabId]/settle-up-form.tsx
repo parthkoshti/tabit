@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useExpenseFxPreview } from "@/lib/use-expense-fx-preview";
 import { useForm, useStore } from "@tanstack/react-form";
 import { recordSettlementSchema } from "models";
 import { api } from "@/lib/api-client";
@@ -85,12 +86,6 @@ export function SettleUpForm({
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const [fxPreview, setFxPreview] = useState<{
-    amountTab: number;
-    tabCurrency: string;
-  } | null>(null);
-  const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
-
   const balanceMap = Object.fromEntries(
     balances.map((b) => [b.participantId, b.amount]),
   );
@@ -169,50 +164,22 @@ export function SettleUpForm({
 
   const amount = useStore(form.store, (s) => s.values.amount);
   const currency = useStore(form.store, (s) => s.values.currency);
-  const settlementDate = useStore(form.store, (s) => s.values.settlementDate);
+  const settlementDateMs = useStore(
+    form.store,
+    (s) => s.values.settlementDate.getTime(),
+  );
+
+  const { fxPreview, fxPreviewLoading } = useExpenseFxPreview({
+    tabId,
+    tabCurrency,
+    amount,
+    currency,
+    expenseDateMs: settlementDateMs,
+  });
 
   useEffect(() => {
     form.setFieldValue("currency", tabCurrency);
   }, [tabCurrency, form]);
-
-  useEffect(() => {
-    const parsed = parseAmount(amount);
-    if (parsed === null || currency === tabCurrency) {
-      setFxPreview(null);
-      setFxPreviewLoading(false);
-      return;
-    }
-
-    setFxPreview(null);
-    setFxPreviewLoading(true);
-
-    let cancelled = false;
-    const t = setTimeout(() => {
-      if (cancelled) return;
-      void (async () => {
-        const r = await api.expenses.fxPreview(tabId, {
-          amount: parsed,
-          currency,
-          expenseDate: settlementDate.toISOString(),
-        });
-        if (cancelled) return;
-        setFxPreviewLoading(false);
-        if (r.success && r.amountTab != null) {
-          setFxPreview({
-            amountTab: r.amountTab,
-            tabCurrency: r.tabCurrency ?? tabCurrency,
-          });
-        } else {
-          setFxPreview(null);
-        }
-      })();
-    }, 400);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [amount, currency, tabId, tabCurrency, settlementDate]);
 
   return (
     <form

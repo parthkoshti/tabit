@@ -1,5 +1,6 @@
 import { Queue, Worker, type Processor } from "bullmq";
 import type { NotificationPayload } from "models";
+import { injectTraceContext } from "otel";
 import { sendDiscordWebhook } from "shared";
 import { getRedisConnection } from "./connection.js";
 
@@ -9,6 +10,7 @@ export type NotificationJobData = {
   userId: string;
   payload: NotificationPayload;
   forcePush?: boolean;
+  traceContext?: Record<string, string>;
 };
 
 let notificationsQueue: Queue<NotificationJobData> | null = null;
@@ -37,10 +39,13 @@ export async function enqueueNotification(
   options?: { forcePush?: boolean },
 ): Promise<void> {
   const queue = getNotificationsQueue();
+  const traceContext: Record<string, string> = {};
+  injectTraceContext(traceContext);
   await queue.add("deliver", {
     userId,
     payload,
     forcePush: options?.forcePush,
+    ...(Object.keys(traceContext).length > 0 ? { traceContext } : {}),
   });
 }
 

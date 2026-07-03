@@ -162,7 +162,15 @@ export const settlementService = {
       settlementDate: asOfDate,
       performedById,
     });
-    log("info", "Settlement recorded", { tabId, fromUserId: fromUserResolved, toUserId: toUserResolved, amount: amountTab, currency: settlementCurrency, performedById });
+    log("info", `Settlement recorded ${tabId}`, {
+      event: "settlement.recorded",
+      tabId,
+      fromUserId: fromUserResolved,
+      toUserId: toUserResolved,
+      amount: amountTab,
+      currency: settlementCurrency,
+      performedById,
+    });
     return ok(undefined);
   },
 
@@ -271,7 +279,16 @@ export const settlementService = {
       settlementDate: asOfDate,
       performedById,
     });
-    log("info", "Settlement updated", { settlementId, tabId, fromUserId: fromUserResolved, toUserId: toUserResolved, amount: amountTab, currency: settlementCurrency, performedById });
+    log("info", `Settlement updated ${tabId}`, {
+      event: "settlement.updated",
+      settlementId,
+      tabId,
+      fromUserId: fromUserResolved,
+      toUserId: toUserResolved,
+      amount: amountTab,
+      currency: settlementCurrency,
+      performedById,
+    });
     return ok(undefined);
   },
 
@@ -291,7 +308,12 @@ export const settlementService = {
     }
 
     await settlement.delete(settlementId, tabId, userId);
-    log("info", "Settlement deleted", { settlementId, tabId, userId });
+    log("info", `Settlement deleted ${tabId}`, {
+      event: "settlement.deleted",
+      settlementId,
+      tabId,
+      userId,
+    });
     return ok(undefined);
   },
 };

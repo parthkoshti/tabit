@@ -5,6 +5,7 @@ import { useForm, useStore } from "@tanstack/react-form";
 import { api } from "@/lib/api-client";
 import {
   buildExpenseCreateBody,
+  isExpenseFormSubmitDisabled,
   parseExpenseAmount,
   validateExpenseFormValues,
 } from "@/lib/expense-form";
@@ -62,6 +63,7 @@ import {
   splitConfigLabel,
   type SplitConfig,
 } from "@/components/split-dialog";
+import { useExpenseFxPreview } from "@/lib/use-expense-fx-preview";
 import {
   MakeRecurringExpenseDialog,
   type RecurringTemplatePayload,
@@ -337,12 +339,6 @@ export function AddExpenseForm({
   const queryClient = useQueryClient();
   const descriptionRef = useRef<HTMLInputElement>(null);
 
-  const [fxPreview, setFxPreview] = useState<{
-    amountTab: number;
-    tabCurrency: string;
-  } | null>(null);
-  const [fxPreviewLoading, setFxPreviewLoading] = useState(false);
-
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const [recurringSetupOpen, setRecurringSetupOpen] = useState(false);
   const [recurringTemplate, setRecurringTemplate] =
@@ -369,23 +365,6 @@ export function AddExpenseForm({
         ),
     },
     onSubmit: async ({ value }) => {
-      const parsed = parseExpenseAmount(value.amount);
-      if (
-        parsed !== null &&
-        value.currency !== tabCurrency &&
-        (fxPreviewLoading || fxPreview?.amountTab == null)
-      ) {
-        form.setErrorMap({
-          onSubmit: {
-            form: fxPreviewLoading
-              ? "Wait for the exchange rate preview to finish"
-              : "Enter a valid amount or wait for tab-currency conversion",
-            fields: {},
-          },
-        });
-        return;
-      }
-
       const createBody = buildExpenseCreateBody(
         value,
         effectivePayerRef.current,
@@ -517,12 +496,32 @@ export function AddExpenseForm({
 
   const amount = useStore(form.store, (s) => s.values.amount);
   const currency = useStore(form.store, (s) => s.values.currency);
+  const description = useStore(form.store, (s) => s.values.description);
   const expenseDate = useStore(form.store, (s) => s.values.expenseDate);
+  const expenseDateMs = useStore(
+    form.store,
+    (s) => s.values.expenseDate.getTime(),
+  );
   const participantIds = useStore(form.store, (s) => s.values.participantIds);
+  const isSubmitting = useStore(form.store, (s) => s.isSubmitting);
   const participantIdSet = useMemo(
     () => new Set(participantIds),
     [participantIds],
   );
+
+  const {
+    fxPreview,
+    fxPreviewLoading,
+    parsedAmount: parsedAmountForSplit,
+    tabTotalForSplit,
+    splitButtonDisabled,
+  } = useExpenseFxPreview({
+    tabId,
+    tabCurrency,
+    amount,
+    currency,
+    expenseDateMs,
+  });
 
   useEffect(() => {
     if (tabParticipants.length === 0) return;
@@ -543,45 +542,6 @@ export function AddExpenseForm({
       return () => clearTimeout(id);
     }
   }, []);
-
-  useEffect(() => {
-    const parsed = parseExpenseAmount(amount);
-    if (parsed === null || currency === tabCurrency) {
-      setFxPreview(null);
-      setFxPreviewLoading(false);
-      return;
-    }
-
-    setFxPreview(null);
-    setFxPreviewLoading(true);
-
-    let cancelled = false;
-    const t = setTimeout(() => {
-      if (cancelled) return;
-      void (async () => {
-        const r = await api.expenses.fxPreview(tabId, {
-          amount: parsed,
-          currency,
-          expenseDate: expenseDate.toISOString(),
-        });
-        if (cancelled) return;
-        setFxPreviewLoading(false);
-        if (r.success && r.amountTab != null) {
-          setFxPreview({
-            amountTab: r.amountTab,
-            tabCurrency: r.tabCurrency ?? tabCurrency,
-          });
-        } else {
-          setFxPreview(null);
-        }
-      })();
-    }, 400);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(t);
-    };
-  }, [amount, currency, expenseDate, tabId, tabCurrency]);
 
   const selectedParticipants = useMemo(
     () => tabParticipants.filter((p) => participantIdSet.has(p.id)),
@@ -608,22 +568,6 @@ export function AddExpenseForm({
       })),
     [selectedParticipants],
   );
-
-  const parsedAmountForSplit = useMemo(
-    () => parseExpenseAmount(amount),
-    [amount],
-  );
-
-  const tabTotalForSplit = useMemo(() => {
-    if (parsedAmountForSplit === null) return null;
-    if (currency === tabCurrency) return parsedAmountForSplit;
-    return fxPreview?.amountTab ?? null;
-  }, [parsedAmountForSplit, currency, tabCurrency, fxPreview?.amountTab]);
-
-  const splitButtonDisabled =
-    parsedAmountForSplit === null ||
-    (currency !== tabCurrency &&
-      (fxPreviewLoading || tabTotalForSplit === null));
 
   function prepareRecurringTemplate():
     | { ok: true; template: RecurringTemplatePayload }
@@ -693,21 +637,34 @@ export function AddExpenseForm({
     return { ok: true, template };
   }
 
-  const makeRecurringDisabled = useMemo(
-    () =>
-      form.state.isSubmitting ||
-      parseExpenseAmount(amount) === null ||
-      !form.state.values.description.trim() ||
-      selectedParticipants.length < 1 ||
-      (selectedParticipants.length === 1 &&
-        selectedParticipants[0]!.id === effectivePayerParticipantId) ||
-      splitButtonDisabled,
-    [
-      form.state.isSubmitting,
-      form.state.values.description,
+  const expenseFormValues = useMemo(
+    () => ({
       amount,
-      selectedParticipants,
+      currency,
+      description,
+      expenseDate,
+      participantIds,
+    }),
+    [amount, currency, description, expenseDate, participantIds],
+  );
+
+  const submitDisabled = useMemo(
+    () =>
+      isExpenseFormSubmitDisabled(
+        tabId,
+        expenseFormValues,
+        effectivePayerParticipantId,
+        splitConfig,
+        tabParticipants,
+        { isSubmitting, splitButtonDisabled },
+      ),
+    [
+      tabId,
+      expenseFormValues,
       effectivePayerParticipantId,
+      splitConfig,
+      tabParticipants,
+      isSubmitting,
       splitButtonDisabled,
     ],
   );
@@ -1089,7 +1046,7 @@ export function AddExpenseForm({
             type="button"
             variant="outline"
             className="min-w-0 gap-2"
-            disabled={makeRecurringDisabled}
+            disabled={submitDisabled}
             onClick={handleMakeRecurringClick}
           >
             <CalendarSync
@@ -1104,10 +1061,10 @@ export function AddExpenseForm({
         </div>
         <Button
           type="submit"
-          disabled={form.state.isSubmitting}
+          disabled={submitDisabled}
           className="w-full gap-2"
         >
-          {form.state.isSubmitting ? "Adding..." : "Add expense"}
+          {isSubmitting ? "Adding..." : "Add expense"}
           <CornerDownLeft className="h-4 w-4" />
         </Button>
       </form>
