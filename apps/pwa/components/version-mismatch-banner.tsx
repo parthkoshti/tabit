@@ -7,7 +7,7 @@ import {
 import { useUpdateBanner } from "@/app/(app)/context/update-banner-context";
 
 export function VersionMismatchBanner() {
-  const { needRefresh, updateServiceWorker } = useUpdateBanner();
+  const { needRefresh, applyUpdate } = useUpdateBanner();
 
   return (
     <Dialog open={needRefresh} onOpenChange={() => {}}>
@@ -25,7 +25,7 @@ export function VersionMismatchBanner() {
         </DialogHeader>
         <button
           type="button"
-          onClick={() => updateServiceWorker(true)}
+          onClick={() => void applyUpdate()}
           className="mt-2 w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground"
         >
           Update now
