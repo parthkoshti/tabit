@@ -354,11 +354,13 @@ export const api = {
 
   username: {
     check: async (username: string) => {
-      try {
-        return await orpcClient.username.check({ username });
-      } catch {
-        return { available: false };
+      const result = await call(() =>
+        orpcClient.username.check({ username }),
+      );
+      if (!result.success) {
+        return { available: null as boolean | null, error: result.error };
       }
+      return { available: result.available as boolean, error: undefined };
     },
 
     update: (username: string) =>

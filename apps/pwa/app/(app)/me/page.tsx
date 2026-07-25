@@ -181,6 +181,10 @@ export function MePage() {
       const value = username;
       const result = await api.username.check(value);
       if (id === checkIdRef.current) {
+        if (result.available === null) {
+          setAvailability("idle");
+          return;
+        }
         setAvailability(result.available ? "available" : "taken");
       }
     }, 300);

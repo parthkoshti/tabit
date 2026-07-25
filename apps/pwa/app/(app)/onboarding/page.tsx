@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useForm } from "@tanstack/react-form";
+import { useForm, useStore } from "@tanstack/react-form";
 import { z } from "zod";
 import { usernameSchema } from "models";
 import { useNavigate, useSearchParams } from "@/lib/navigation";
@@ -115,7 +115,13 @@ export function OnboardingPage() {
     },
   });
 
-  const username = profileForm.state.values.username;
+  const name = useStore(profileForm.store, (s) => s.values.name);
+  const username = useStore(profileForm.store, (s) => s.values.username);
+  const isSubmitting = useStore(profileForm.store, (s) => s.isSubmitting);
+  const submitError = useStore(
+    profileForm.store,
+    (s) => s.errorMap.onSubmit?.form,
+  );
 
   const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
   const DISABLE_REDIRECT = false; // TODO: remove - temp disable to view page
@@ -205,6 +211,10 @@ export function OnboardingPage() {
       const value = username;
       const result = await api.username.check(value);
       if (id === checkIdRef.current) {
+        if (result.available === null) {
+          setAvailability("idle");
+          return;
+        }
         setAvailability(result.available ? "available" : "taken");
       }
     }, 300);
@@ -298,7 +308,7 @@ export function OnboardingPage() {
                       placeholder="Your name"
                       maxLength={64}
                       required
-                      disabled={profileForm.state.isSubmitting}
+                      disabled={isSubmitting}
                     />
                     {field.state.meta.errors[0] ? (
                       <p className="text-sm text-destructive">
@@ -323,7 +333,7 @@ export function OnboardingPage() {
                         maxLength={12}
                         pattern="[a-zA-Z0-9_]+"
                         required
-                        disabled={profileForm.state.isSubmitting}
+                        disabled={isSubmitting}
                         className="pr-24"
                       />
                       <span className="absolute right-3 top-1/2 flex -translate-y-1/2 items-center gap-1.5 text-muted-foreground">
@@ -360,28 +370,24 @@ export function OnboardingPage() {
                   </div>
                 )}
               </profileForm.Field>
-              {profileForm.state.errorMap.onSubmit?.form ? (
+              {submitError ? (
                 <Alert variant="destructive">
-                  <AlertDescription>
-                    {String(profileForm.state.errorMap.onSubmit.form)}
-                  </AlertDescription>
+                  <AlertDescription>{String(submitError)}</AlertDescription>
                 </Alert>
               ) : null}
               <Button
                 type="submit"
                 disabled={
-                  profileForm.state.isSubmitting ||
-                  !profileForm.state.values.name.trim() ||
-                  !profileForm.state.values.username.trim() ||
-                  !usernameSchema.safeParse(
-                    profileForm.state.values.username.trim(),
-                  ).success ||
+                  isSubmitting ||
+                  !name.trim() ||
+                  !username.trim() ||
+                  !usernameSchema.safeParse(username.trim()).success ||
                   availability === "taken" ||
                   availability === "loading"
                 }
                 className="w-full"
               >
-                {profileForm.state.isSubmitting ? "Saving..." : "Continue"}
+                {isSubmitting ? "Saving..." : "Continue"}
               </Button>
             </form>
           </CardContent>
