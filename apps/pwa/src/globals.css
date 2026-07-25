@@ -173,17 +173,19 @@ body,
 /*
  * Layout insets — must match top-navbar + bottom-navbar geometry.
  * Top: env(safe-area-inset-top) + h-14 bar row.
- * Bottom: pill + FAB protrusion + env(safe-area-inset-bottom) on nav.
+ * Bottom: bottom-4 float + pill + FAB protrusion + env(safe-area-inset-bottom).
  *
  * Use env() only — no max(..., 44px) fallbacks (over-inset on real iOS).
- * Nav sits at bottom: 0; safe padding lives on the nav element itself.
+ * Nav floats at bottom-4; safe padding lives on the nav element itself.
  */
 :root {
   --app-bar-height: 3.5rem;
+  --app-nav-float-offset: 1rem; /* bottom-4 on bottom-navbar */
   --app-nav-pill-height: 3.5rem; /* h-14 pill */
   --app-fab-protrusion: 1.5rem; /* size-18 centered on h-14 with -my-4 */
   --app-nav-body-height: calc(
-    var(--app-nav-pill-height) + var(--app-fab-protrusion)
+    var(--app-nav-float-offset) + var(--app-nav-pill-height) +
+      var(--app-fab-protrusion)
   );
 }
 

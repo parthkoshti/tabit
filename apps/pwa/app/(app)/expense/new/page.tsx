@@ -71,7 +71,7 @@ export function LogExpensePage() {
   };
 
   return (
-    <div className="flex flex-col gap-2 p-4 h-full min-h-full">
+    <div className="flex flex-col gap-2 p-4 min-h-full">
       <div className="flex w-full justify-center">
         <div
           role="tablist"
