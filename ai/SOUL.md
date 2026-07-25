@@ -99,6 +99,8 @@ pnpm start:prod                       # Runs db:migrate:prod then starts all ser
 
 Prefer **Doppler** (`doppler run --`) for dev and Docker (`DOPPLER_TOKEN_*`). Fallback: root `.env` / `.env.local`. See `.env.example`.
 
+**PWA Docker**: `DOPPLER_TOKEN_PWA` is a **build arg** (Vite bakes `VITE_*` / `NEXT_PUBLIC_*` into the static bundle). API/workers use Doppler at **runtime**. Rebuild the PWA image after changing PWA Doppler secrets.
+
 - `DATABASE_URL` — PostgreSQL
 - `BETTER_AUTH_SECRET`, `BETTER_AUTH_COOKIE_DOMAIN`, `BETTER_AUTH_TRUSTED_ORIGINS`
 - `VITE_API_URL` — API origin for PWA + auth `baseURL` (e.g. `https://api.tabit.in`)

@@ -1,6 +1,7 @@
 # Multi-container deployment (Dokploy compose)
 # Domains: api.tabit.in, app.tabit.in, wrk.tabit.in
-# Set secrets via Doppler (DOPPLER_TOKEN per service) or Dokploy env sync.
+# Set secrets via Doppler (DOPPLER_TOKEN_* per service) or Dokploy env sync.
+# PWA: DOPPLER_TOKEN_PWA is a build arg (static Vite bundle); api/workers use tokens at runtime.
 
 services:
   api:
@@ -80,14 +81,8 @@ services:
       context: .
       dockerfile: apps/pwa/Dockerfile
       args:
-        - NEXT_PUBLIC_PWA_URL=${NEXT_PUBLIC_PWA_URL:-https://app.tabit.in}
-        - VITE_API_URL=${VITE_API_URL:-https://api.tabit.in}
-        - VITE_REALTIME_URL=${VITE_REALTIME_URL:-https://wrk.tabit.in}
-        - NEXT_PUBLIC_DONATE_URL=${NEXT_PUBLIC_DONATE_URL}
-        - VITE_VAPID_PUBLIC_KEY=${VITE_VAPID_PUBLIC_KEY}
-        - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT}
-        - OTEL_EXPORTER_OTLP_HEADERS=${OTEL_EXPORTER_OTLP_HEADERS}
-        - OTEL_SERVICE_NAME=${OTEL_SERVICE_NAME_PWA}
+        # Vite public env is baked at build time via Doppler (not runtime).
+        - DOPPLER_TOKEN=${DOPPLER_TOKEN_PWA}
         - TURBO_TEAM=${TURBO_TEAM}
         - TURBO_TOKEN=${TURBO_TOKEN}
     expose:
