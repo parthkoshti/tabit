@@ -45,6 +45,7 @@ A running list of features in the app.
 - FX works for any supported pair (e.g. AUD expense on an INR tab): the server looks up cached rates by expense date and expense currency; on a miss it fetches from Frankfurter and stores the result so repeat use is fast
 - The API prefetches latest EUR and USD rate maps on startup and once daily (Europe/Berlin) to warm the cache for those bases; other currencies are not prefetched but still convert on first need
 - Filter tab expenses by All, I'm involved, I'm owed, I owe
+- Search tab expenses by description (collapsible search next to the filter; server-side, debounced; results are expenses only)
 - Log Expense page (/expense/new) with AI/Manual pill slider; bottom nav plus opens page
 - Unified add-expense flow with AI/Manual tabs; preference persisted in user preferences
 - AI-powered voice expense creation

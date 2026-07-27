@@ -12,6 +12,7 @@ import { useNavTitle } from "../../context/nav-title-context";
 import { SettleUpForm } from "./settle-up-form";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
@@ -29,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ChevronRight, SortDesc, UserPlus, Wallet } from "lucide-react";
+import { ChevronRight, Search, SortDesc, UserPlus, Wallet, X } from "lucide-react";
 import {
   TabPageSkeleton,
   ExpenseListSkeleton,
@@ -77,6 +78,22 @@ export function TabPage() {
   const [expenseFilter, setExpenseFilter] = useState<
     "all" | "involved" | "owed" | "owe" | "settlements"
   >("all");
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setDebouncedSearch(searchInput.trim());
+    }, 300);
+    return () => window.clearTimeout(handle);
+  }, [searchInput]);
+
+  const closeSearch = () => {
+    setSearchOpen(false);
+    setSearchInput("");
+    setDebouncedSearch("");
+  };
 
   const { data: tab, isPending: tabPending } = useQuery({
     queryKey: ["tab", tabIdOrEmpty],
@@ -95,12 +112,13 @@ export function TabPage() {
     hasNextPage: hasMoreExpenses,
     isFetchingNextPage: isLoadingMoreExpenses,
   } = useInfiniteQuery({
-    queryKey: ["expenses", tabIdOrEmpty, expenseFilter],
+    queryKey: ["expenses", tabIdOrEmpty, expenseFilter, debouncedSearch],
     queryFn: async ({ pageParam }) => {
       const r = await api.expenses.list(tabIdOrEmpty, {
         limit: 20,
         offset: pageParam,
         filter: expenseFilter === "settlements" ? "all" : expenseFilter,
+        ...(debouncedSearch ? { search: debouncedSearch } : {}),
       });
       return r.success
         ? { expenses: r.expenses ?? [], total: r.total ?? 0 }
@@ -121,7 +139,9 @@ export function TabPage() {
         : undefined;
     },
     enabled:
-      !!tabIdOrEmpty && !!session?.user && expenseFilter !== "settlements",
+      !!tabIdOrEmpty &&
+      !!session?.user &&
+      (expenseFilter !== "settlements" || !!debouncedSearch),
   });
   const rawExpenses = useMemo(() => {
     const flat = expensesData?.pages.flatMap((p) => p?.expenses ?? []) ?? [];
@@ -134,8 +154,10 @@ export function TabPage() {
   }, [expensesData]);
 
   const expenses = useMemo(() => {
-    if (expenseFilter === "settlements") return [];
-    if (expenseFilter === "all") return rawExpenses;
+    if (expenseFilter === "settlements" && !debouncedSearch) return [];
+    if (expenseFilter === "all" || expenseFilter === "settlements") {
+      return rawExpenses;
+    }
     return rawExpenses.filter((e) => {
       const isPayer = e.paidById === currentUserId;
       const isInSplits =
@@ -145,7 +167,7 @@ export function TabPage() {
       if (expenseFilter === "owe") return isInSplits && !isPayer;
       return true;
     });
-  }, [rawExpenses, expenseFilter, currentUserId]);
+  }, [rawExpenses, expenseFilter, currentUserId, debouncedSearch]);
 
   const { data: settlements, isLoading: settlementsLoading } = useQuery({
     queryKey: ["settlements", tabIdOrEmpty],
@@ -255,7 +277,9 @@ export function TabPage() {
   const [infiniteRef] = useInfiniteScroll({
     loading: isLoadingMoreExpenses,
     hasNextPage:
-      expenseFilter === "settlements" ? false : (hasMoreExpenses ?? false),
+      expenseFilter === "settlements" && !debouncedSearch
+        ? false
+        : (hasMoreExpenses ?? false),
     onLoadMore: fetchNextExpenses,
     rootMargin: "0px 0px 200px 0px",
   });
@@ -303,6 +327,7 @@ export function TabPage() {
       : undefined;
 
   const filteredSettlements = useMemo(() => {
+    if (debouncedSearch) return [];
     const list = settlements ?? [];
     if (expenseFilter === "owed" || expenseFilter === "owe") return [];
     if (expenseFilter === "settlements") return list;
@@ -323,7 +348,13 @@ export function TabPage() {
       }
       return true;
     });
-  }, [settlements, expenseFilter, currentUserId, currentUserParticipantId]);
+  }, [
+    settlements,
+    expenseFilter,
+    currentUserId,
+    currentUserParticipantId,
+    debouncedSearch,
+  ]);
 
   const expensesAndSettlements = useMemo(() => {
     return [
@@ -764,34 +795,78 @@ export function TabPage() {
 
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="text-base font-semibold text-foreground">
-                Expenses
-              </h2>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                All expenses and settlements in this tab
-              </p>
+            {searchOpen ? (
+              <div className="relative min-w-0 flex-1">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      closeSearch();
+                    }
+                  }}
+                  placeholder="Search expenses"
+                  aria-label="Search expenses"
+                  autoFocus
+                  className="h-8 pl-8 pr-8 text-xs"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-0.5 top-1/2 size-7 -translate-y-1/2"
+                  onClick={closeSearch}
+                  aria-label="Close search"
+                >
+                  <X className="size-4" />
+                </Button>
+              </div>
+            ) : (
+              <div className="min-w-0">
+                <h2 className="text-base font-semibold text-foreground">
+                  Expenses
+                </h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  All expenses and settlements in this tab
+                </p>
+              </div>
+            )}
+            <div className="flex shrink-0 items-center gap-1.5">
+              {!searchOpen && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="size-8 border-input bg-input-bg shadow-sm hover:bg-input-bg"
+                  onClick={() => setSearchOpen(true)}
+                  aria-label="Search expenses"
+                >
+                  <Search className="size-4 opacity-70" />
+                </Button>
+              )}
+              <Select
+                value={expenseFilter}
+                onValueChange={(v) =>
+                  setExpenseFilter(
+                    v as "all" | "involved" | "owed" | "owe" | "settlements",
+                  )
+                }
+              >
+                <SelectTrigger className="w-fit max-w-34 h-8 text-xs">
+                  <SortDesc className="h-4 w-4 shrink-0 opacity-70 mr-1" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="involved">I'm involved</SelectItem>
+                  <SelectItem value="owed">I'm owed</SelectItem>
+                  <SelectItem value="owe">I owe</SelectItem>
+                  <SelectItem value="settlements">Settlements</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Select
-              value={expenseFilter}
-              onValueChange={(v) =>
-                setExpenseFilter(
-                  v as "all" | "involved" | "owed" | "owe" | "settlements",
-                )
-              }
-            >
-              <SelectTrigger className="shrink-0 w-fit max-w-34 h-8 text-xs">
-                <SortDesc className="h-4 w-4 shrink-0 opacity-70 mr-1" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="involved">I'm involved</SelectItem>
-                <SelectItem value="owed">I'm owed</SelectItem>
-                <SelectItem value="owe">I owe</SelectItem>
-                <SelectItem value="settlements">Settlements</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
           {expensesError ? (
             <div className="rounded-lg border border-dashed border-border p-8 text-center">
@@ -800,26 +875,34 @@ export function TabPage() {
                 variant="outline"
                 onClick={() => {
                   queryClient.resetQueries({
-                    queryKey: ["expenses", tabIdOrEmpty, expenseFilter],
+                    queryKey: [
+                      "expenses",
+                      tabIdOrEmpty,
+                      expenseFilter,
+                      debouncedSearch,
+                    ],
                   });
                 }}
               >
                 Retry
               </Button>
             </div>
-          ) : expensesLoading || settlementsLoading ? (
+          ) : expensesLoading ||
+            (settlementsLoading && !debouncedSearch) ? (
             <ExpenseListSkeleton />
           ) : expensesAndSettlements.length === 0 ? (
             <p className="rounded-lg border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
-              {expenseFilter === "all"
-                ? "No expenses or settlements yet"
-                : expenseFilter === "settlements"
-                  ? "No settlements yet"
-                  : "No expenses or settlements match this filter"}
+              {debouncedSearch
+                ? "No expenses match your search"
+                : expenseFilter === "all"
+                  ? "No expenses or settlements yet"
+                  : expenseFilter === "settlements"
+                    ? "No settlements yet"
+                    : "No expenses or settlements match this filter"}
             </p>
           ) : (
             <motion.div
-              key={expenseFilter}
+              key={`${expenseFilter}-${debouncedSearch}`}
               className="flex flex-col gap-4"
               variants={staggerContainer}
               initial="initial"

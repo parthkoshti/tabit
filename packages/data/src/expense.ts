@@ -23,7 +23,12 @@ export type GetExpensesForTabOptions = {
   offset?: number;
   filter?: ExpenseFilter;
   userId?: string;
+  search?: string;
 };
+
+function escapeIlikePattern(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
 
 export type GetExpensesForTabResult = {
   expenses: Array<{
@@ -499,6 +504,15 @@ export const expense = {
         const involvedCondition = or(paidByViewer, viewerOnSplit)!;
         filterWhere = and(baseWhere, involvedCondition)!;
       }
+    }
+
+    const search = options?.search?.trim();
+    if (search) {
+      const pattern = `%${escapeIlikePattern(search)}%`;
+      filterWhere = and(
+        filterWhere,
+        sql`${expenseTable.description} ILIKE ${pattern} ESCAPE '\\'`,
+      )!;
     }
 
     const baseExpenseQuery = db

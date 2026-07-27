@@ -41,6 +41,7 @@ export const expensesProcedures = {
         limit: z.number().int().optional(),
         offset: z.number().int().optional(),
         filter: expenseFilterSchema.optional(),
+        search: z.string().max(200).optional(),
       }),
     )
     .handler(async ({ context, input }) => {
@@ -49,6 +50,7 @@ export const expensesProcedures = {
         offset?: number;
         filter?: "all" | "involved" | "owed" | "owe";
         userId?: string;
+        search?: string;
       } = {};
       if (input.limit != null) {
         options.limit = input.limit;
@@ -57,6 +59,10 @@ export const expensesProcedures = {
       if (input.filter && input.filter !== "all") {
         options.filter = input.filter;
         options.userId = context.userId!;
+      }
+      const search = input.search?.trim();
+      if (search) {
+        options.search = search;
       }
       const data = unwrap(
         await expenseService.getForTab(input.tabId, context.userId!, options),

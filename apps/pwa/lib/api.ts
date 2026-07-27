@@ -193,6 +193,7 @@ export const api = {
         limit?: number;
         offset?: number;
         filter?: "all" | "involved" | "owed" | "owe";
+        search?: string;
       },
     ) => call(() => orpcClient.expenses.list({ tabId, ...options })),
 
