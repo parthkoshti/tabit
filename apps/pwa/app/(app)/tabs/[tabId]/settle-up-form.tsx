@@ -33,7 +33,7 @@ import { UserAvatar } from "@/components/user-avatar";
 import { toast } from "sonner";
 import { formatAmount } from "@/lib/format-amount";
 import { formatAbsoluteDate } from "@/lib/format-date";
-import { CURATED_CURRENCIES, getCurrency } from "shared";
+import { CURATED_CURRENCIES, getCurrency, simplifyDebts } from "shared";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import type { Balance } from "@/lib/domain-types";
@@ -68,6 +68,83 @@ function parseAmount(value: string): number | null {
   return num;
 }
 
+function formatSettlementAmount(amount: number, currency: string): string {
+  const digits = (getCurrency(currency) ?? getCurrency("USD"))!.decimal_digits;
+  return amount.toFixed(digits);
+}
+
+function transferKey(fromParticipantId: string, toParticipantId: string) {
+  return `${fromParticipantId}->${toParticipantId}`;
+}
+
+/** Pairwise amounts from simplified balances: who should pay whom. */
+function buildSuggestedTransfers(
+  balances: Balance[],
+  currency: string,
+): Map<string, number> {
+  const { transfers } = simplifyDebts(
+    balances.map((b) => ({
+      participantId: b.participantId,
+      amount: b.amount,
+    })),
+    { currency },
+  );
+  return new Map(
+    transfers.map((t) => [
+      transferKey(t.fromParticipantId, t.toParticipantId),
+      t.amount,
+    ]),
+  );
+}
+
+function suggestedSettlementForPayer(
+  fromParticipantId: string,
+  transfers: Map<string, number>,
+): { toParticipantId: string; amount: number } | null {
+  let best: { toParticipantId: string; amount: number } | null = null;
+  for (const [key, amount] of transfers) {
+    const sep = key.indexOf("->");
+    if (sep < 0) continue;
+    if (key.slice(0, sep) !== fromParticipantId) continue;
+    const toParticipantId = key.slice(sep + 2);
+    if (!best || amount > best.amount) {
+      best = { toParticipantId, amount };
+    }
+  }
+  return best;
+}
+
+function defaultSettleUpValues(
+  currentUserId: string,
+  participants: TabParticipant[],
+  balances: Balance[],
+  tabCurrency: string,
+) {
+  const myParticipantId =
+    participants.find((p) => p.userId === currentUserId)?.id ??
+    balances.find((b) => b.userId === currentUserId)?.participantId ??
+    "";
+
+  if (!myParticipantId) {
+    return {
+      fromParticipantId: "",
+      toParticipantId: "",
+      amount: "",
+    };
+  }
+
+  const transfers = buildSuggestedTransfers(balances, tabCurrency);
+  const suggested = suggestedSettlementForPayer(myParticipantId, transfers);
+
+  return {
+    fromParticipantId: myParticipantId,
+    toParticipantId: suggested?.toParticipantId ?? "",
+    amount: suggested
+      ? formatSettlementAmount(suggested.amount, tabCurrency)
+      : "",
+  };
+}
+
 export function SettleUpForm({
   tabId,
   currentUserId,
@@ -86,16 +163,20 @@ export function SettleUpForm({
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const balanceMap = Object.fromEntries(
-    balances.map((b) => [b.participantId, b.amount]),
+  const suggestedTransfers = buildSuggestedTransfers(balances, tabCurrency);
+  const defaults = defaultSettleUpValues(
+    currentUserId,
+    participants,
+    balances,
+    tabCurrency,
   );
 
   const form = useForm({
     defaultValues: {
-      fromParticipantId: "",
-      toParticipantId: "",
+      fromParticipantId: defaults.fromParticipantId,
+      toParticipantId: defaults.toParticipantId,
       settlementDate: new Date(),
-      amount: "",
+      amount: defaults.amount,
       currency: tabCurrency,
     },
     validators: {
@@ -198,8 +279,20 @@ export function SettleUpForm({
               value={field.state.value || undefined}
               onValueChange={(value) => {
                 field.handleChange(value);
-                form.setFieldValue("toParticipantId", "");
-                form.setFieldValue("amount", "");
+                const suggested = suggestedSettlementForPayer(
+                  value,
+                  suggestedTransfers,
+                );
+                form.setFieldValue(
+                  "toParticipantId",
+                  suggested?.toParticipantId ?? "",
+                );
+                form.setFieldValue(
+                  "amount",
+                  suggested
+                    ? formatSettlementAmount(suggested.amount, tabCurrency)
+                    : "",
+                );
                 form.setFieldValue("currency", tabCurrency);
               }}
               disabled={form.state.isSubmitting}
@@ -234,10 +327,18 @@ export function SettleUpForm({
               value={field.state.value || undefined}
               onValueChange={(value) => {
                 field.handleChange(value);
-                const owed = balanceMap[value] ?? 0;
-                if (owed > 0) {
-                  form.setFieldValue("amount", owed.toFixed(2));
+                const fromId = form.state.values.fromParticipantId;
+                const owed = fromId
+                  ? suggestedTransfers.get(transferKey(fromId, value))
+                  : undefined;
+                if (owed != null && owed > 0) {
+                  form.setFieldValue(
+                    "amount",
+                    formatSettlementAmount(owed, tabCurrency),
+                  );
                   form.setFieldValue("currency", tabCurrency);
+                } else {
+                  form.setFieldValue("amount", "");
                 }
               }}
               disabled={
@@ -253,24 +354,29 @@ export function SettleUpForm({
                   .filter(
                     (p) => p.id !== form.state.values.fromParticipantId,
                   )
-                  .map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      <span className="flex items-center gap-2">
-                        <UserAvatar
-                          userId={participantAvatarSeed(p)}
-                          size="sm"
-                        />
-                        {participantLabel(p, currentUserId)}
-                        {(balanceMap[p.id] ?? 0) > 0 && (
-                          <>
-                            {" "}
-                            (owed{" "}
-                            {formatAmount(balanceMap[p.id] ?? 0, tabCurrency)})
-                          </>
-                        )}
-                      </span>
-                    </SelectItem>
-                  ))}
+                  .map((p) => {
+                    const fromId = form.state.values.fromParticipantId;
+                    const owed = fromId
+                      ? suggestedTransfers.get(transferKey(fromId, p.id))
+                      : undefined;
+                    return (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="flex items-center gap-2">
+                          <UserAvatar
+                            userId={participantAvatarSeed(p)}
+                            size="sm"
+                          />
+                          {participantLabel(p, currentUserId)}
+                          {owed != null && owed > 0 && (
+                            <>
+                              {" "}
+                              (owed {formatAmount(owed, tabCurrency)})
+                            </>
+                          )}
+                        </span>
+                      </SelectItem>
+                    );
+                  })}
               </SelectContent>
             </Select>
             {field.state.meta.errors[0] ? (

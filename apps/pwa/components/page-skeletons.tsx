@@ -84,6 +84,38 @@ export function ActivityListSkeleton({ count = 5 }: { count?: number }) {
   );
 }
 
+export function BalancesRowsSkeleton() {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+        <Skeleton className="h-4 w-40" />
+      </div>
+      <div className="space-y-2">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <Skeleton className="h-5 w-5 shrink-0 rounded-full" />
+            <Skeleton className="h-3.5 w-48" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function BalancesSkeleton() {
+  return (
+    <section>
+      <Skeleton className="mb-2 h-5 w-24" />
+      <Card>
+        <CardContent className="p-4">
+          <BalancesRowsSkeleton />
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
 export function TabPageSkeleton() {
   return (
     <div className="p-4">
@@ -92,15 +124,7 @@ export function TabPageSkeleton() {
           <Skeleton className="h-9 w-28 shrink-0 rounded-md" />
           <Skeleton className="h-9 w-24 shrink-0 rounded-md" />
         </div>
-        <section>
-          <Skeleton className="mb-2 h-5 w-24" />
-          <Card>
-            <CardContent className="space-y-3 p-4">
-              <Skeleton className="h-4 w-48" />
-              <Skeleton className="h-4 w-32" />
-            </CardContent>
-          </Card>
-        </section>
+        <BalancesSkeleton />
         <section>
           <div className="mb-2 flex items-center justify-between gap-3">
             <Skeleton className="h-5 w-28" />

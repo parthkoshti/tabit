@@ -338,6 +338,7 @@ export function AddExpenseForm({
   const skipPartialSheetClose = useRef(false);
   const queryClient = useQueryClient();
   const descriptionRef = useRef<HTMLInputElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
 
   const [splitDialogOpen, setSplitDialogOpen] = useState(false);
   const [recurringSetupOpen, setRecurringSetupOpen] = useState(false);
@@ -936,6 +937,12 @@ export function AddExpenseForm({
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      amountRef.current?.focus();
+                    }
+                  }}
                   placeholder="Dinner"
                   required
                   disabled={form.state.isSubmitting}
@@ -961,6 +968,7 @@ export function AddExpenseForm({
                     {getCurrency(currency)?.symbol ?? currency}
                   </span>
                   <Input
+                    ref={amountRef}
                     id="amount"
                     type="text"
                     inputMode="decimal"

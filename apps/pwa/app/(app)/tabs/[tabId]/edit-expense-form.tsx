@@ -185,6 +185,7 @@ export function EditExpenseForm({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const descriptionRef = useRef<HTMLInputElement>(null);
+  const amountRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
   const tabParticipants = useMemo((): TabParticipant[] => {
@@ -584,6 +585,12 @@ export function EditExpenseForm({
                   value={field.state.value}
                   onChange={(e) => field.handleChange(e.target.value)}
                   onBlur={field.handleBlur}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      amountRef.current?.focus();
+                    }
+                  }}
                   placeholder="eg. Dinner"
                   required
                   disabled={busy}
@@ -609,6 +616,7 @@ export function EditExpenseForm({
                     {getCurrency(currency)?.symbol ?? currency}
                   </span>
                   <Input
+                    ref={amountRef}
                     id="amount"
                     type="text"
                     inputMode="decimal"

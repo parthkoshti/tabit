@@ -136,10 +136,9 @@ describe("settlementService", () => {
     });
 
     test("returns error if fromUser not a member", async () => {
-      vi.mocked(tab.isMember)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false)
-        .mockResolvedValueOnce(true);
+      // Keyed on userId (not call order) so this can't leak into other tests
+      // via leftover queued mockResolvedValueOnce calls.
+      vi.mocked(tab.isMember).mockImplementation(async (_tabId, userId) => userId !== "user3");
 
       const result = await settlementService.record("tab1", "user3", "user2", 50, "user1");
 
@@ -150,10 +149,7 @@ describe("settlementService", () => {
     });
 
     test("returns error if toUser not a member", async () => {
-      vi.mocked(tab.isMember)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(true)
-        .mockResolvedValueOnce(false);
+      vi.mocked(tab.isMember).mockImplementation(async (_tabId, userId) => userId !== "user3");
 
       const result = await settlementService.record("tab1", "user1", "user3", 50, "user1");
 

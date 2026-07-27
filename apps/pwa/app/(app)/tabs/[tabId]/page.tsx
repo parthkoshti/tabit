@@ -30,16 +30,41 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ChevronRight, SortDesc, UserPlus, Wallet } from "lucide-react";
-import { TabPageSkeleton, ExpenseListSkeleton } from "@/components/page-skeletons";
+import {
+  TabPageSkeleton,
+  ExpenseListSkeleton,
+  BalancesRowsSkeleton,
+} from "@/components/page-skeletons";
 import { TabExpensesChart } from "@/components/tab-expenses-chart";
 import { motion } from "framer-motion";
 import { staggerContainer, staggerItem } from "@/lib/animations";
 import { AnimatedCard } from "@/components/motion/animated-card";
 import { formatAmount } from "@/lib/format-amount";
 import { TabExpenseCard } from "@/components/tab-expense-card";
-import type { Expense } from "@/lib/domain-types";
+import type { Balance, Expense } from "@/lib/domain-types";
 import { TabSettlementCard } from "@/components/tab-settlement-card";
 import { PaymentReminderDialog } from "@/components/payment-reminder-dialog";
+import { simplifyDebts } from "shared";
+
+function balancePartyLabel(
+  b: Balance,
+  currentUserId: string,
+): string {
+  if (b.userId === currentUserId) return "You";
+  return getDisplayName(
+    {
+      id: b.userId ?? b.participantId,
+      name: b.user.name ?? b.displayName,
+      username: b.user.username,
+      email: b.user.email,
+    },
+    currentUserId,
+  );
+}
+
+function balanceAvatarSeed(b: Balance): string {
+  return b.userId ?? b.participantId;
+}
 
 export function TabPage() {
   const { tabId } = useParams<{ tabId: string }>();
@@ -131,7 +156,7 @@ export function TabPage() {
     enabled: !!tabIdOrEmpty,
   });
 
-  const { data: balances } = useQuery({
+  const { data: balances, isPending: balancesPending } = useQuery({
     queryKey: ["balances", tabIdOrEmpty],
     queryFn: async () => {
       const r = await api.tabs.getBalances(tabIdOrEmpty);
@@ -139,6 +164,81 @@ export function TabPage() {
     },
     enabled: !!tabIdOrEmpty,
   });
+
+  const tabCurrency = tab?.currency ?? "USD";
+
+  const groupDebtRows = useMemo(() => {
+    if (!balances || balances.length === 0) return [];
+    const byId = Object.fromEntries(
+      balances.map((b) => [b.participantId, b]),
+    );
+    const myParticipantId = balances.find(
+      (b) => b.userId === currentUserId,
+    )?.participantId;
+    const { transfers } = simplifyDebts(
+      balances.map((b) => ({
+        participantId: b.participantId,
+        amount: b.amount,
+      })),
+      { currency: tabCurrency },
+    );
+    return transfers
+      .map((t) => {
+        const from = byId[t.fromParticipantId];
+        const to = byId[t.toParticipantId];
+        if (!from || !to) return null;
+        return { ...t, from, to };
+      })
+      .filter(
+        (
+          row,
+        ): row is {
+          fromParticipantId: string;
+          toParticipantId: string;
+          amount: number;
+          from: Balance;
+          to: Balance;
+        } => row != null,
+      )
+      .sort((a, b) => {
+        const aInvolvesMe =
+          a.from.participantId === myParticipantId ||
+          a.to.participantId === myParticipantId;
+        const bInvolvesMe =
+          b.from.participantId === myParticipantId ||
+          b.to.participantId === myParticipantId;
+        if (aInvolvesMe !== bInvolvesMe) return aInvolvesMe ? -1 : 1;
+        if (aInvolvesMe && bInvolvesMe) {
+          const aOwesMe = a.to.participantId === myParticipantId;
+          const bOwesMe = b.to.participantId === myParticipantId;
+          if (aOwesMe !== bOwesMe) return aOwesMe ? -1 : 1;
+        }
+        return b.amount - a.amount;
+      });
+  }, [balances, currentUserId, tabCurrency]);
+
+  const groupMyNet = useMemo(() => {
+    if (!balances) return 0;
+    return balances.find((b) => b.userId === currentUserId)?.amount ?? 0;
+  }, [balances, currentUserId]);
+
+  const groupMyDebtRows = useMemo(
+    () =>
+      groupDebtRows.filter(
+        (row) =>
+          row.from.userId === currentUserId || row.to.userId === currentUserId,
+      ),
+    [groupDebtRows, currentUserId],
+  );
+  const groupOtherDebtRows = useMemo(
+    () =>
+      groupDebtRows.filter(
+        (row) =>
+          row.from.userId !== currentUserId && row.to.userId !== currentUserId,
+      ),
+    [groupDebtRows, currentUserId],
+  );
+  const groupHasSingleCounterparty = groupMyDebtRows.length === 1;
 
   const { data: sharedGroupTabs } = useQuery({
     queryKey: ["sharedGroupTabs", tabIdOrEmpty],
@@ -160,7 +260,6 @@ export function TabPage() {
     rootMargin: "0px 0px 200px 0px",
   });
 
-  const tabCurrency = tab?.currency ?? "USD";
   const membersByUserId = useMemo(() => {
     const map = new Map<
       string,
@@ -268,12 +367,6 @@ export function TabPage() {
     );
   }
 
-  const youOwe =
-    balances?.filter((b) => b.userId === currentUserId && b.amount < 0) ?? [];
-  const owedToYou =
-    balances?.filter((b) => b.userId === currentUserId && b.amount > 0) ?? [];
-  const others = balances?.filter((b) => b.userId !== currentUserId) ?? [];
-
   const otherMemberUserId =
     tab.members.find((m) => m.userId !== currentUserId)?.userId ?? "";
   const friendDisplayName = otherMember
@@ -326,14 +419,16 @@ export function TabPage() {
                   Record a payment between tab members
                 </DialogDescription>
               </DialogHeader>
-              <SettleUpForm
-                tabId={tabIdOrEmpty}
-                currentUserId={currentUserId}
-                participants={tab.participants ?? []}
-                balances={balances ?? []}
-                tabCurrency={tabCurrency}
-                onSuccess={() => setSettleUpOpen(false)}
-              />
+              {settleUpOpen ? (
+                <SettleUpForm
+                  tabId={tabIdOrEmpty}
+                  currentUserId={currentUserId}
+                  participants={tab.participants ?? []}
+                  balances={balances ?? []}
+                  tabCurrency={tabCurrency}
+                  onSuccess={() => setSettleUpOpen(false)}
+                />
+              ) : null}
             </DialogContent>
           </Dialog>
         </div>
@@ -437,7 +532,9 @@ export function TabPage() {
           <h2 className="text-base font-medium mb-2">Balances</h2>
           <Card>
             <CardContent className="p-4">
-              {!balances || balances.length === 0 ? (
+              {balancesPending ? (
+                <BalancesRowsSkeleton />
+              ) : !balances || balances.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No balances yet</p>
               ) : tab.isDirect ? (
                 <div className="flex items-center gap-4 text-sm justify-between">
@@ -493,30 +590,153 @@ export function TabPage() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {youOwe.map((b) => (
-                    <p key={b.participantId} className="text-negative text-sm">
-                      You owe {formatAmount(Math.abs(b.amount), tabCurrency)}
+                <div className="space-y-3">
+                  {groupMyNet !== 0 && groupHasSingleCounterparty ? (
+                    (() => {
+                      const row = groupMyDebtRows[0];
+                      const toIsMe = row.to.userId === currentUserId;
+                      const counterparty = toIsMe ? row.from : row.to;
+                      const amountText = formatAmount(row.amount, tabCurrency);
+                      return (
+                        <div className="flex items-center gap-2 text-sm flex-wrap">
+                          {!toIsMe && (
+                            <span className="shrink-0 text-muted-foreground">
+                              You owe
+                            </span>
+                          )}
+                          <UserAvatar
+                            userId={balanceAvatarSeed(counterparty)}
+                            size="sm"
+                            className="shrink-0"
+                          />
+                          <span className="min-w-0">
+                            <span className="font-medium">
+                              {balancePartyLabel(counterparty, currentUserId)}
+                            </span>{" "}
+                            {toIsMe && (
+                              <span className="text-muted-foreground">
+                                owes you
+                              </span>
+                            )}{" "}
+                            <span
+                              className={
+                                toIsMe
+                                  ? "font-medium tabular-nums text-positive"
+                                  : "font-medium tabular-nums text-negative"
+                              }
+                            >
+                              {amountText}
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })()
+                  ) : groupMyNet > 0 ? (
+                    <p className="text-positive text-base font-medium tabular-nums">
+                      You are owed {formatAmount(groupMyNet, tabCurrency)}
                     </p>
-                  ))}
-                  {owedToYou.map((b) => (
-                    <p key={b.participantId} className="text-positive text-sm">
-                      You are owed {formatAmount(b.amount, tabCurrency)}
+                  ) : groupMyNet < 0 ? (
+                    <p className="text-negative text-base font-medium tabular-nums">
+                      You owe {formatAmount(Math.abs(groupMyNet), tabCurrency)}
                     </p>
-                  ))}
-                  {others.map((b) => (
-                    <div
-                      key={b.participantId}
-                      className="flex items-center gap-2 text-muted-foreground text-xs"
-                    >
-                      <UserAvatar userId={b.user.id} size="xs" />
-                      <span>
-                        {b.amount > 0
-                          ? `${getDisplayName(b.user, currentUserId)} is owed ${formatAmount(b.amount, tabCurrency)}`
-                          : `${getDisplayName(b.user, currentUserId)} owes ${formatAmount(Math.abs(b.amount), tabCurrency)}`}
-                      </span>
-                    </div>
-                  ))}
+                  ) : groupDebtRows.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">Settled up</p>
+                  ) : (
+                    <p className="text-muted-foreground text-sm">
+                      You&apos;re settled up
+                    </p>
+                  )}
+                  {(groupHasSingleCounterparty
+                    ? groupOtherDebtRows
+                    : groupDebtRows
+                  ).length > 0 && (
+                    <ul className="space-y-2">
+                      {(groupHasSingleCounterparty
+                        ? groupOtherDebtRows
+                        : groupDebtRows
+                      ).map((row) => {
+                        const fromIsMe = row.from.userId === currentUserId;
+                        const toIsMe = row.to.userId === currentUserId;
+                        const amountText = formatAmount(
+                          row.amount,
+                          tabCurrency,
+                        );
+
+                        if (toIsMe) {
+                          return (
+                            <li
+                              key={`${row.fromParticipantId}-${row.toParticipantId}`}
+                              className="flex items-center gap-2 text-sm text-muted-foreground"
+                            >
+                              <UserAvatar
+                                userId={balanceAvatarSeed(row.from)}
+                                size="xs"
+                                className="shrink-0"
+                              />
+                              <span className="min-w-0">
+                                <span className="text-foreground">
+                                  {balancePartyLabel(row.from, currentUserId)}
+                                </span>{" "}
+                                owes you{" "}
+                                <span className="font-medium tabular-nums text-positive">
+                                  {amountText}
+                                </span>
+                              </span>
+                            </li>
+                          );
+                        }
+
+                        if (fromIsMe) {
+                          return (
+                            <li
+                              key={`${row.fromParticipantId}-${row.toParticipantId}`}
+                              className="flex items-center gap-2 text-sm text-muted-foreground"
+                            >
+                              <UserAvatar
+                                userId={balanceAvatarSeed(row.to)}
+                                size="xs"
+                                className="shrink-0"
+                              />
+                              <span className="min-w-0">
+                                You owe{" "}
+                                <span className="text-foreground">
+                                  {balancePartyLabel(row.to, currentUserId)}
+                                </span>{" "}
+                                <span className="font-medium tabular-nums text-negative">
+                                  {amountText}
+                                </span>
+                              </span>
+                            </li>
+                          );
+                        }
+
+                        return (
+                          <li
+                            key={`${row.fromParticipantId}-${row.toParticipantId}`}
+                            className="flex items-center gap-2 text-sm text-muted-foreground"
+                          >
+                            <UserAvatar
+                              userId={balanceAvatarSeed(row.from)}
+                              size="xs"
+                              className="shrink-0"
+                            />
+                            <span className="min-w-0">
+                              <span className="text-foreground">
+                                {balancePartyLabel(row.from, currentUserId)}
+                              </span>{" "}
+                              owes{" "}
+                              <span className="text-foreground">
+                                {balancePartyLabel(row.to, currentUserId)}
+                              </span>{" "}
+                              <span className="font-medium tabular-nums">
+                                {amountText}
+                              </span>
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
                 </div>
               )}
             </CardContent>

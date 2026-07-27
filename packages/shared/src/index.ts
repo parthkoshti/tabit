@@ -10,3 +10,10 @@ export {
   formatAmount,
   formatAmountWithCurrencyCode,
 } from "./currencies.js";
+export {
+  simplifyDebts,
+  type NetBalance,
+  type DebtTransfer,
+  type SimplifyDebtsResult,
+  type SimplifyDebtsOptions,
+} from "./simplify-debts.js";

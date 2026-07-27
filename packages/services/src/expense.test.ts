@@ -170,15 +170,17 @@ describe("expenseService", () => {
 
     test("validates at least one participant", async () => {
       vi.mocked(tab.isMember).mockResolvedValue(true);
-      vi.mocked(tab.getMembers).mockResolvedValue([]);
+      vi.mocked(tab.getMembers).mockResolvedValue([baseMembers[0]!]);
       vi.mocked(tab.getWithMembers).mockResolvedValue({
         ...baseTabDetail,
-        members: [],
-        participants: [],
+        members: [baseTabDetail.members[0]!],
+        // Only the payer resolves; participantIds below resolves to no one,
+        // so the split itself ends up empty (payer alone doesn't count).
+        participants: [baseTabDetail.participants[0]!],
       });
 
       const result = await expenseService.create(
-        { ...baseCreateInput, participantIds: [] },
+        { ...baseCreateInput, participantIds: ["nonexistent-participant"] },
         "user1",
       );
 
@@ -254,7 +256,7 @@ describe("expenseService", () => {
       expect(result.success).toBe(true);
       const createCall = vi.mocked(expense.create).mock.calls[0][0];
       expect(createCall.splits).toEqual([
-        { userId: "user2", amount: 100, weight: null },
+        { participantId: "pid-user2", userId: "user2", amount: 100, weight: undefined },
       ]);
     });
 
@@ -289,7 +291,7 @@ describe("expenseService", () => {
       expect(expense.create).toHaveBeenCalled();
       const createCall = vi.mocked(expense.create).mock.calls[0][0];
       expect(createCall.splits).toHaveLength(2);
-      expect(createCall.splits?.every((s) => s.weight === null)).toBe(true);
+      expect(createCall.splits?.every((s) => s.weight === undefined)).toBe(true);
       expect(createCall.splits?.reduce((a, s) => a + s.amount, 0)).toBe(100);
     });
 
@@ -388,8 +390,8 @@ describe("expenseService", () => {
       expect(result.success).toBe(true);
       const createCall = vi.mocked(expense.create).mock.calls[0][0];
       expect(createCall.splits).toEqual([
-        { participantId: "pid-user1", userId: "user1", amount: 60, weight: null },
-        { participantId: "pid-user2", userId: "user2", amount: 40, weight: null },
+        { participantId: "pid-user1", userId: "user1", amount: 60, weight: undefined },
+        { participantId: "pid-user2", userId: "user2", amount: 40, weight: undefined },
       ]);
     });
 
